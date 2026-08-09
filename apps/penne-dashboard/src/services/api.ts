@@ -10,8 +10,9 @@ import {
 } from '@packages/types';
 
 // Read API Base URL from Vite Environment Variable VITE_API_BASE_URL (defaults to /api proxy)
-const API_BASE_URL = (import.meta.env && import.meta.env.VITE_API_BASE_URL) || '/api';
-console.log(`[Penne API Config] Loaded VITE_API_BASE_URL = "${API_BASE_URL}"`);
+const API_BASE_URL = (import.meta.env && import.meta.env.VITE_API_BASE_URL) ? import.meta.env.VITE_API_BASE_URL.replace(/\/+$/, '') : '/api';
+
+
 
 // Default Test Token & UUID for offline / demo mode
 const TEST_USER_UUID = 'f66dcebd-e275-4b22-83bd-e446e0a45624';
@@ -248,6 +249,7 @@ export class PenneApiClient {
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
+      'ngrok-skip-browser-warning': 'true',
       ...(options.headers as Record<string, string>)
     };
 
@@ -265,7 +267,7 @@ export class PenneApiClient {
       });
     } catch (networkErr: any) {
       console.warn(`[Penne API Network Error] Backend unreachable at ${API_BASE_URL}${endpoint}`, networkErr);
-      throw new Error(`Failed to fetch from backend at ${API_BASE_URL}. Ensure penne-server is running on port 8080.`);
+      throw new Error(`Failed to fetch from backend at ${API_BASE_URL}. Ensure backend server is running and CORS is enabled.`);
     }
 
     if (!res.ok) {
