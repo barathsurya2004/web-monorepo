@@ -1,0 +1,13 @@
+{
+  "name": "web-monorepo",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "pnpm --filter @apps/penne-dashboard dev",
+    "build": "pnpm --filter \"@packages/*\" build && pnpm --filter @apps/penne-dashboard build",
+    "typecheck": "pnpm --filter \"@packages/*\" typecheck && pnpm --filter @apps/penne-dashboard typecheck"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3"
+  }
+}
