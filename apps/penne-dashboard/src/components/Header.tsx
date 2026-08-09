@@ -1,7 +1,6 @@
-import React, { useState } from 'react';
-import { Button, Badge } from '@packages/ui';
+import React from 'react';
 import { User } from '@packages/types';
-import { Wallet, Server, ShieldCheck, Plus, DollarSign, Layers, LogOut, Copy, Check } from 'lucide-react';
+import { Wallet, Server } from 'lucide-react';
 
 interface HeaderProps {
   user: User | null;
@@ -9,105 +8,57 @@ interface HeaderProps {
   isMockMode: boolean;
   onToggleMock: () => void;
   onLogout: () => void;
-  onOpenNewTxn: () => void;
-  onOpenNewGroup: () => void;
-  onOpenNewEnv: () => void;
+  onOpenNewTxn?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   user,
-  authToken,
   isMockMode,
-  onToggleMock,
-  onLogout,
-  onOpenNewTxn,
-  onOpenNewGroup,
-  onOpenNewEnv
+  onToggleMock
 }) => {
-  const [copiedToken, setCopiedToken] = useState(false);
-
-  const copyToken = () => {
-    if (authToken) {
-      navigator.clipboard.writeText(authToken);
-      setCopiedToken(true);
-      setTimeout(() => setCopiedToken(false), 2000);
-    }
-  };
-
   return (
-    <header className="sticky top-0 z-40 bg-slate-950/80 backdrop-blur-2xl border-b border-slate-800/80 px-6 py-4 transition-all">
-      <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-        {/* Brand Logo & Title */}
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-emerald-400 to-teal-300 p-0.5 shadow-lg shadow-emerald-500/20 flex items-center justify-center">
-            <div className="w-full h-full bg-slate-950 rounded-[14px] flex items-center justify-center">
-              <Wallet className="w-5 h-5 text-emerald-400" />
+    // Mobile-First Top App Bar: Compact, clean, 100% overflow-free
+    <header className="w-full max-w-full overflow-x-hidden bg-[#1E1B19] border-b border-[#342F2C] px-4 py-3">
+      <div className="max-w-md mx-auto flex items-center justify-between gap-2 min-w-0">
+        {/* Left: Brand Logo & Title */}
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="w-8 h-8 rounded-xl bg-[#E07A5F] p-0.5 shadow-sm shadow-[#E07A5F]/20 flex items-center justify-center shrink-0">
+            <div className="w-full h-full bg-[#1A1715] rounded-[10px] flex items-center justify-center">
+              <Wallet className="w-4 h-4 text-[#E07A5F]" />
             </div>
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl font-extrabold tracking-tight text-slate-50">
-                Penne<span className="text-emerald-400">Dashboard</span>
-              </h1>
-              <Badge variant="apple" className="text-[10px] tracking-wider uppercase font-semibold">
-                Apple Auth
-              </Badge>
-            </div>
-            <p className="text-xs text-slate-400">Zero-Based Budgeting Architecture</p>
+          <div className="min-w-0">
+            <h1 className="text-base font-black tracking-tight text-[#F4F1DE] truncate">
+              Penne<span className="text-[#E07A5F]">Budget</span>
+            </h1>
           </div>
         </div>
 
-        {/* User Info, Token Badge & Server Status */}
-        <div className="flex items-center gap-3 flex-wrap">
+        {/* Right: Live/Demo Status Pill & User Avatar */}
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Server Mode Toggle Pill */}
           <button
             onClick={onToggleMock}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-slate-800 bg-slate-900/60 hover:bg-slate-800/80 transition-all text-xs text-slate-300"
+            className={`flex items-center gap-1 px-2.5 py-1 rounded-full border text-[10px] font-bold transition-all cursor-pointer ${
+              isMockMode
+                ? 'bg-[#F2CC8F]/15 text-[#F2CC8F] border-[#F2CC8F]/30'
+                : 'bg-[#81B29A]/15 text-[#81B29A] border-[#81B29A]/30'
+            }`}
             title="Toggle API Server Mode"
           >
-            <Server className={`w-3.5 h-3.5 ${isMockMode ? 'text-amber-400' : 'text-emerald-400'}`} />
-            <span>Mode: <strong className={isMockMode ? 'text-amber-400' : 'text-emerald-400'}>{isMockMode ? 'Demo Preview' : 'Live Server'}</strong></span>
+            <Server className="w-3 h-3" />
+            <span>{isMockMode ? 'Demo' : 'Live'}</span>
           </button>
 
+          {/* User Avatar Circle */}
           {user && (
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900/90 border border-slate-800 text-xs">
-              <div className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-[10px]">
-                {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
-              </div>
-              <span className="text-slate-200 font-semibold">{user.name}</span>
-
-              {authToken && (
-                <button
-                  onClick={copyToken}
-                  title="Copy Auth Token"
-                  className="ml-1 p-1 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-colors flex items-center gap-1 text-[10px]"
-                >
-                  {copiedToken ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                  <span>{copiedToken ? 'Copied' : 'Token'}</span>
-                </button>
-              )}
+            <div
+              className="w-7 h-7 rounded-full bg-[#E07A5F]/20 text-[#E07A5F] border border-[#E07A5F]/40 flex items-center justify-center font-black text-xs shrink-0"
+              title={user.name}
+            >
+              {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
             </div>
           )}
-
-          {/* Quick Actions */}
-          <Button size="sm" variant="outline" onClick={onOpenNewGroup} className="gap-1">
-            <Layers className="w-3.5 h-3.5" />
-            <span>Group</span>
-          </Button>
-
-          <Button size="sm" variant="outline" onClick={onOpenNewEnv} className="gap-1">
-            <Plus className="w-3.5 h-3.5" />
-            <span>Envelope</span>
-          </Button>
-
-          <Button size="sm" variant="primary" onClick={onOpenNewTxn} className="gap-1">
-            <DollarSign className="w-3.5 h-3.5" />
-            <span>Transaction</span>
-          </Button>
-
-          <Button size="sm" variant="ghost" onClick={onLogout} className="text-rose-400 hover:text-rose-300 gap-1">
-            <LogOut className="w-3.5 h-3.5" />
-            <span>Sign Out</span>
-          </Button>
         </div>
       </div>
     </header>

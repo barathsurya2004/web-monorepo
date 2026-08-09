@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { Button, Input, Card, Badge } from '@packages/ui';
+import { Button, Input, Badge } from '@packages/ui';
 import { User } from '@packages/types';
-import { Wallet, UserPlus, ArrowRight, ShieldCheck, Mail, Lock, User as UserIcon } from 'lucide-react';
+import { Wallet, UserPlus, ArrowLeft, Mail, Lock, User as UserIcon } from 'lucide-react';
 
 interface SignupPageProps {
   onSignupSuccess: (user: User) => void;
   onNavigateToLogin: () => void;
-  onSignup: (name: string, email: string, password: string) => Promise<User>;
+  onSignup: (name: string, email: string, pass: string) => Promise<User>;
 }
 
 export const SignupPage: React.FC<SignupPageProps> = ({
@@ -26,66 +26,70 @@ export const SignupPage: React.FC<SignupPageProps> = ({
     setError(null);
     setLoading(true);
     try {
-      const user = await onSignup(name.trim(), email.trim(), password);
-      onSignupSuccess(user);
+      const newUser = await onSignup(name.trim(), email.trim(), password);
+      onSignupSuccess(newUser);
     } catch (err: any) {
-      setError(err.message || 'Failed to complete signup');
+      setError(err.message || 'Failed to create account. Try again.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 sm:p-6 bg-[#020617] relative overflow-hidden">
-      {/* Apple Ambient Dynamic Background Glow */}
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-gradient-to-tr from-emerald-500/20 via-teal-500/10 to-indigo-500/20 rounded-full blur-[140px] pointer-events-none" />
-      <div className="absolute bottom-10 right-10 w-[400px] h-[400px] bg-cyan-500/10 rounded-full blur-[120px] pointer-events-none" />
+    <div className="min-h-screen flex items-center justify-center p-4 sm:p-6 bg-[#171513] relative overflow-hidden">
+      {/* Warm Ambient Soft Pastel Glow */}
+      <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-gradient-to-tr from-[#81B29A]/15 via-[#E07A5F]/10 to-[#F2CC8F]/15 rounded-full blur-[130px] pointer-events-none" />
 
-      <div className="w-full max-w-md relative z-10 animate-fadeIn">
-        {/* Logo Header */}
-        <div className="text-center space-y-3 mb-8">
-          <div className="inline-flex p-3 rounded-3xl bg-slate-900/90 border border-slate-800/80 shadow-2xl shadow-emerald-500/10 backdrop-blur-2xl">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-emerald-400 to-teal-300 p-0.5 flex items-center justify-center shadow-lg shadow-emerald-500/30">
-              <div className="w-full h-full bg-slate-950 rounded-[14px] flex items-center justify-center">
-                <Wallet className="w-6 h-6 text-emerald-400" />
+      <div className="w-full max-w-sm sm:max-w-md relative z-10 animate-fadeIn">
+        {/* Brand Header */}
+        <div className="text-center space-y-3 mb-6">
+          <div className="inline-flex p-3 rounded-3xl bg-[#24201D] border border-[#342F2C] shadow-xl shadow-black/40">
+            <div className="w-12 h-12 rounded-2xl bg-[#81B29A] p-0.5 flex items-center justify-center shadow-md shadow-[#81B29A]/20">
+              <div className="w-full h-full bg-[#1A1715] rounded-[14px] flex items-center justify-center">
+                <Wallet className="w-6 h-6 text-[#81B29A]" />
               </div>
             </div>
           </div>
           <div>
-            <h1 className="text-3xl font-extrabold tracking-tight text-white flex items-center justify-center gap-2">
-              Penne <span className="text-emerald-400">Budget</span>
+            <h1 className="text-3xl font-black tracking-tight text-[#F4F1DE] flex items-center justify-center gap-2">
+              Penne <span className="text-[#81B29A]">Budget</span>
             </h1>
-            <p className="text-xs text-slate-400 font-medium mt-1">
-              Zero-Based Budgeting • Signup Page
+            <p className="text-xs text-[#A89F95] font-medium mt-1">
+              Create your personal expense account
             </p>
           </div>
         </div>
 
         {/* Signup Card */}
-        <div className="bg-slate-900/70 backdrop-blur-3xl border border-slate-800/90 rounded-3xl p-6 sm:p-8 shadow-2xl shadow-black/80 space-y-6">
-          <div className="space-y-1 text-left border-b border-slate-800/60 pb-4">
-            <Badge variant="emerald" className="mb-2">
-              New User Registration
-            </Badge>
-            <h2 className="text-xl font-bold text-slate-100">Create your Penne Account</h2>
-            <p className="text-xs text-slate-400">Sign up to get your secure auth token and initialize your budget</p>
+        <div className="bg-[#24201D] border border-[#38322E] rounded-3xl p-6 sm:p-8 shadow-2xl shadow-black/50 space-y-6">
+          <div className="flex items-center justify-between border-b border-[#342F2C] pb-4">
+            <div className="space-y-0.5 text-left">
+              <Badge variant="sage">New Account</Badge>
+              <h2 className="text-lg font-bold text-[#F4F1DE]">Join Penne Budget</h2>
+            </div>
+            <button
+              onClick={onNavigateToLogin}
+              className="text-[#A89F95] hover:text-[#F4F1DE] flex items-center gap-1 text-xs font-semibold"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" /> Back
+            </button>
           </div>
 
           {error && (
-            <div className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-medium flex items-center gap-2 animate-fadeIn">
+            <div className="p-3.5 rounded-2xl bg-[#E8A598]/15 border border-[#E8A598]/30 text-[#E8A598] text-xs font-medium flex items-center gap-2 animate-fadeIn">
               <span>⚠️</span>
               <span>{error}</span>
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4 animate-fadeIn">
             <Input
               label="Full Name"
               type="text"
               placeholder="e.g. Barath Surya"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              icon={<UserIcon className="w-4 h-4 text-slate-500" />}
+              icon={<UserIcon className="w-4 h-4 text-[#8C837A]" />}
               required
             />
 
@@ -95,40 +99,39 @@ export const SignupPage: React.FC<SignupPageProps> = ({
               placeholder="name@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              icon={<Mail className="w-4 h-4 text-slate-500" />}
+              icon={<Mail className="w-4 h-4 text-[#8C837A]" />}
               required
             />
 
             <Input
               label="Password"
               type="password"
-              placeholder="••••••••••••"
+              placeholder="Create a strong password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              icon={<Lock className="w-4 h-4 text-slate-500" />}
+              icon={<Lock className="w-4 h-4 text-[#8C837A]" />}
               required
             />
 
             <Button
               type="submit"
-              variant="apple"
+              variant="pastelSage"
               size="lg"
               disabled={loading}
-              className="w-full gap-2 shadow-xl mt-2"
+              className="w-full gap-2 mt-2"
             >
+              <UserPlus className="w-4 h-4" />
               <span>{loading ? 'Creating Account...' : 'Create Account'}</span>
-              <ArrowRight className="w-4 h-4" />
             </Button>
           </form>
 
-          {/* Navigation link to Login */}
-          <div className="pt-4 border-t border-slate-800/60 flex items-center justify-between text-xs">
-            <span className="text-slate-400">Already have an account?</span>
+          <div className="pt-4 border-t border-[#342F2C] text-center text-xs text-[#A89F95]">
+            Already have an account?{' '}
             <button
               onClick={onNavigateToLogin}
-              className="font-semibold text-emerald-400 hover:text-emerald-300 transition-colors cursor-pointer"
+              className="font-bold text-[#81B29A] hover:underline cursor-pointer"
             >
-              Sign In →
+              Sign In
             </button>
           </div>
         </div>

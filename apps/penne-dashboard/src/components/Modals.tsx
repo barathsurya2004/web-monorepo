@@ -19,7 +19,6 @@ export const NewTxnModal: React.FC<NewTxnModalProps> = ({
   const [amount, setAmount] = useState<string>('');
   const [txnType, setTxnType] = useState<string>('debit');
   const [bankName, setBankName] = useState<string>('HDFC Bank');
-  const [envelopeId, setEnvelopeId] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -29,7 +28,7 @@ export const NewTxnModal: React.FC<NewTxnModalProps> = ({
 
     setLoading(true);
     try {
-      await onSubmit(amountToE5(parsed), txnType, bankName, envelopeId || undefined);
+      await onSubmit(amountToE5(parsed), txnType, bankName);
       setAmount('');
       onClose();
     } finally {
@@ -37,16 +36,8 @@ export const NewTxnModal: React.FC<NewTxnModalProps> = ({
     }
   };
 
-  const envOptions = [
-    { value: '', label: 'Uncategorized / General' },
-    ...envelopes.map((e) => ({
-      value: e.id,
-      label: e.is_system ? 'Unallocated Budget Pool' : `Envelope #${e.id.slice(-4)}`
-    }))
-  ];
-
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Record New Transaction">
+    <Modal isOpen={isOpen} onClose={onClose} title="Record Expense / Income">
       <form onSubmit={handleSubmit} className="space-y-4">
         <Input
           label="Amount (₹)"
@@ -56,6 +47,7 @@ export const NewTxnModal: React.FC<NewTxnModalProps> = ({
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
           required
+          autoFocus
         />
 
         <Select
@@ -63,28 +55,21 @@ export const NewTxnModal: React.FC<NewTxnModalProps> = ({
           value={txnType}
           onChange={(e) => setTxnType(e.target.value)}
           options={[
-            { value: 'debit', label: 'Debit (Expense Outflow)' },
-            { value: 'credit', label: 'Credit (Income Inflow)' }
+            { value: 'debit', label: 'Expense (Debit Outflow)' },
+            { value: 'credit', label: 'Income (Credit Inflow)' }
           ]}
         />
 
         <Input
-          label="Bank Name"
+          label="Bank / Account Name"
           type="text"
-          placeholder="e.g. HDFC Bank, ICICI Bank"
+          placeholder="e.g. HDFC Bank, ICICI Bank, Cash"
           value={bankName}
           onChange={(e) => setBankName(e.target.value)}
           required
         />
 
-        <Select
-          label="Category Envelope"
-          value={envelopeId}
-          onChange={(e) => setEnvelopeId(e.target.value)}
-          options={envOptions}
-        />
-
-        <div className="flex justify-end gap-3 pt-3 border-t border-slate-800">
+        <div className="flex justify-end gap-3 pt-3 border-t border-[#342F2C]">
           <Button type="button" variant="ghost" onClick={onClose}>
             Cancel
           </Button>
@@ -122,18 +107,18 @@ export const NewGroupModal: React.FC<NewGroupModalProps> = ({ isOpen, onClose, o
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Create Envelope Group">
+    <Modal isOpen={isOpen} onClose={onClose} title="Create Budget Pool Group">
       <form onSubmit={handleSubmit} className="space-y-4">
         <Input
           label="Group Name"
           type="text"
-          placeholder="e.g. Subscriptions, Travel, Investments"
+          placeholder="e.g. Monthly Needs, Savings"
           value={name}
           onChange={(e) => setName(e.target.value)}
           required
         />
 
-        <div className="flex justify-end gap-3 pt-3 border-t border-slate-800">
+        <div className="flex justify-end gap-3 pt-3 border-t border-[#342F2C]">
           <Button type="button" variant="ghost" onClick={onClose}>
             Cancel
           </Button>
@@ -190,14 +175,14 @@ export const NewEnvModal: React.FC<NewEnvModalProps> = ({
     <Modal isOpen={isOpen} onClose={onClose} title="Create Budget Envelope">
       <form onSubmit={handleSubmit} className="space-y-4">
         <Select
-          label="Envelope Group"
+          label="Target Pool Group"
           value={groupId}
           onChange={(e) => setGroupId(e.target.value)}
-          options={groupOptions}
+          options={groupOptions.length > 0 ? groupOptions : [{ value: '', label: 'No Groups Available' }]}
         />
 
         <Input
-          label="Target Budget Amount (₹)"
+          label="Target Amount (₹)"
           type="number"
           step="0.01"
           placeholder="e.g. 10000.00"
@@ -217,7 +202,7 @@ export const NewEnvModal: React.FC<NewEnvModalProps> = ({
           ]}
         />
 
-        <div className="flex justify-end gap-3 pt-3 border-t border-slate-800">
+        <div className="flex justify-end gap-3 pt-3 border-t border-[#342F2C]">
           <Button type="button" variant="ghost" onClick={onClose}>
             Cancel
           </Button>
@@ -275,22 +260,17 @@ export const AllocationModal: React.FC<AllocationModalProps> = ({
     }));
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Allocate Funds to Envelope">
+    <Modal isOpen={isOpen} onClose={onClose} title="Fund Envelope">
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="bg-slate-950 p-3 rounded-lg border border-slate-800 text-xs flex justify-between">
-          <span className="text-slate-400">Ready to Assign:</span>
-          <span className="font-bold text-emerald-400">{formatCurrency(readyToAssignE5)}</span>
-        </div>
-
         <Select
           label="Target Envelope"
           value={envelopeId}
           onChange={(e) => setEnvelopeId(e.target.value)}
-          options={options}
+          options={options.length > 0 ? options : [{ value: '', label: 'No Envelopes' }]}
         />
 
         <Input
-          label="Allocation Amount (₹)"
+          label="Fund Amount (₹)"
           type="number"
           step="0.01"
           placeholder="e.g. 5000.00"
@@ -299,12 +279,12 @@ export const AllocationModal: React.FC<AllocationModalProps> = ({
           required
         />
 
-        <div className="flex justify-end gap-3 pt-3 border-t border-slate-800">
+        <div className="flex justify-end gap-3 pt-3 border-t border-[#342F2C]">
           <Button type="button" variant="ghost" onClick={onClose}>
             Cancel
           </Button>
           <Button type="submit" variant="primary" disabled={loading}>
-            {loading ? 'Allocating...' : 'Allocate Money'}
+            {loading ? 'Funding...' : 'Fund Envelope'}
           </Button>
         </div>
       </form>
