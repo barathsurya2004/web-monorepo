@@ -395,45 +395,27 @@ export class PenneApiClient {
   }
 
   async getUser(): Promise<User> {
+    if (this.useMock) return this.mockUser;
     if (!this.token) {
       throw new Error('No active auth session');
     }
-    try {
-      const res = await this.request<User>('/user', { method: 'GET' });
-      if (res && res.uuid) {
-        this.userUUID = res.uuid;
-        return res;
-      }
-      return { uuid: this.userUUID, name: 'Penne User', created_at: new Date().toISOString() };
-    } catch (err) {
-      console.log('[Penne API] Using mock fallback for user profile');
-      return this.mockUser;
+    const res = await this.request<User>('/user', { method: 'GET' });
+    if (res && res.uuid) {
+      this.userUUID = res.uuid;
+      return res;
     }
+    return { uuid: this.userUUID, name: 'Penne User', created_at: new Date().toISOString() };
   }
 
   async getEnvelopeGroups(): Promise<EnvelopeGroup[]> {
-    try {
-      const res = await this.request<EnvelopeGroup[]>(`/envelope-groups?user_uuid=${this.userUUID}`, { method: 'GET' });
-      return Array.isArray(res) ? res : this.mockGroups;
-    } catch {
-      return this.mockGroups;
-    }
+    if (this.useMock) return this.mockGroups;
+    const res = await this.request<EnvelopeGroup[]>(`/envelope-groups?user_uuid=${this.userUUID}`, { method: 'GET' });
+    return Array.isArray(res) ? res : [];
   }
 
   async createEnvelopeGroup(name: string): Promise<EnvelopeGroup> {
     const nowIso = new Date().toISOString();
-    try {
-      const res = await this.request<EnvelopeGroup>('/envelope-group', {
-        method: 'POST',
-        body: JSON.stringify({
-          name,
-          user_uuid: this.userUUID,
-          created_at: nowIso,
-          updated_at: nowIso
-        })
-      });
-      return res;
-    } catch {
+    if (this.useMock) {
       const newGroup: EnvelopeGroup = {
         id: `group-${Date.now()}`,
         user_uuid: this.userUUID,
@@ -444,33 +426,26 @@ export class PenneApiClient {
       this.mockGroups.push(newGroup);
       return newGroup;
     }
+    return await this.request<EnvelopeGroup>('/envelope-group', {
+      method: 'POST',
+      body: JSON.stringify({
+        name,
+        user_uuid: this.userUUID,
+        created_at: nowIso,
+        updated_at: nowIso
+      })
+    });
   }
 
   async getEnvelopes(): Promise<Envelope[]> {
-    try {
-      const res = await this.request<Envelope[]>(`/envelopes?user_uuid=${this.userUUID}`, { method: 'GET' });
-      return Array.isArray(res) ? res : this.mockEnvelopes;
-    } catch {
-      return this.mockEnvelopes;
-    }
+    if (this.useMock) return this.mockEnvelopes;
+    const res = await this.request<Envelope[]>(`/envelopes?user_uuid=${this.userUUID}`, { method: 'GET' });
+    return Array.isArray(res) ? res : [];
   }
 
   async createEnvelope(envelopeGroupId: string, targetAmountE5: number, cadence: string = 'monthly'): Promise<Envelope> {
     const nowIso = new Date().toISOString();
-    try {
-      return await this.request<Envelope>('/envelope', {
-        method: 'POST',
-        body: JSON.stringify({
-          user_uuid: this.userUUID,
-          envelope_group_id: envelopeGroupId,
-          target_amount_e5: targetAmountE5,
-          cadence,
-          country_iso2: 'IN',
-          created_at: nowIso,
-          updated_at: nowIso
-        })
-      });
-    } catch {
+    if (this.useMock) {
       const newEnvelope: Envelope = {
         id: `env-${Date.now()}`,
         user_uuid: this.userUUID,
@@ -484,35 +459,30 @@ export class PenneApiClient {
       this.mockEnvelopes.push(newEnvelope);
       return newEnvelope;
     }
+    return await this.request<Envelope>('/envelope', {
+      method: 'POST',
+      body: JSON.stringify({
+        user_uuid: this.userUUID,
+        envelope_group_id: envelopeGroupId,
+        target_amount_e5: targetAmountE5,
+        cadence,
+        country_iso2: 'IN',
+        created_at: nowIso,
+        updated_at: nowIso
+      })
+    });
   }
 
   async getTransactions(userUuid?: string): Promise<Transaction[]> {
+    if (this.useMock) return this.mockTransactions;
     const targetUuid = userUuid || this.userUUID;
-    try {
-      const res = await this.request<Transaction[]>(`/transactions?user_uuid=${targetUuid}`, { method: 'GET' });
-      return Array.isArray(res) ? res : [];
-    } catch (err) {
-      console.warn('Failed to fetch transactions from live server', err);
-      return this.mockTransactions;
-    }
+    const res = await this.request<Transaction[]>(`/transactions?user_uuid=${targetUuid}`, { method: 'GET' });
+    return Array.isArray(res) ? res : [];
   }
 
   async createTransaction(amountE5: number, txnType: string, bankName: string, envelopeId?: string | null): Promise<Transaction> {
     const nowIso = new Date().toISOString();
-    try {
-      return await this.request<Transaction>('/transaction', {
-        method: 'POST',
-        body: JSON.stringify({
-          user_id: this.userUUID,
-          amount_e5: amountE5,
-          txn_type: txnType,
-          bank_name: bankName,
-          envelope_id: envelopeId || null,
-          country_iso2: 'IN',
-          created_at: nowIso
-        })
-      });
-    } catch {
+    if (this.useMock) {
       const newTxn: Transaction = {
         id: `txn-${Date.now()}`,
         user_id: this.userUUID,
@@ -526,30 +496,29 @@ export class PenneApiClient {
       this.mockTransactions.unshift(newTxn);
       return newTxn;
     }
+    return await this.request<Transaction>('/transaction', {
+      method: 'POST',
+      body: JSON.stringify({
+        user_id: this.userUUID,
+        amount_e5: amountE5,
+        txn_type: txnType,
+        bank_name: bankName,
+        envelope_id: envelopeId || null,
+        country_iso2: 'IN',
+        created_at: nowIso
+      })
+    });
   }
 
   async getActiveAllocations(): Promise<Allocation[]> {
-    try {
-      const res = await this.request<Allocation[]>(`/allocations/active?user_uuid=${this.userUUID}`, { method: 'GET' });
-      return Array.isArray(res) ? res : this.mockAllocations;
-    } catch {
-      return this.mockAllocations;
-    }
+    if (this.useMock) return this.mockAllocations;
+    const res = await this.request<Allocation[]>(`/allocations/active?user_uuid=${this.userUUID}`, { method: 'GET' });
+    return Array.isArray(res) ? res : [];
   }
 
   async createAllocation(envelopeId: string, allocatedAmountE5: number): Promise<Allocation> {
     const nowIso = new Date().toISOString();
-    try {
-      return await this.request<Allocation>('/allocation', {
-        method: 'POST',
-        body: JSON.stringify({
-          envelope_id: envelopeId,
-          allocated_amount_e5: allocatedAmountE5,
-          created_at: nowIso,
-          updated_at: nowIso
-        })
-      });
-    } catch {
+    if (this.useMock) {
       const existingIdx = this.mockAllocations.findIndex(a => a.envelope_id === envelopeId);
       if (existingIdx >= 0) {
         this.mockAllocations[existingIdx].allocated_amount_e5 += allocatedAmountE5;
@@ -565,6 +534,15 @@ export class PenneApiClient {
         return newAlloc;
       }
     }
+    return await this.request<Allocation>('/allocation', {
+      method: 'POST',
+      body: JSON.stringify({
+        envelope_id: envelopeId,
+        allocated_amount_e5: allocatedAmountE5,
+        created_at: nowIso,
+        updated_at: nowIso
+      })
+    });
   }
 }
 

@@ -1,22 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { api } from './services/api';
-import {
-  User,
-  EnvelopeGroup,
-  Envelope,
-  Allocation,
-  Transaction,
-  AuthSession
-} from '@packages/types';
+import { User, Transaction, AuthSession } from '@packages/types';
 
 import { Header } from './components/Header';
 import { SignupPage } from './components/SignupPage';
 import { LoginPage } from './components/LoginPage';
 import { HomePage } from './components/HomePage';
-import { EnvelopeGroupsList } from './components/EnvelopeGroupsList';
 import { AccountView } from './components/AccountView';
 import { BottomTabBar, NavTab } from './components/BottomTabBar';
-import { NewTxnModal, NewEnvModal, AllocationModal } from './components/Modals';
+import { NewTxnModal } from './components/Modals';
 
 export const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -25,20 +17,13 @@ export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<NavTab>('home');
   const [recentSessions, setRecentSessions] = useState<AuthSession[]>([]);
 
-  const [groups, setGroups] = useState<EnvelopeGroup[]>([]);
-  const [envelopes, setEnvelopes] = useState<Envelope[]>([]);
-  const [allocations, setAllocations] = useState<Allocation[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-
   const [isMockMode, setIsMockMode] = useState<boolean>(false);
+  const [isServerOffline, setIsServerOffline] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Modals state
+  // Modal State
   const [isTxnModalOpen, setIsTxnModalOpen] = useState(false);
-  const [isEnvModalOpen, setIsEnvModalOpen] = useState(false);
-  const [isAllocateModalOpen, setIsAllocateModalOpen] = useState(false);
-  const [selectedGroupId, setSelectedGroupId] = useState<string | undefined>();
-  const [selectedEnv, setSelectedEnv] = useState<Envelope | undefined>();
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -46,26 +31,29 @@ export const App: React.FC = () => {
   };
 
   const loadData = async () => {
+    if (api.isUsingMock()) {
+      setIsServerOffline(false);
+      try {
+        const u = await api.getUser();
+        setUser(u);
+        setTransactions(await api.getTransactions());
+      } catch (e) {
+        console.error('Error loading mock data', e);
+      }
+      return;
+    }
+
     try {
       const u = await api.getUser();
       setUser(u);
 
-      const g = await api.getEnvelopeGroups();
-      setGroups(Array.isArray(g) ? g : []);
-
-      const e = await api.getEnvelopes();
-      setEnvelopes(Array.isArray(e) ? e : []);
-
-      const a = await api.getActiveAllocations();
-      setAllocations(Array.isArray(a) ? a : []);
-
       const t = await api.getTransactions();
       setTransactions(Array.isArray(t) ? t : []);
+
+      setIsServerOffline(false);
     } catch (err) {
-      console.error('Failed loading data from API', err);
-      setGroups([]);
-      setEnvelopes([]);
-      setAllocations([]);
+      console.warn('[Penne App] Live server connection failed', err);
+      setIsServerOffline(true);
       setTransactions([]);
     }
   };
@@ -84,8 +72,12 @@ export const App: React.FC = () => {
           setIsAuthenticated(true);
           loadData();
         })
-        .catch(() => {
-          setIsAuthenticated(false);
+        .catch((err) => {
+          console.warn('Initial session user check failed', err);
+          if (!api.isUsingMock()) {
+            setIsServerOffline(true);
+          }
+          setIsAuthenticated(true);
         });
     } else {
       setIsAuthenticated(false);
@@ -106,6 +98,7 @@ export const App: React.FC = () => {
     setIsAuthenticated(false);
     setAuthView('login');
     setActiveTab('home');
+    setIsServerOffline(false);
     showToast('Signed out of Penne Budget');
   };
 
@@ -113,6 +106,7 @@ export const App: React.FC = () => {
     const nextMock = !isMockMode;
     api.setUseMock(nextMock);
     setIsMockMode(nextMock);
+    setIsServerOffline(false);
     showToast(`Switched to ${nextMock ? 'Demo Mode' : 'Live Backend Server'}`);
     if (isAuthenticated) {
       await loadData();
@@ -122,23 +116,10 @@ export const App: React.FC = () => {
   const handleCreateTxn = async (
     amountE5: number,
     txnType: string,
-    bankName: string,
-    envelopeId?: string
+    bankName: string
   ) => {
-    await api.createTransaction(amountE5, txnType, bankName, envelopeId);
+    await api.createTransaction(amountE5, txnType, bankName);
     showToast('Transaction recorded successfully!');
-    await loadData();
-  };
-
-  const handleCreateEnv = async (groupId: string, targetE5: number, cadence: string) => {
-    await api.createEnvelope(groupId, targetE5, cadence);
-    showToast('Budget Envelope created!');
-    await loadData();
-  };
-
-  const handleAllocate = async (envelopeId: string, amountE5: number) => {
-    await api.createAllocation(envelopeId, amountE5);
-    showToast('Envelope funded successfully!');
     await loadData();
   };
 
@@ -165,7 +146,7 @@ export const App: React.FC = () => {
     );
   }
 
-  // Authenticated Views (Mobile-First with Fixed Bottom Tab Bar)
+  // Authenticated Views (Strictly Home & Account Views)
   return (
     <div className="min-h-screen flex flex-col bg-[#171513] text-[#F4F1DE] w-full max-w-full overflow-x-hidden">
       {/* Toast Banner */}
@@ -186,29 +167,16 @@ export const App: React.FC = () => {
         onOpenNewTxn={() => setIsTxnModalOpen(true)}
       />
 
-      {/* Dynamic Tab Contents */}
+      {/* Dynamic Tab Contents: Only Home & Account */}
       <main className="flex-1 w-full max-w-full overflow-x-hidden">
         {activeTab === 'home' && (
           <HomePage
             transactions={transactions}
+            isServerOffline={isServerOffline}
+            isMockMode={isMockMode}
+            onRetryConnection={loadData}
+            onToggleMock={toggleMockMode}
             onOpenNewTxnModal={() => setIsTxnModalOpen(true)}
-          />
-        )}
-
-        {activeTab === 'envelopes' && (
-          <EnvelopeGroupsList
-            groups={groups}
-            envelopes={envelopes}
-            allocations={allocations}
-            transactions={transactions}
-            onOpenNewEnvelope={(gId) => {
-              setSelectedGroupId(gId);
-              setIsEnvModalOpen(true);
-            }}
-            onOpenQuickAllocate={(env) => {
-              setSelectedEnv(env);
-              setIsAllocateModalOpen(true);
-            }}
           />
         )}
 
@@ -224,39 +192,20 @@ export const App: React.FC = () => {
         )}
       </main>
 
-      {/* Mobile Fixed Bottom Navigation Bar */}
+      {/* Mobile Fixed Bottom Navigation Bar (Home & Account) */}
       <BottomTabBar
         activeTab={activeTab}
         onTabChange={(tab) => setActiveTab(tab)}
         onOpenNewTxnModal={() => setIsTxnModalOpen(true)}
       />
 
-      {/* Modals */}
+      {/* New Transaction Modal */}
       <NewTxnModal
         isOpen={isTxnModalOpen}
         onClose={() => setIsTxnModalOpen(false)}
-        envelopes={envelopes}
+        envelopes={[]}
         onSubmit={handleCreateTxn}
       />
-
-      <NewEnvModal
-        isOpen={isEnvModalOpen}
-        onClose={() => setIsEnvModalOpen(false)}
-        groups={groups}
-        defaultGroupId={selectedGroupId}
-        onSubmit={handleCreateEnv}
-      />
-
-      {selectedEnv && (
-        <AllocationModal
-          isOpen={isAllocateModalOpen}
-          onClose={() => setIsAllocateModalOpen(false)}
-          envelopes={envelopes}
-          readyToAssignE5={0}
-          selectedEnvelopeId={selectedEnv.id}
-          onSubmit={handleAllocate}
-        />
-      )}
     </div>
   );
 };

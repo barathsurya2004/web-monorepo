@@ -9,26 +9,81 @@ import {
   Search,
   ArrowUpRight,
   ArrowDownLeft,
-  Calendar
+  Calendar,
+  Clock,
+  WifiOff,
+  RefreshCw
 } from 'lucide-react';
 
 interface HomePageProps {
   transactions: Transaction[];
+  isServerOffline?: boolean;
+  isMockMode?: boolean;
+  onRetryConnection?: () => void;
+  onToggleMock?: () => void;
   onOpenNewTxnModal: () => void;
 }
 
-export const HomePage: React.FC<HomePageProps> = ({ transactions, onOpenNewTxnModal }) => {
+export function formatTransactionDateTime(isoString?: string): { dateStr: string; timeStr: string } {
+  if (!isoString) return { dateStr: 'Recent', timeStr: '' };
+  try {
+    let normalized = isoString.trim();
+    if (normalized.includes(' ') && !normalized.includes('T')) {
+      normalized = normalized.replace(' ', 'T');
+    }
+    // If ISO timestamp string has no offset or Z suffix, append Z so JavaScript parses as UTC ISO-8601
+    if (!normalized.endsWith('Z') && !/[+-]\d{2}:\d{2}$/.test(normalized)) {
+      normalized += 'Z';
+    }
+
+    const d = new Date(normalized);
+    if (isNaN(d.getTime())) return { dateStr: 'Recent', timeStr: '' };
+
+    // Format in user's local timezone for date & time
+    const dateStr = d.toLocaleDateString('en-IN', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric'
+    });
+
+    const timeStr = d.toLocaleTimeString('en-IN', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+
+    return { dateStr, timeStr };
+  } catch {
+    return { dateStr: 'Recent', timeStr: '' };
+  }
+}
+
+export const HomePage: React.FC<HomePageProps> = ({
+  transactions,
+  isServerOffline,
+  isMockMode,
+  onRetryConnection,
+  onToggleMock,
+  onOpenNewTxnModal
+}) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'debit' | 'credit'>('all');
 
   const safeTxns = Array.isArray(transactions) ? transactions : [];
 
+  // Sort newest transactions first by created_at timestamp
+  const sortedTxns = [...safeTxns].sort((a, b) => {
+    const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
+    const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
+    return timeB - timeA;
+  });
+
   // Calculate Total Income & Total Spend
-  const totalIncomeE5 = safeTxns
+  const totalIncomeE5 = sortedTxns
     .filter((t) => t && t.txn_type === 'credit')
     .reduce((acc, t) => acc + (t.amount_e5 || 0), 0);
 
-  const totalSpentE5 = safeTxns
+  const totalSpentE5 = sortedTxns
     .filter((t) => t && t.txn_type === 'debit')
     .reduce((acc, t) => acc + (t.amount_e5 || 0), 0);
 
@@ -39,18 +94,43 @@ export const HomePage: React.FC<HomePageProps> = ({ transactions, onOpenNewTxnMo
   const totalIncomeFormatted = `₹${e5ToAmount(totalIncomeE5).toLocaleString('en-IN')}`;
 
   // Filter transactions
-  const filteredTxns = safeTxns.filter((t) => {
+  const filteredTxns = sortedTxns.filter((t) => {
     if (!t) return false;
     const matchesType = filterType === 'all' || t.txn_type === filterType;
     const matchesSearch =
       !searchTerm ||
-      (t.bank_name && t.bank_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (t.id && t.id.toLowerCase().includes(searchTerm.toLowerCase()));
+      (t.bank_name && t.bank_name.toLowerCase().includes(searchTerm.toLowerCase()));
     return matchesType && matchesSearch;
   });
 
   return (
     <div className="w-full max-w-md mx-auto px-4 py-6 space-y-5 animate-fadeIn pb-28 overflow-x-hidden">
+      {/* Explicit Server Offline Banner (No false mock data fallback) */}
+      {isServerOffline && !isMockMode && (
+        <div className="bg-[#E8A598]/15 border border-[#E8A598]/40 rounded-3xl p-4 space-y-3 text-left animate-fadeIn">
+          <div className="flex items-center gap-2 text-[#E8A598]">
+            <WifiOff className="w-5 h-5 shrink-0" />
+            <h3 className="font-extrabold text-sm text-[#F4F1DE]">Backend Server Offline</h3>
+          </div>
+          <p className="text-xs text-[#A89F95] leading-relaxed">
+            Cannot reach backend server. Please verify <code className="text-[#F2CC8F] font-mono">penne-server</code> is running on port 8080 or CORS is enabled.
+          </p>
+          <div className="flex items-center gap-2 pt-1">
+            {onRetryConnection && (
+              <Button size="sm" variant="pastelRose" onClick={onRetryConnection} className="gap-1.5 font-bold text-xs">
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>Retry Connection</span>
+              </Button>
+            )}
+            {onToggleMock && (
+              <Button size="sm" variant="secondary" onClick={onToggleMock} className="text-xs">
+                Switch to Demo Mode
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Overview Stat Cards: Total Spend & Total Remaining */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 w-full max-w-full overflow-x-hidden">
         {/* Total Spend Card */}
@@ -79,7 +159,7 @@ export const HomePage: React.FC<HomePageProps> = ({ transactions, onOpenNewTxnMo
         <div className="space-y-0.5 min-w-0 pr-2">
           <h2 className="text-sm font-extrabold text-[#F4F1DE] truncate">Recent Activity</h2>
           <p className="text-xs text-[#A89F95] truncate">
-            {safeTxns.length} transaction{safeTxns.length !== 1 ? 's' : ''} recorded
+            {sortedTxns.length} transaction{sortedTxns.length !== 1 ? 's' : ''} (Newest First)
           </p>
         </div>
         <Button
@@ -87,6 +167,7 @@ export const HomePage: React.FC<HomePageProps> = ({ transactions, onOpenNewTxnMo
           size="md"
           onClick={onOpenNewTxnModal}
           className="gap-1.5 shadow-lg font-bold shrink-0 text-xs px-3.5"
+          disabled={isServerOffline && !isMockMode}
         >
           <Plus className="w-4 h-4" />
           <span>New Expense</span>
@@ -101,7 +182,7 @@ export const HomePage: React.FC<HomePageProps> = ({ transactions, onOpenNewTxnMo
             <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-[#8C837A]" />
             <input
               type="text"
-              placeholder="Search bank or transaction ID..."
+              placeholder="Search bank name..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full bg-[#1A1715] border border-[#38322E] text-[#F4F1DE] placeholder-[#6E665E] text-xs rounded-2xl pl-10 pr-4 py-2.5 focus:outline-none focus:border-[#E07A5F]"
@@ -133,9 +214,13 @@ export const HomePage: React.FC<HomePageProps> = ({ transactions, onOpenNewTxnMo
               <Wallet className="w-6 h-6" />
             </div>
             <div className="space-y-1">
-              <h3 className="text-sm font-bold text-[#F4F1DE]">No transactions found</h3>
+              <h3 className="text-sm font-bold text-[#F4F1DE]">
+                {isServerOffline && !isMockMode ? 'Server Offline' : 'No transactions found'}
+              </h3>
               <p className="text-xs text-[#8C837A] max-w-xs mx-auto">
-                {safeTxns.length === 0
+                {isServerOffline && !isMockMode
+                  ? 'Connect your backend server to view your live transactions.'
+                  : sortedTxns.length === 0
                   ? "You haven't recorded any expenses yet. Tap '+ New Expense' to get started!"
                   : 'No transactions match your search query.'}
               </p>
@@ -146,19 +231,16 @@ export const HomePage: React.FC<HomePageProps> = ({ transactions, onOpenNewTxnMo
             {filteredTxns.map((txn) => {
               const isDebit = txn.txn_type === 'debit';
               const formattedAmt = `₹${e5ToAmount(txn.amount_e5).toLocaleString('en-IN')}`;
-              const dateStr = txn.created_at
-                ? new Date(txn.created_at).toLocaleDateString('en-IN', {
-                    day: 'numeric',
-                    month: 'short'
-                  })
-                : 'Recent';
+              
+              // Format RFC3339/ISO-8601 date & time in UTC to match exact DB timestamp
+              const { dateStr, timeStr } = formatTransactionDateTime(txn.created_at);
 
               return (
                 <div
                   key={txn.id}
                   className="bg-[#24201D] border border-[#342F2C] rounded-2xl p-3.5 transition-all flex items-center justify-between gap-2.5 shadow-md w-full max-w-full overflow-x-hidden min-w-0"
                 >
-                  {/* Left: Icon & Details */}
+                  {/* Left: Icon & Bank Details */}
                   <div className="flex items-center gap-2.5 min-w-0 flex-1 overflow-x-hidden">
                     <div
                       className={`w-9 h-9 rounded-2xl flex items-center justify-center shrink-0 ${
@@ -187,15 +269,21 @@ export const HomePage: React.FC<HomePageProps> = ({ transactions, onOpenNewTxnMo
                         </Badge>
                       </div>
 
-                      <div className="flex items-center gap-1.5 text-[11px] text-[#A89F95] min-w-0">
-                        <span className="flex items-center gap-1 font-mono text-[10px] shrink-0">
+                      {/* Display Date and Time of Transaction (UUID removed from FE display) */}
+                      <div className="flex items-center gap-2 text-[11px] text-[#A89F95] min-w-0">
+                        <span className="flex items-center gap-1 font-mono text-[10px] text-[#C4BBB1]">
                           <Calendar className="w-3 h-3 text-[#8C837A]" />
                           {dateStr}
                         </span>
-                        <span>•</span>
-                        <span className="truncate font-mono text-[9px] text-[#8C837A] min-w-0 flex-1">
-                          {txn.id}
-                        </span>
+                        {timeStr && (
+                          <>
+                            <span className="text-[#8C837A]">•</span>
+                            <span className="flex items-center gap-1 font-mono text-[10px] text-[#A89F95]">
+                              <Clock className="w-3 h-3 text-[#8C837A]" />
+                              {timeStr}
+                            </span>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>
