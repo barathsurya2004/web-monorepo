@@ -19,6 +19,7 @@ import {
   SlidersHorizontal
 } from 'lucide-react';
 import { formatTransactionDateTime } from './HomePage';
+import { BudgetPageSkeleton } from './Skeleton';
 
 interface BudgetPageProps {
   categories: ActiveCategory[];
@@ -28,6 +29,7 @@ interface BudgetPageProps {
   onRetryConnection?: () => void;
   onToggleMock?: () => void;
   onOpenNewTxnModal: () => void;
+  isLoadingData?: boolean;
 }
 
 export const BudgetPage: React.FC<BudgetPageProps> = ({
@@ -37,8 +39,13 @@ export const BudgetPage: React.FC<BudgetPageProps> = ({
   isMockMode,
   onRetryConnection,
   onToggleMock,
-  onOpenNewTxnModal
+  onOpenNewTxnModal,
+  isLoadingData
 }) => {
+  if (isLoadingData) {
+    return <BudgetPageSkeleton />;
+  }
+
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'tracked' | 'untracked' | 'ontrack' | 'warning' | 'overbudget'>('all');
   const [expandedEnvelopeId, setExpandedEnvelopeId] = useState<string | null>(null);
@@ -235,7 +242,7 @@ export const BudgetPage: React.FC<BudgetPageProps> = ({
               <button
                 key={filter.id}
                 onClick={() => setStatusFilter(filter.id)}
-                className={`px-3 py-1.5 text-[11px] font-bold rounded-xl whitespace-nowrap transition-all cursor-pointer ${
+                className={`px-3 py-1.5 min-h-[36px] text-[11px] font-bold rounded-xl whitespace-nowrap transition-all cursor-pointer ${
                   statusFilter === filter.id
                     ? 'bg-[#38322E] text-[#F4F1DE] shadow-md border border-[#4A433F]'
                     : 'text-[#A89F95] hover:text-[#F4F1DE]'

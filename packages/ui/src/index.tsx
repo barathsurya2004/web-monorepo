@@ -72,7 +72,7 @@ export const Input: React.FC<InputProps> = ({ label, error, icon, className = ''
       <div className="relative flex items-center">
         {icon && <div className="absolute left-3.5 text-[#8C837A] pointer-events-none">{icon}</div>}
         <input
-          className={`bg-[#1A1715] border ${error ? 'border-rose-400' : 'border-[#38322E]'} text-[#F4F1DE] placeholder-[#6E665E] text-sm rounded-2xl focus:outline-none focus:border-[#E07A5F] focus:ring-2 focus:ring-[#E07A5F]/20 ${icon ? 'pl-10' : 'px-4'} py-3 transition-all w-full min-h-[44px] shadow-inner ${className}`}
+          className={`bg-[#1A1715] border ${error ? 'border-rose-400' : 'border-[#38322E]'} text-[#F4F1DE] placeholder-[#6E665E] text-base sm:text-sm rounded-2xl focus:outline-none focus:border-[#E07A5F] focus:ring-2 focus:ring-[#E07A5F]/20 ${icon ? 'pl-10' : 'px-4'} py-3 transition-all w-full min-h-[44px] shadow-inner ${className}`}
           {...props}
         />
       </div>
@@ -92,7 +92,7 @@ export const Select: React.FC<SelectProps> = ({ label, options, className = '', 
     <div className="flex flex-col gap-1.5 w-full">
       {label && <label className="text-[11px] font-bold tracking-wider text-[#A89F95] uppercase">{label}</label>}
       <select
-        className={`bg-[#1A1715] border border-[#38322E] text-[#F4F1DE] text-sm rounded-2xl focus:outline-none focus:border-[#E07A5F] focus:ring-2 focus:ring-[#E07A5F]/20 px-4 py-3 transition-all w-full min-h-[44px] shadow-inner ${className}`}
+        className={`bg-[#1A1715] border border-[#38322E] text-[#F4F1DE] text-base sm:text-sm rounded-2xl focus:outline-none focus:border-[#E07A5F] focus:ring-2 focus:ring-[#E07A5F]/20 px-4 py-3 transition-all w-full min-h-[44px] shadow-inner ${className}`}
         {...props}
       >
         {options.map((opt) => (
@@ -142,14 +142,14 @@ export interface SegmentedControlProps {
 
 export const SegmentedControl: React.FC<SegmentedControlProps> = ({ options, activeId, onChange }) => {
   return (
-    <div className="bg-[#1A1715] p-1 rounded-2xl border border-[#38322E] flex items-center gap-1">
+    <div className="bg-[#1A1715] p-1 rounded-2xl border border-[#38322E] flex items-center gap-1 overflow-x-auto no-scrollbar">
       {options.map((opt) => {
         const isActive = opt.id === activeId;
         return (
           <button
             key={opt.id}
             onClick={() => onChange(opt.id)}
-            className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-xl text-xs font-semibold transition-all duration-300 cursor-pointer ${
+            className={`flex-1 min-h-[40px] flex items-center justify-center gap-2 py-2 px-3 sm:px-4 rounded-xl text-xs font-semibold transition-all duration-300 cursor-pointer whitespace-nowrap ${
               isActive
                 ? 'bg-[#38322E] text-[#F4F1DE] shadow-md border border-[#4A433F]'
                 : 'text-[#A89F95] hover:text-[#F4F1DE]'
@@ -219,13 +219,13 @@ export const StatCard: React.FC<StatCardProps> = ({
 
   return (
     <Card className={`border-l-4 ${borderAccents[variant]} ${accentColor ? accentColor : ''} ${className}`}>
-      <div className="flex items-center justify-between">
-        <div className="space-y-1">
-          <p className="text-[11px] font-bold tracking-wider text-[#A89F95] uppercase">{title}</p>
-          <h3 className="text-2xl sm:text-3xl font-extrabold text-[#F4F1DE] tracking-tight">{value}</h3>
-          {subtitle && <p className="text-xs text-[#8C837A]">{subtitle}</p>}
+      <div className="flex items-center justify-between gap-2 min-w-0">
+        <div className="space-y-1 min-w-0 flex-1">
+          <p className="text-[11px] font-bold tracking-wider text-[#A89F95] uppercase truncate">{title}</p>
+          <h3 className="text-xl sm:text-2xl md:text-3xl font-extrabold text-[#F4F1DE] tracking-tight truncate">{value}</h3>
+          {subtitle && <p className="text-xs text-[#8C837A] truncate">{subtitle}</p>}
         </div>
-        {icon && <div className="p-3 bg-[#1A1715]/80 text-[#E6E1DA] rounded-2xl shadow-inner">{icon}</div>}
+        {icon && <div className="p-2.5 sm:p-3 bg-[#1A1715]/80 text-[#E6E1DA] rounded-2xl shadow-inner shrink-0">{icon}</div>}
       </div>
     </Card>
   );
@@ -243,18 +243,18 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#141210]/80 backdrop-blur-md animate-fadeIn">
-      <div className="bg-[#24201D] border border-[#3E3835] rounded-3xl w-full max-w-md shadow-2xl overflow-hidden transform transition-all">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#342F2C] bg-[#1E1B19]">
-          <h3 className="text-lg font-bold text-[#F4F1DE]">{title}</h3>
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-[#141210]/85 backdrop-blur-md animate-fadeIn pt-[max(env(safe-area-inset-top,0px),1rem)] pb-[max(env(safe-area-inset-bottom,0px),1rem)]">
+      <div className="bg-[#24201D] border border-[#3E3835] rounded-t-3xl sm:rounded-3xl w-full max-w-md shadow-2xl overflow-hidden transform transition-all max-h-[85dvh] flex flex-col">
+        <div className="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-[#342F2C] bg-[#1E1B19] shrink-0">
+          <h3 className="text-base sm:text-lg font-bold text-[#F4F1DE]">{title}</h3>
           <button
             onClick={onClose}
-            className="text-[#A89F95] hover:text-[#F4F1DE] p-1.5 rounded-xl hover:bg-[#2E2A27] transition-colors"
+            className="text-[#A89F95] hover:text-[#F4F1DE] p-2 rounded-xl hover:bg-[#2E2A27] transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center cursor-pointer"
           >
             ✕
           </button>
         </div>
-        <div className="p-6">{children}</div>
+        <div className="p-5 sm:p-6 overflow-y-auto">{children}</div>
       </div>
     </div>
   );

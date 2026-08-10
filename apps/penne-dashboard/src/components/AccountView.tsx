@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { User, AuthSession } from '@packages/types';
 import { Button, Card, Badge } from '@packages/ui';
 import { User as UserIcon, Server, LogOut, Copy, Check, ShieldCheck, Key, Clock } from 'lucide-react';
+import { AccountSkeleton } from './Skeleton';
 
 interface AccountViewProps {
   user: User | null;
@@ -10,6 +11,7 @@ interface AccountViewProps {
   recentSessions: AuthSession[];
   onToggleMock: () => void;
   onLogout: () => void;
+  isLoadingData?: boolean;
 }
 
 export const AccountView: React.FC<AccountViewProps> = ({
@@ -18,8 +20,13 @@ export const AccountView: React.FC<AccountViewProps> = ({
   isMockMode,
   recentSessions,
   onToggleMock,
-  onLogout
+  onLogout,
+  isLoadingData
 }) => {
+  if (isLoadingData) {
+    return <AccountSkeleton />;
+  }
+
   const [copied, setCopied] = useState(false);
 
   const copyToken = () => {

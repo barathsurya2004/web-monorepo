@@ -15,12 +15,12 @@ export const BottomTabBar: React.FC<BottomTabBarProps> = ({
   onOpenNewTxnModal
 }) => {
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 bg-[#1C1A18]/95 backdrop-blur-2xl border-t border-[#342F2C] px-4 py-2 pb-safe max-w-full overflow-x-hidden shadow-2xl shadow-black">
+    <nav className="fixed bottom-0 left-0 right-0 z-40 bg-[#1C1A18]/95 backdrop-blur-2xl border-t border-[#342F2C] px-4 pt-2 pb-[max(env(safe-area-inset-bottom,0px),0.5rem)] max-w-full overflow-x-hidden shadow-2xl shadow-black">
       <div className="max-w-sm mx-auto flex items-center justify-between relative">
         {/* Tab 1: Home / Transactions */}
         <button
           onClick={() => onTabChange('home')}
-          className={`flex flex-col items-center justify-center gap-1 py-1 px-3 rounded-2xl transition-all cursor-pointer ${
+          className={`flex flex-col items-center justify-center gap-1 py-1.5 px-3 min-h-[44px] min-w-[56px] rounded-2xl transition-all cursor-pointer active:scale-95 ${
             activeTab === 'home'
               ? 'text-[#E07A5F] font-extrabold scale-105'
               : 'text-[#A89F95] hover:text-[#F4F1DE]'
@@ -33,7 +33,7 @@ export const BottomTabBar: React.FC<BottomTabBarProps> = ({
         {/* Tab 2: Budget Categories */}
         <button
           onClick={() => onTabChange('budget')}
-          className={`flex flex-col items-center justify-center gap-1 py-1 px-3 rounded-2xl transition-all cursor-pointer ${
+          className={`flex flex-col items-center justify-center gap-1 py-1.5 px-3 min-h-[44px] min-w-[56px] rounded-2xl transition-all cursor-pointer active:scale-95 ${
             activeTab === 'budget'
               ? 'text-[#E07A5F] font-extrabold scale-105'
               : 'text-[#A89F95] hover:text-[#F4F1DE]'
@@ -47,7 +47,7 @@ export const BottomTabBar: React.FC<BottomTabBarProps> = ({
         <div className="relative -top-3">
           <button
             onClick={onOpenNewTxnModal}
-            className="w-12 h-12 rounded-full bg-[#E07A5F] hover:bg-[#d0694e] text-white flex items-center justify-center shadow-lg shadow-[#E07A5F]/40 active:scale-95 transition-all border-4 border-[#1C1A18] cursor-pointer"
+            className="w-12 h-12 rounded-full bg-[#E07A5F] hover:bg-[#d0694e] text-white flex items-center justify-center shadow-lg shadow-[#E07A5F]/40 active:scale-90 transition-all border-4 border-[#1C1A18] cursor-pointer"
             title="Add Expense"
           >
             <Plus className="w-6 h-6 stroke-[3]" />
@@ -57,7 +57,7 @@ export const BottomTabBar: React.FC<BottomTabBarProps> = ({
         {/* Tab 3: Account / Settings */}
         <button
           onClick={() => onTabChange('account')}
-          className={`flex flex-col items-center justify-center gap-1 py-1 px-3 rounded-2xl transition-all cursor-pointer ${
+          className={`flex flex-col items-center justify-center gap-1 py-1.5 px-3 min-h-[44px] min-w-[56px] rounded-2xl transition-all cursor-pointer active:scale-95 ${
             activeTab === 'account'
               ? 'text-[#E07A5F] font-extrabold scale-105'
               : 'text-[#A89F95] hover:text-[#F4F1DE]'

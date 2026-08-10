@@ -14,6 +14,7 @@ import {
   WifiOff,
   RefreshCw
 } from 'lucide-react';
+import { HomePageSkeleton } from './Skeleton';
 
 interface HomePageProps {
   transactions: Transaction[];
@@ -22,6 +23,7 @@ interface HomePageProps {
   onRetryConnection?: () => void;
   onToggleMock?: () => void;
   onOpenNewTxnModal: () => void;
+  isLoadingData?: boolean;
 }
 
 export function formatTransactionDateTime(isoString?: string): { dateStr: string; timeStr: string } {
@@ -64,8 +66,13 @@ export const HomePage: React.FC<HomePageProps> = ({
   isMockMode,
   onRetryConnection,
   onToggleMock,
-  onOpenNewTxnModal
+  onOpenNewTxnModal,
+  isLoadingData
 }) => {
+  if (isLoadingData) {
+    return <HomePageSkeleton />;
+  }
+
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'debit' | 'credit'>('all');
 
@@ -190,12 +197,12 @@ export const HomePage: React.FC<HomePageProps> = ({
           </div>
 
           {/* Filter Pills */}
-          <div className="flex items-center gap-1.5 bg-[#1A1715] p-1 rounded-2xl border border-[#38322E] w-full justify-between">
+          <div className="flex items-center gap-1.5 bg-[#1A1715] p-1 rounded-2xl border border-[#38322E] w-full overflow-x-auto no-scrollbar">
             {(['all', 'debit', 'credit'] as const).map((type) => (
               <button
                 key={type}
                 onClick={() => setFilterType(type)}
-                className={`flex-1 py-1.5 text-[11px] font-bold rounded-xl capitalize transition-all cursor-pointer ${
+                className={`flex-1 min-h-[36px] py-1.5 px-3 text-[11px] font-bold rounded-xl capitalize transition-all cursor-pointer whitespace-nowrap ${
                   filterType === type
                     ? 'bg-[#38322E] text-[#F4F1DE] shadow-sm'
                     : 'text-[#A89F95] hover:text-[#F4F1DE]'

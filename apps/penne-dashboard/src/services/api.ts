@@ -202,6 +202,19 @@ export class PenneApiClient {
     return this.useMock;
   }
 
+  public isUnauthorizedError(err: any): boolean {
+    if (!err) return false;
+    if (err.status === 401 || err.status === 403) return true;
+    const msg = String(err.message || err || '').toLowerCase();
+    return (
+      msg.includes('unauthorized') ||
+      msg.includes('unauthenticated') ||
+      msg.includes('invalid token') ||
+      msg.includes('expired auth token') ||
+      msg.includes('invalid or expired')
+    );
+  }
+
   // --- TOKEN CACHING & SESSION MANAGEMENT ---
 
   public getCachedSessions(): AuthSession[] {
@@ -274,7 +287,9 @@ export class PenneApiClient {
     if (!res.ok) {
       const errText = await res.text();
       console.warn(`[Penne API Error] ${res.status}: ${errText}`);
-      throw new Error(errText || `Request failed with status ${res.status}`);
+      const error: any = new Error(errText || `Request failed with status ${res.status}`);
+      error.status = res.status;
+      throw error;
     }
 
     const text = await res.text();

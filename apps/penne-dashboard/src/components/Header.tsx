@@ -9,16 +9,18 @@ interface HeaderProps {
   onToggleMock: () => void;
   onLogout: () => void;
   onOpenNewTxn?: () => void;
+  isLoadingData?: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   user,
   isMockMode,
-  onToggleMock
+  onToggleMock,
+  isLoadingData
 }) => {
   return (
-    // Mobile-First Top App Bar: Compact, clean, 100% overflow-free
-    <header className="w-full max-w-full overflow-x-hidden bg-[#1E1B19] border-b border-[#342F2C] px-4 py-3">
+    // Mobile-First Top App Bar: Safe-area status bar padding, compact, 100% overflow-free
+    <header className="w-full max-w-full overflow-x-hidden bg-[#1E1B19] border-b border-[#342F2C] px-4 pb-3 pt-[max(env(safe-area-inset-top,0px),0.75rem)]">
       <div className="max-w-md mx-auto flex items-center justify-between gap-2 min-w-0">
         {/* Left: Brand Logo & Title */}
         <div className="flex items-center gap-2.5 min-w-0">
@@ -50,15 +52,17 @@ export const Header: React.FC<HeaderProps> = ({
             <span>{isMockMode ? 'Demo' : 'Live'}</span>
           </button>
 
-          {/* User Avatar Circle */}
-          {user && (
+          {/* User Avatar Circle or Loading Skeleton */}
+          {isLoadingData ? (
+            <div className="w-7 h-7 rounded-full bg-[#2E2A27] animate-pulse shrink-0" />
+          ) : user ? (
             <div
               className="w-7 h-7 rounded-full bg-[#E07A5F]/20 text-[#E07A5F] border border-[#E07A5F]/40 flex items-center justify-center font-black text-xs shrink-0"
               title={user.name}
             >
               {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
             </div>
-          )}
+          ) : null}
         </div>
       </div>
     </header>

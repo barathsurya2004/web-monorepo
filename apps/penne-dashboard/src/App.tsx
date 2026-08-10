@@ -13,8 +13,9 @@ import { NewTxnModal } from './components/Modals';
 
 export const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-  const [authView, setAuthView] = useState<'login' | 'signup'>('login');
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => !!api.getToken());
+  const [isLoadingData, setIsLoadingData] = useState<boolean>(() => !!api.getToken());
+  const [authView, setAuthView] = useState<'login' | 'signup'>('signup');
   const [activeTab, setActiveTab] = useState<NavTab>('home');
   const [recentSessions, setRecentSessions] = useState<AuthSession[]>([]);
 
@@ -33,6 +34,7 @@ export const App: React.FC = () => {
   };
 
   const loadData = async () => {
+    setIsLoadingData(true);
     if (api.isUsingMock()) {
       setIsServerOffline(false);
       try {
@@ -42,6 +44,8 @@ export const App: React.FC = () => {
         setCategories(await api.getActiveCategories());
       } catch (e) {
         console.error('Error loading mock data', e);
+      } finally {
+        setIsLoadingData(false);
       }
       return;
     }
@@ -50,18 +54,35 @@ export const App: React.FC = () => {
       const u = await api.getUser();
       setUser(u);
 
-      const t = await api.getTransactions();
+      const [t, c] = await Promise.all([
+        api.getTransactions().catch((err) => {
+          if (api.isUnauthorizedError(err)) throw err;
+          return [];
+        }),
+        api.getActiveCategories().catch((err) => {
+          if (api.isUnauthorizedError(err)) throw err;
+          return [];
+        })
+      ]);
+
       setTransactions(Array.isArray(t) ? t : []);
-
-      const c = await api.getActiveCategories();
       setCategories(Array.isArray(c) ? c : []);
-
       setIsServerOffline(false);
-    } catch (err) {
-      console.warn('[Penne App] Live server connection failed', err);
-      setIsServerOffline(true);
-      setTransactions([]);
-      setCategories([]);
+      setIsLoadingData(false);
+    } catch (err: any) {
+      console.warn('[Penne App] Live server connection or auth check failed', err);
+      if (api.isUnauthorizedError(err)) {
+        // Backend unauthorized/unauthenticated failure -> clear token & redirect to Signup page
+        api.logout();
+        setUser(null);
+        setIsAuthenticated(false);
+        setIsLoadingData(false);
+        setAuthView('signup');
+        showToast('Unauthorized session. Redirected to Signup.');
+      } else {
+        setIsServerOffline(true);
+        setIsLoadingData(false);
+      }
     }
   };
 
@@ -72,22 +93,12 @@ export const App: React.FC = () => {
 
     const activeToken = api.getToken();
     if (activeToken) {
-      api
-        .getUser()
-        .then((u) => {
-          setUser(u);
-          setIsAuthenticated(true);
-          loadData();
-        })
-        .catch((err) => {
-          console.warn('Initial session user check failed', err);
-          if (!api.isUsingMock()) {
-            setIsServerOffline(true);
-          }
-          setIsAuthenticated(true);
-        });
+      setIsAuthenticated(true);
+      loadData();
     } else {
       setIsAuthenticated(false);
+      setIsLoadingData(false);
+      setAuthView('signup');
     }
   }, [isMockMode]);
 
@@ -103,7 +114,8 @@ export const App: React.FC = () => {
     api.logout();
     setUser(null);
     setIsAuthenticated(false);
-    setAuthView('login');
+    setIsLoadingData(false);
+    setAuthView('signup');
     setActiveTab('home');
     setIsServerOffline(false);
     showToast('Signed out of Penne Budget');
@@ -130,7 +142,7 @@ export const App: React.FC = () => {
     await loadData();
   };
 
-  // Unauthenticated Views (Login / Signup)
+  // Unauthenticated Views (Only Signup / Login pages shown when user does not have a token)
   if (!isAuthenticated) {
     if (authView === 'signup') {
       return (
@@ -153,9 +165,9 @@ export const App: React.FC = () => {
     );
   }
 
-  // Authenticated Views (Home, Budget & Account Views)
+  // Authenticated Views (Instant entry when token present with Skeleton Loaders during Lazy Load)
   return (
-    <div className="min-h-screen flex flex-col bg-[#171513] text-[#F4F1DE] w-full max-w-full overflow-x-hidden">
+    <div className="min-h-screen min-h-[100dvh] flex flex-col bg-[#171513] text-[#F4F1DE] w-full max-w-full overflow-x-hidden">
       {/* Toast Banner */}
       {toastMessage && (
         <div className="fixed bottom-20 right-4 z-50 bg-[#E07A5F] text-[#F4F1DE] px-4 py-2.5 rounded-2xl font-bold text-xs shadow-2xl shadow-[#E07A5F]/30 animate-fadeIn flex items-center gap-2 border border-[#E07A5F]/40 max-w-xs truncate">
@@ -172,6 +184,7 @@ export const App: React.FC = () => {
         onToggleMock={toggleMockMode}
         onLogout={handleLogout}
         onOpenNewTxn={() => setIsTxnModalOpen(true)}
+        isLoadingData={isLoadingData}
       />
 
       {/* Dynamic Tab Contents: Home, Budget & Account */}
@@ -184,6 +197,7 @@ export const App: React.FC = () => {
             onRetryConnection={loadData}
             onToggleMock={toggleMockMode}
             onOpenNewTxnModal={() => setIsTxnModalOpen(true)}
+            isLoadingData={isLoadingData}
           />
         )}
 
@@ -196,6 +210,7 @@ export const App: React.FC = () => {
             onRetryConnection={loadData}
             onToggleMock={toggleMockMode}
             onOpenNewTxnModal={() => setIsTxnModalOpen(true)}
+            isLoadingData={isLoadingData}
           />
         )}
 
@@ -207,6 +222,7 @@ export const App: React.FC = () => {
             recentSessions={recentSessions}
             onToggleMock={toggleMockMode}
             onLogout={handleLogout}
+            isLoadingData={isLoadingData}
           />
         )}
       </main>
