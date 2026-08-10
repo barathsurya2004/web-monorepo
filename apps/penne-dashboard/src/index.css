@@ -54,11 +54,15 @@
 
 /* Safe area inset support for mobile status bars & notch navigation */
 .pt-safe {
-  padding-top: max(env(safe-area-inset-top, 0px), 0px);
+  padding-top: max(calc(env(safe-area-inset-top, 0px) + 0.75rem), 1rem);
 }
 
-.pt-safe-or-3 {
-  padding-top: max(env(safe-area-inset-top, 0px), 0.75rem);
+.pt-safe-top {
+  padding-top: max(calc(env(safe-area-inset-top, 0px) + 1rem), 1.25rem);
+}
+
+.pt-safe-extra {
+  padding-top: max(calc(env(safe-area-inset-top, 0px) + 1.25rem), 1.5rem);
 }
 
 .pb-safe {
@@ -67,7 +71,7 @@
 
 .status-bar-bg {
   background-color: #1E1B19;
-  padding-top: env(safe-area-inset-top, 0px);
+  padding-top: max(calc(env(safe-area-inset-top, 0px) + 0.75rem), 1rem);
 }
 
 /* Hide scrollbars for mobile swipeable filter toolbars */

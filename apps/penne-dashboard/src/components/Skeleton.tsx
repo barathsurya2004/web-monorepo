@@ -2,7 +2,7 @@ import React from 'react';
 
 export const HeaderSkeleton: React.FC = () => {
   return (
-    <div className="w-full max-w-full overflow-x-hidden bg-[#1E1B19] border-b border-[#342F2C] px-4 pb-3 pt-[max(env(safe-area-inset-top,0px),0.75rem)] animate-pulse">
+    <div className="w-full max-w-full overflow-x-hidden bg-[#1E1B19] border-b border-[#342F2C] px-4 pb-3.5 pt-[max(calc(env(safe-area-inset-top,0px)+0.875rem),1.25rem)] animate-pulse">
       <div className="max-w-md mx-auto flex items-center justify-between gap-2">
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-xl bg-[#2E2A27]" />

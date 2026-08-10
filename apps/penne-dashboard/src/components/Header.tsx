@@ -19,8 +19,8 @@ export const Header: React.FC<HeaderProps> = ({
   isLoadingData
 }) => {
   return (
-    // Mobile-First Top App Bar: Safe-area status bar padding, compact, 100% overflow-free
-    <header className="w-full max-w-full overflow-x-hidden bg-[#1E1B19] border-b border-[#342F2C] px-4 pb-3 pt-[max(env(safe-area-inset-top,0px),0.75rem)]">
+    // Mobile-First Top App Bar: Extra safe-area status bar padding, compact, 100% overflow-free
+    <header className="w-full max-w-full overflow-x-hidden bg-[#1E1B19] border-b border-[#342F2C] px-4 pb-3.5 pt-[max(calc(env(safe-area-inset-top,0px)+0.875rem),1.25rem)]">
       <div className="max-w-md mx-auto flex items-center justify-between gap-2 min-w-0">
         {/* Left: Brand Logo & Title */}
         <div className="flex items-center gap-2.5 min-w-0">
