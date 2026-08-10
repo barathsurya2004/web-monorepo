@@ -1,0 +1,454 @@
+import React, { useState } from 'react';
+import { ActiveCategory, Transaction, e5ToAmount } from '@packages/types';
+import { Button, Card, Badge, ProgressBar } from '@packages/ui';
+import {
+  PieChart,
+  Search,
+  WifiOff,
+  RefreshCw,
+  AlertTriangle,
+  ChevronDown,
+  ChevronUp,
+  Tag,
+  ArrowUpRight,
+  Layers,
+  Sparkles,
+  HelpCircle,
+  FolderSync,
+  ShieldAlert,
+  SlidersHorizontal
+} from 'lucide-react';
+import { formatTransactionDateTime } from './HomePage';
+
+interface BudgetPageProps {
+  categories: ActiveCategory[];
+  transactions: Transaction[];
+  isServerOffline?: boolean;
+  isMockMode?: boolean;
+  onRetryConnection?: () => void;
+  onToggleMock?: () => void;
+  onOpenNewTxnModal: () => void;
+}
+
+export const BudgetPage: React.FC<BudgetPageProps> = ({
+  categories,
+  transactions,
+  isServerOffline,
+  isMockMode,
+  onRetryConnection,
+  onToggleMock,
+  onOpenNewTxnModal
+}) => {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'tracked' | 'untracked' | 'ontrack' | 'warning' | 'overbudget'>('all');
+  const [expandedEnvelopeId, setExpandedEnvelopeId] = useState<string | null>(null);
+
+  const safeCategories = Array.isArray(categories) ? categories : [];
+  const safeTxns = Array.isArray(transactions) ? transactions : [];
+
+  // Map each category to matching debit transactions & calculate total spent per envelope ID
+  const categorySpending = safeCategories.map((cat) => {
+    const matchingDebitTxns = safeTxns.filter(
+      (t) => t && t.envelope_id === cat.envelope_id && t.txn_type === 'debit'
+    );
+    const spentE5 = matchingDebitTxns.reduce((sum, t) => sum + (t.amount_e5 || 0), 0);
+    const remainingE5 = cat.allocated_amount_e5 - spentE5;
+    const usagePercent = cat.allocated_amount_e5 > 0 ? (spentE5 / cat.allocated_amount_e5) * 100 : 0;
+    const isOverBudget = spentE5 > cat.allocated_amount_e5;
+    const isWarning = usagePercent >= 80 && !isOverBudget;
+
+    return {
+      ...cat,
+      spentE5,
+      remainingE5,
+      usagePercent,
+      isOverBudget,
+      isWarning,
+      matchingTxns: matchingDebitTxns
+    };
+  });
+
+  // Separate Tracked Envelopes vs Untracked Budget Pools
+  const trackedCategories = categorySpending.filter((c) => !c.is_system);
+  const untrackedCategories = categorySpending.filter((c) => c.is_system);
+
+  // Overall Budget Metrics
+  const totalAllocatedE5 = categorySpending.reduce((sum, c) => sum + (c.allocated_amount_e5 || 0), 0);
+  const trackedAllocatedE5 = trackedCategories.reduce((sum, c) => sum + (c.allocated_amount_e5 || 0), 0);
+  const untrackedAllocatedE5 = untrackedCategories.reduce((sum, c) => sum + (c.allocated_amount_e5 || 0), 0);
+
+  const totalSpentE5 = categorySpending.reduce((sum, c) => sum + c.spentE5, 0);
+  const totalNetRemainingE5 = totalAllocatedE5 - totalSpentE5;
+
+  // Uncategorized Debit Transactions (envelope_id missing or not matching active categories)
+  const activeEnvelopeIds = new Set(safeCategories.map((c) => c.envelope_id));
+  const uncategorizedDebitTxns = safeTxns.filter(
+    (t) => t && t.txn_type === 'debit' && (!t.envelope_id || !activeEnvelopeIds.has(t.envelope_id))
+  );
+  const uncategorizedSpentE5 = uncategorizedDebitTxns.reduce((sum, t) => sum + (t.amount_e5 || 0), 0);
+
+  // Filter Categories
+  const filteredCategories = categorySpending.filter((cat) => {
+    const displayName = cat.is_system ? 'Untracked General Budget' : cat.name;
+    const matchesSearch =
+      !searchTerm ||
+      displayName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      cat.envelope_id.toLowerCase().includes(searchTerm.toLowerCase());
+
+    if (!matchesSearch) return false;
+
+    if (statusFilter === 'tracked') return !cat.is_system;
+    if (statusFilter === 'untracked') return cat.is_system;
+    if (statusFilter === 'ontrack') return !cat.isOverBudget && !cat.isWarning && !cat.is_system;
+    if (statusFilter === 'warning') return cat.isWarning && !cat.is_system;
+    if (statusFilter === 'overbudget') return cat.isOverBudget && !cat.is_system;
+
+    return true;
+  });
+
+  const toggleExpand = (envId: string) => {
+    setExpandedEnvelopeId(expandedEnvelopeId === envId ? null : envId);
+  };
+
+  return (
+    <div className="w-full max-w-md mx-auto px-4 py-6 space-y-5 animate-fadeIn pb-28 overflow-x-hidden">
+      {/* Backend Offline Alert Banner */}
+      {isServerOffline && !isMockMode && (
+        <div className="bg-[#E8A598]/15 border border-[#E8A598]/40 rounded-3xl p-4 space-y-3 text-left animate-fadeIn shadow-xl">
+          <div className="flex items-center gap-2 text-[#E8A598]">
+            <WifiOff className="w-5 h-5 shrink-0" />
+            <h3 className="font-extrabold text-sm text-[#F4F1DE]">Backend Connection Offline</h3>
+          </div>
+          <p className="text-xs text-[#A89F95] leading-relaxed">
+            Unable to connect to <code className="text-[#F2CC8F] font-mono">/api/get-active-categories</code>. Ensure server is active.
+          </p>
+          <div className="flex items-center gap-2 pt-1">
+            {onRetryConnection && (
+              <Button size="sm" variant="pastelRose" onClick={onRetryConnection} className="gap-1.5 font-bold text-xs">
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>Retry</span>
+              </Button>
+            )}
+            {onToggleMock && (
+              <Button size="sm" variant="secondary" onClick={onToggleMock} className="text-xs">
+                Switch to Demo
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Hero Overview Banner */}
+      <div className="relative overflow-hidden bg-gradient-to-br from-[#292421] via-[#1E1B19] to-[#141210] border border-[#3E3835] rounded-3xl p-5 shadow-2xl space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2.5 rounded-2xl bg-gradient-to-br from-[#E07A5F] to-[#C96449] text-white shadow-lg shadow-[#E07A5F]/20">
+              <PieChart className="w-5 h-5 stroke-[2.5]" />
+            </div>
+            <div>
+              <h1 className="text-base font-extrabold text-[#F4F1DE] tracking-tight flex items-center gap-1.5">
+                <span>Budget Overview</span>
+                <Sparkles className="w-3.5 h-3.5 text-[#F2CC8F]" />
+              </h1>
+              <p className="text-[11px] text-[#A89F95]">Active Categories & Live Transaction Tracking</p>
+            </div>
+          </div>
+          <Badge variant="amber" className="text-[10px] font-bold py-0.5 px-2.5">
+            {safeCategories.length} Active
+          </Badge>
+        </div>
+
+        {/* Primary Budget Metric Cards */}
+        <div className="grid grid-cols-3 gap-2 pt-2 border-t border-[#342F2C]">
+          <div className="bg-[#1A1715]/90 p-2.5 rounded-2xl border border-[#342F2C] min-w-0">
+            <p className="text-[9px] text-[#8C837A] uppercase font-bold tracking-wider truncate">Total Budgeted</p>
+            <p className="text-xs sm:text-sm font-black text-[#F4F1DE] mt-0.5 truncate">
+              ₹{e5ToAmount(totalAllocatedE5).toLocaleString('en-IN')}
+            </p>
+          </div>
+
+          <div className="bg-[#1A1715]/90 p-2.5 rounded-2xl border border-[#342F2C] min-w-0">
+            <p className="text-[9px] text-[#8C837A] uppercase font-bold tracking-wider truncate">Total Spent</p>
+            <p className="text-xs sm:text-sm font-black text-[#E8A598] mt-0.5 truncate">
+              ₹{e5ToAmount(totalSpentE5).toLocaleString('en-IN')}
+            </p>
+          </div>
+
+          <div className="bg-[#1A1715]/90 p-2.5 rounded-2xl border border-[#342F2C] min-w-0">
+            <p className="text-[9px] text-[#8C837A] uppercase font-bold tracking-wider truncate">Net Remaining</p>
+            <p
+              className={`text-xs sm:text-sm font-black mt-0.5 truncate ${
+                totalNetRemainingE5 < 0 ? 'text-[#E8A598]' : 'text-[#81B29A]'
+              }`}
+            >
+              ₹{e5ToAmount(totalNetRemainingE5).toLocaleString('en-IN')}
+            </p>
+          </div>
+        </div>
+
+        {/* Tracked vs Untracked Budget Distribution Breakdown */}
+        {untrackedAllocatedE5 > 0 && (
+          <div className="bg-[#1A1715]/60 border border-[#342F2C] rounded-2xl p-3 flex items-center justify-between text-xs gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="w-2 h-2 rounded-full bg-[#81B29A] shrink-0" />
+              <span className="text-[#A89F95] truncate">
+                Tracked: <strong className="text-[#F4F1DE]">₹{e5ToAmount(trackedAllocatedE5).toLocaleString('en-IN')}</strong>
+              </span>
+            </div>
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="w-2 h-2 rounded-full bg-[#F2CC8F] shrink-0" />
+              <span className="text-[#A89F95] truncate">
+                Untracked Pool: <strong className="text-[#F2CC8F]">₹{e5ToAmount(untrackedAllocatedE5).toLocaleString('en-IN')}</strong>
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Search & Filter Toolbar */}
+      <div className="space-y-3 w-full max-w-full overflow-x-hidden">
+        <div className="flex flex-col gap-2.5 w-full">
+          {/* Search Field */}
+          <div className="relative w-full">
+            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-[#8C837A]" />
+            <input
+              type="text"
+              placeholder="Search category or envelope ID..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full bg-[#1A1715] border border-[#38322E] text-[#F4F1DE] placeholder-[#6E665E] text-xs rounded-2xl pl-10 pr-4 py-2.5 focus:outline-none focus:border-[#E07A5F] transition-all shadow-inner"
+            />
+          </div>
+
+          {/* Filter Pills Toolbar */}
+          <div className="flex items-center gap-1.5 bg-[#1A1715] p-1 rounded-2xl border border-[#38322E] overflow-x-auto no-scrollbar">
+            {(
+              [
+                { id: 'all', label: 'All' },
+                { id: 'tracked', label: 'Tracked' },
+                { id: 'untracked', label: 'Untracked Pool' },
+                { id: 'ontrack', label: 'On Track' },
+                { id: 'warning', label: 'Warning' },
+                { id: 'overbudget', label: 'Over Budget' }
+              ] as const
+            ).map((filter) => (
+              <button
+                key={filter.id}
+                onClick={() => setStatusFilter(filter.id)}
+                className={`px-3 py-1.5 text-[11px] font-bold rounded-xl whitespace-nowrap transition-all cursor-pointer ${
+                  statusFilter === filter.id
+                    ? 'bg-[#38322E] text-[#F4F1DE] shadow-md border border-[#4A433F]'
+                    : 'text-[#A89F95] hover:text-[#F4F1DE]'
+                }`}
+              >
+                {filter.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Category Cards List */}
+      {filteredCategories.length === 0 ? (
+        <Card className="text-center py-10 space-y-3 w-full max-w-full">
+          <div className="w-12 h-12 rounded-2xl bg-[#2E2A27] text-[#A89F95] flex items-center justify-center mx-auto">
+            <Layers className="w-6 h-6" />
+          </div>
+          <div className="space-y-1">
+            <h3 className="text-sm font-bold text-[#F4F1DE]">No budget categories found</h3>
+            <p className="text-xs text-[#8C837A] max-w-xs mx-auto">
+              {searchTerm || statusFilter !== 'all'
+                ? 'No categories match your search or filter criteria.'
+                : 'No active budget categories returned from backend.'}
+            </p>
+          </div>
+        </Card>
+      ) : (
+        <div className="space-y-3.5 w-full max-w-full">
+          {filteredCategories.map((cat) => {
+            const isExpanded = expandedEnvelopeId === cat.envelope_id;
+            const categoryTitle = cat.is_system ? 'Untracked General Budget' : cat.name;
+
+            return (
+              <div
+                key={cat.envelope_id}
+                className={`bg-[#24201D] border rounded-3xl p-4 transition-all shadow-xl space-y-3.5 w-full overflow-x-hidden min-w-0 ${
+                  cat.is_system
+                    ? 'border-[#D4A373]/30 bg-gradient-to-b from-[#292420] to-[#211D1A]'
+                    : 'border-[#342F2C] hover:border-[#4A433F]'
+                }`}
+              >
+                {/* Category Header Row */}
+                <div className="flex items-start justify-between gap-2.5">
+                  <div className="space-y-1 min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="font-extrabold text-sm text-[#F4F1DE] truncate">{categoryTitle}</h3>
+                      
+                      {/* Untracked Pool Badge (Replaces any internal system tags) */}
+                      {cat.is_system && (
+                        <Badge variant="amber" className="text-[9px] py-0 px-2 font-bold flex items-center gap-1">
+                          <HelpCircle className="w-3 h-3 text-[#F2CC8F]" /> Untracked Pool
+                        </Badge>
+                      )}
+
+                      {cat.isOverBudget && (
+                        <Badge variant="rose" className="text-[9px] py-0 px-2 font-bold flex items-center gap-1">
+                          <AlertTriangle className="w-3 h-3" /> Over Budget
+                        </Badge>
+                      )}
+
+                      {cat.isWarning && (
+                        <Badge variant="amber" className="text-[9px] py-0 px-2 font-bold flex items-center gap-1">
+                          <ShieldAlert className="w-3 h-3" /> 80%+ Used
+                        </Badge>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-2 text-[11px] text-[#A89F95] flex-wrap">
+                      <span className="flex items-center gap-1 font-mono text-[10px] bg-[#1A1715] px-2 py-0.5 rounded-lg border border-[#342F2C]">
+                        <Tag className="w-3 h-3 text-[#E07A5F]" />
+                        ENV: {cat.envelope_id.slice(0, 8)}...
+                      </span>
+                      <span>Cadence: {cat.cadence}</span>
+                      <span>Region: {cat.currency}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Spending Progress Indicator */}
+                {!cat.is_system ? (
+                  <div className="space-y-1.5 pt-1">
+                    <div className="flex items-center justify-between text-xs font-bold">
+                      <span className="text-[#A89F95] text-[11px]">Usage Status</span>
+                      <span
+                        className={
+                          cat.isOverBudget
+                            ? 'text-[#E8A598]'
+                            : cat.isWarning
+                            ? 'text-[#F2CC8F]'
+                            : 'text-[#81B29A]'
+                        }
+                      >
+                        {cat.usagePercent.toFixed(1)}% Spent
+                      </span>
+                    </div>
+                    <ProgressBar
+                      value={cat.usagePercent}
+                      colorVariant={cat.isOverBudget ? 'rose' : cat.isWarning ? 'amber' : 'emerald'}
+                    />
+                  </div>
+                ) : (
+                  <div className="bg-[#1A1715]/70 p-2.5 rounded-2xl border border-[#342F2C] text-xs text-[#A89F95] leading-relaxed flex items-center gap-2">
+                    <HelpCircle className="w-4 h-4 text-[#F2CC8F] shrink-0" />
+                    <span>This pool holds untracked budget allocations reserved for flexible or general spending.</span>
+                  </div>
+                )}
+
+                {/* Financial Grid (Allocated, Spent, Remaining) */}
+                <div className="grid grid-cols-3 gap-1.5 pt-2 border-t border-[#342F2C] text-center">
+                  <div className="bg-[#1A1715] p-2 rounded-2xl border border-[#342F2C] min-w-0">
+                    <p className="text-[9px] text-[#8C837A] uppercase font-bold tracking-wider truncate">Allocated</p>
+                    <p className="text-xs font-black text-[#F4F1DE] mt-0.5 truncate">
+                      ₹{e5ToAmount(cat.allocated_amount_e5).toLocaleString('en-IN')}
+                    </p>
+                  </div>
+
+                  <div className="bg-[#1A1715] p-2 rounded-2xl border border-[#342F2C] min-w-0">
+                    <p className="text-[9px] text-[#8C837A] uppercase font-bold tracking-wider truncate">Spent</p>
+                    <p className="text-xs font-black text-[#E8A598] mt-0.5 truncate">
+                      ₹{e5ToAmount(cat.spentE5).toLocaleString('en-IN')}
+                    </p>
+                  </div>
+
+                  <div className="bg-[#1A1715] p-2 rounded-2xl border border-[#342F2C] min-w-0">
+                    <p className="text-[9px] text-[#8C837A] uppercase font-bold tracking-wider truncate">Remaining</p>
+                    <p
+                      className={`text-xs font-black mt-0.5 truncate ${
+                        cat.remainingE5 < 0 ? 'text-[#E8A598]' : 'text-[#81B29A]'
+                      }`}
+                    >
+                      ₹{e5ToAmount(cat.remainingE5).toLocaleString('en-IN')}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Mapped Transactions Accordion */}
+                <button
+                  onClick={() => toggleExpand(cat.envelope_id)}
+                  className="w-full flex items-center justify-between text-xs text-[#A89F95] hover:text-[#F4F1DE] pt-2 border-t border-[#342F2C] font-semibold cursor-pointer transition-colors"
+                >
+                  <span className="flex items-center gap-1.5">
+                    <Layers className="w-3.5 h-3.5 text-[#E07A5F]" />
+                    <span>Mapped Transactions ({cat.matchingTxns.length})</span>
+                  </span>
+                  {isExpanded ? <ChevronUp className="w-4 h-4 text-[#E07A5F]" /> : <ChevronDown className="w-4 h-4" />}
+                </button>
+
+                {/* Expanded Transactions List */}
+                {isExpanded && (
+                  <div className="space-y-2 pt-2 animate-fadeIn">
+                    {cat.matchingTxns.length === 0 ? (
+                      <div className="p-3 text-center text-xs text-[#8C837A] bg-[#1A1715] border border-dashed border-[#342F2C] rounded-2xl">
+                        No expenses logged for this category envelope yet.
+                      </div>
+                    ) : (
+                      cat.matchingTxns.map((txn) => {
+                        const { dateStr, timeStr } = formatTransactionDateTime(txn.created_at);
+                        return (
+                          <div
+                            key={txn.id}
+                            className="bg-[#1A1715] border border-[#342F2C] rounded-2xl p-2.5 flex items-center justify-between gap-2 shadow-inner"
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <div className="w-7 h-7 rounded-xl bg-[#E8A598]/15 text-[#E8A598] flex items-center justify-center shrink-0 border border-[#E8A598]/20">
+                                <ArrowUpRight className="w-3.5 h-3.5" />
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-xs font-bold text-[#F4F1DE] truncate">
+                                  {txn.bank_name || 'Debit Expense'}
+                                </p>
+                                <p className="text-[10px] text-[#A89F95] flex items-center gap-1">
+                                  <span>{dateStr}</span>
+                                  {timeStr && <span>• {timeStr}</span>}
+                                </p>
+                              </div>
+                            </div>
+                            <span className="text-xs font-black text-[#E8A598] shrink-0">
+                              -₹{e5ToAmount(txn.amount_e5).toLocaleString('en-IN')}
+                            </span>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Uncategorized Expenses Section */}
+      {uncategorizedDebitTxns.length > 0 && (
+        <div className="bg-[#24201D] border border-[#38322E] rounded-3xl p-4 space-y-3 shadow-xl">
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <h3 className="text-xs font-extrabold text-[#F4F1DE] flex items-center gap-1.5">
+                <AlertTriangle className="w-3.5 h-3.5 text-[#F2CC8F]" />
+                Unassigned Expenses
+              </h3>
+              <p className="text-[11px] text-[#A89F95]">
+                {uncategorizedDebitTxns.length} transaction{uncategorizedDebitTxns.length !== 1 ? 's' : ''} outside active category envelopes
+              </p>
+            </div>
+            <span className="text-xs font-black text-[#E8A598]">
+              ₹{e5ToAmount(uncategorizedSpentE5).toLocaleString('en-IN')}
+            </span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default BudgetPage;

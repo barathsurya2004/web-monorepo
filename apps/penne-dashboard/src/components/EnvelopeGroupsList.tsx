@@ -46,7 +46,7 @@ export const EnvelopeGroupsList: React.FC<EnvelopeGroupsListProps> = ({
                       <h3 className="font-extrabold text-[#F4F1DE] text-sm truncate">{group.name}</h3>
                       {group.is_system && (
                         <Badge variant="cream" className="text-[9px] py-0 px-1.5 font-bold uppercase shrink-0">
-                          System
+                          General Pool
                         </Badge>
                       )}
                     </div>
@@ -100,7 +100,7 @@ export const EnvelopeGroupsList: React.FC<EnvelopeGroupsListProps> = ({
                               <span className="font-extrabold text-xs text-[#F4F1DE] truncate">
                                 {env.is_system ? 'Unallocated Funds Pool' : `Envelope #${env.id.slice(-4)}`}
                               </span>
-                              {env.is_system && <Badge variant="slate" className="text-[9px]">System</Badge>}
+                              {env.is_system && <Badge variant="slate" className="text-[9px]">Untracked</Badge>}
                             </div>
                             <p className="text-[11px] text-[#A89F95]">Cadence: {env.cadence}</p>
                           </div>

@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { api } from './services/api';
-import { User, Transaction, AuthSession } from '@packages/types';
+import { User, Transaction, AuthSession, ActiveCategory } from '@packages/types';
 
 import { Header } from './components/Header';
 import { SignupPage } from './components/SignupPage';
 import { LoginPage } from './components/LoginPage';
 import { HomePage } from './components/HomePage';
+import { BudgetPage } from './components/BudgetPage';
 import { AccountView } from './components/AccountView';
 import { BottomTabBar, NavTab } from './components/BottomTabBar';
 import { NewTxnModal } from './components/Modals';
@@ -18,6 +19,7 @@ export const App: React.FC = () => {
   const [recentSessions, setRecentSessions] = useState<AuthSession[]>([]);
 
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [categories, setCategories] = useState<ActiveCategory[]>([]);
   const [isMockMode, setIsMockMode] = useState<boolean>(false);
   const [isServerOffline, setIsServerOffline] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -37,6 +39,7 @@ export const App: React.FC = () => {
         const u = await api.getUser();
         setUser(u);
         setTransactions(await api.getTransactions());
+        setCategories(await api.getActiveCategories());
       } catch (e) {
         console.error('Error loading mock data', e);
       }
@@ -50,11 +53,15 @@ export const App: React.FC = () => {
       const t = await api.getTransactions();
       setTransactions(Array.isArray(t) ? t : []);
 
+      const c = await api.getActiveCategories();
+      setCategories(Array.isArray(c) ? c : []);
+
       setIsServerOffline(false);
     } catch (err) {
       console.warn('[Penne App] Live server connection failed', err);
       setIsServerOffline(true);
       setTransactions([]);
+      setCategories([]);
     }
   };
 
@@ -146,7 +153,7 @@ export const App: React.FC = () => {
     );
   }
 
-  // Authenticated Views (Strictly Home & Account Views)
+  // Authenticated Views (Home, Budget & Account Views)
   return (
     <div className="min-h-screen flex flex-col bg-[#171513] text-[#F4F1DE] w-full max-w-full overflow-x-hidden">
       {/* Toast Banner */}
@@ -167,10 +174,22 @@ export const App: React.FC = () => {
         onOpenNewTxn={() => setIsTxnModalOpen(true)}
       />
 
-      {/* Dynamic Tab Contents: Only Home & Account */}
+      {/* Dynamic Tab Contents: Home, Budget & Account */}
       <main className="flex-1 w-full max-w-full overflow-x-hidden">
         {activeTab === 'home' && (
           <HomePage
+            transactions={transactions}
+            isServerOffline={isServerOffline}
+            isMockMode={isMockMode}
+            onRetryConnection={loadData}
+            onToggleMock={toggleMockMode}
+            onOpenNewTxnModal={() => setIsTxnModalOpen(true)}
+          />
+        )}
+
+        {activeTab === 'budget' && (
+          <BudgetPage
+            categories={categories}
             transactions={transactions}
             isServerOffline={isServerOffline}
             isMockMode={isMockMode}
@@ -192,7 +211,7 @@ export const App: React.FC = () => {
         )}
       </main>
 
-      {/* Mobile Fixed Bottom Navigation Bar (Home & Account) */}
+      {/* Mobile Fixed Bottom Navigation Bar (Home, Budget & Account) */}
       <BottomTabBar
         activeTab={activeTab}
         onTabChange={(tab) => setActiveTab(tab)}
@@ -209,5 +228,6 @@ export const App: React.FC = () => {
     </div>
   );
 };
+
 
 export default App;

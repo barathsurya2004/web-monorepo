@@ -6,6 +6,7 @@ import {
   Allocation,
   AuthResponse,
   AuthSession,
+  ActiveCategory,
   amountToE5
 } from '@packages/types';
 
@@ -543,6 +544,39 @@ export class PenneApiClient {
         updated_at: nowIso
       })
     });
+  }
+
+  async getActiveCategories(): Promise<ActiveCategory[]> {
+    if (this.useMock) {
+      const mockCategoryNames: Record<string, string> = {
+        'env-sys-01': 'Unallocated Budget',
+        'env-rent-02': 'House Rent & Housing',
+        'env-groceries-03': 'Groceries & Supplies',
+        'env-dining-04': 'Dining Out & Food',
+        'env-emergency-05': 'Emergency Savings Pool'
+      };
+
+      return this.mockAllocations.map((alloc) => {
+        const env = this.mockEnvelopes.find((e) => e.id === alloc.envelope_id);
+        const name = mockCategoryNames[alloc.envelope_id] || (env ? env.id : 'General Category');
+        return {
+          name,
+          allocated_amount_e5: alloc.allocated_amount_e5,
+          is_system: env ? env.is_system : false,
+          currency: env ? env.country_iso2 : 'IN',
+          cadence: env ? env.cadence : 'monthly',
+          envelope_id: alloc.envelope_id
+        };
+      });
+    }
+
+    try {
+      const res = await this.request<ActiveCategory[]>(`/get-active-categories?user_uuid=${this.userUUID}`, { method: 'GET' });
+      return Array.isArray(res) ? res : [];
+    } catch (err) {
+      console.warn('[Penne API] /get-active-categories failed, returning empty list', err);
+      return [];
+    }
   }
 }
 

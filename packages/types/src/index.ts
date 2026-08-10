@@ -69,6 +69,15 @@ export interface AuthSession {
   lastUsed: string;
 }
 
+export interface ActiveCategory {
+  name: string;
+  allocated_amount_e5: number;
+  is_system: boolean;
+  currency: string;
+  cadence: string;
+  envelope_id: string;
+}
+
 // E5 Helpers (penne-server uses E5 format where 1 unit = 100,000 E5)
 export const E5_FACTOR = 100000;
 
