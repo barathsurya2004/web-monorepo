@@ -291,3 +291,148 @@ export const AllocationModal: React.FC<AllocationModalProps> = ({
     </Modal>
   );
 };
+
+// --- New Category Modal ---
+export interface NewCategoryModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  groups: EnvelopeGroup[];
+  onSubmit: (
+    groupId: string | null,
+    newGroupName: string | null,
+    categoryName: string,
+    targetAmountE5: number,
+    cadence: string
+  ) => Promise<void>;
+}
+
+export const NewCategoryModal: React.FC<NewCategoryModalProps> = ({
+  isOpen,
+  onClose,
+  groups,
+  onSubmit
+}) => {
+  const safeGroups = (Array.isArray(groups) ? groups : []).filter((g) => !g.is_system);
+  const defaultGroup = safeGroups[0]?.id || 'NEW_GROUP';
+
+  const [selectedGroupId, setSelectedGroupId] = useState<string>(defaultGroup);
+  const [newGroupName, setNewGroupName] = useState<string>('');
+  const [categoryName, setCategoryName] = useState<string>('');
+  const [budgetAmount, setBudgetAmount] = useState<string>('');
+  const [cadence, setCadence] = useState<string>('monthly');
+  const [loading, setLoading] = useState<boolean>(false);
+
+  React.useEffect(() => {
+    if (safeGroups.length > 0 && (!selectedGroupId || selectedGroupId === '')) {
+      setSelectedGroupId(safeGroups[0].id);
+    }
+  }, [groups]);
+
+  const isCreatingNewGroup = selectedGroupId === 'NEW_GROUP' || safeGroups.length === 0;
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!categoryName.trim()) return;
+
+    const parsedBudget = parseFloat(budgetAmount);
+    if (isNaN(parsedBudget) || parsedBudget <= 0) return;
+
+    if (isCreatingNewGroup && !newGroupName.trim()) return;
+
+    setLoading(true);
+    try {
+      const groupIdToUse = isCreatingNewGroup ? null : selectedGroupId;
+      const groupNameToUse = isCreatingNewGroup ? newGroupName.trim() : null;
+
+      await onSubmit(groupIdToUse, groupNameToUse, categoryName.trim(), amountToE5(parsedBudget), cadence);
+
+      setCategoryName('');
+      setBudgetAmount('');
+      setNewGroupName('');
+      onClose();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const groupOptions = [
+    ...safeGroups.map((g) => ({ value: g.id, label: g.name })),
+    { value: 'NEW_GROUP', label: '+ Create New Envelope Group...' }
+  ];
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title="Create Budget Category">
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Parent Envelope Group Selection */}
+        <div className="space-y-2">
+          <Select
+            label="Parent Envelope Group"
+            value={isCreatingNewGroup ? 'NEW_GROUP' : selectedGroupId}
+            onChange={(e) => setSelectedGroupId(e.target.value)}
+            options={groupOptions}
+          />
+        </div>
+
+        {/* Dynamic New Group Name Input if creating new group */}
+        {isCreatingNewGroup && (
+          <div className="p-3.5 rounded-2xl bg-[#1A1715] border border-[#E07A5F]/40 space-y-2 animate-fadeIn">
+            <span className="text-[11px] font-bold text-[#E07A5F] uppercase tracking-wider">
+              ✨ New Parent Group Info
+            </span>
+            <Input
+              label="Group Name"
+              type="text"
+              placeholder="e.g. Food, Transportation, Housing, Fun"
+              value={newGroupName}
+              onChange={(e) => setNewGroupName(e.target.value)}
+              required={isCreatingNewGroup}
+            />
+          </div>
+        )}
+
+        {/* Category Name */}
+        <Input
+          label="Category Name"
+          type="text"
+          placeholder="e.g. Groceries, Dining Out, Snacks"
+          value={categoryName}
+          onChange={(e) => setCategoryName(e.target.value)}
+          required
+        />
+
+        {/* Budget Amount (₹) */}
+        <Input
+          label="Budget Amount (₹)"
+          type="number"
+          step="0.01"
+          placeholder="e.g. 5000.00"
+          value={budgetAmount}
+          onChange={(e) => setBudgetAmount(e.target.value)}
+          required
+        />
+
+        {/* Cadence */}
+        <Select
+          label="Cadence"
+          value={cadence}
+          onChange={(e) => setCadence(e.target.value)}
+          options={[
+            { value: 'monthly', label: 'Monthly' },
+            { value: 'weekly', label: 'Weekly' },
+            { value: 'yearly', label: 'Yearly' }
+          ]}
+        />
+
+        {/* Footer Actions */}
+        <div className="flex justify-end gap-3 pt-3 border-t border-[#342F2C]">
+          <Button type="button" variant="ghost" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" variant="primary" disabled={loading}>
+            {loading ? 'Creating...' : 'Create Category'}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+};

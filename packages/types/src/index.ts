@@ -36,6 +36,7 @@ export interface Envelope {
   id: string;
   user_uuid: string;
   envelope_group_id: string;
+  name?: string;
   target_amount_e5: number;
   cadence: string;
   country_iso2: string;

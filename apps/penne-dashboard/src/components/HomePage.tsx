@@ -23,6 +23,7 @@ interface HomePageProps {
   onRetryConnection?: () => void;
   onToggleMock?: () => void;
   onOpenNewTxnModal: () => void;
+  onOpenNewCategoryModal?: () => void;
   isLoadingData?: boolean;
 }
 
@@ -67,6 +68,7 @@ export const HomePage: React.FC<HomePageProps> = ({
   onRetryConnection,
   onToggleMock,
   onOpenNewTxnModal,
+  onOpenNewCategoryModal,
   isLoadingData
 }) => {
   if (isLoadingData) {
@@ -161,24 +163,38 @@ export const HomePage: React.FC<HomePageProps> = ({
         />
       </div>
 
-      {/* Action Banner: Add Transaction */}
-      <div className="flex items-center justify-between bg-[#24201D] border border-[#38322E] rounded-3xl p-4 shadow-lg shadow-black/20 w-full max-w-full overflow-x-hidden">
-        <div className="space-y-0.5 min-w-0 pr-2">
+      {/* Action Banner: Add Transaction & Add Category */}
+      <div className="flex items-center justify-between bg-[#24201D] border border-[#38322E] rounded-3xl p-4 shadow-lg shadow-black/20 w-full max-w-full overflow-x-hidden gap-2">
+        <div className="space-y-0.5 min-w-0 pr-1 flex-1">
           <h2 className="text-sm font-extrabold text-[#F4F1DE] truncate">Recent Activity</h2>
           <p className="text-xs text-[#A89F95] truncate">
-            {sortedTxns.length} transaction{sortedTxns.length !== 1 ? 's' : ''} (Newest First)
+            {sortedTxns.length} transaction{sortedTxns.length !== 1 ? 's' : ''}
           </p>
         </div>
-        <Button
-          variant="primary"
-          size="md"
-          onClick={onOpenNewTxnModal}
-          className="gap-1.5 shadow-lg font-bold shrink-0 text-xs px-3.5"
-          disabled={isServerOffline && !isMockMode}
-        >
-          <Plus className="w-4 h-4" />
-          <span>New Expense</span>
-        </Button>
+        <div className="flex items-center gap-2 shrink-0">
+          {onOpenNewCategoryModal && (
+            <Button
+              variant="secondary"
+              size="md"
+              onClick={onOpenNewCategoryModal}
+              className="gap-1.5 font-bold shrink-0 text-xs px-3"
+              disabled={isServerOffline && !isMockMode}
+            >
+              <Plus className="w-4 h-4" />
+              <span>Category</span>
+            </Button>
+          )}
+          <Button
+            variant="primary"
+            size="md"
+            onClick={onOpenNewTxnModal}
+            className="gap-1.5 shadow-lg font-bold shrink-0 text-xs px-3.5"
+            disabled={isServerOffline && !isMockMode}
+          >
+            <Plus className="w-4 h-4" />
+            <span>New Expense</span>
+          </Button>
+        </div>
       </div>
 
       {/* Search & Filter Section */}

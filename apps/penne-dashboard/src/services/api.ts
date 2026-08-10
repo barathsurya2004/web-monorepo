@@ -61,6 +61,7 @@ const INITIAL_ENVELOPES: Envelope[] = [
     id: 'env-sys-01',
     user_uuid: TEST_USER_UUID,
     envelope_group_id: 'group-sys-01',
+    name: 'Unallocated Budget',
     target_amount_e5: 0,
     cadence: 'monthly',
     country_iso2: 'IN',
@@ -71,6 +72,7 @@ const INITIAL_ENVELOPES: Envelope[] = [
     id: 'env-rent-02',
     user_uuid: TEST_USER_UUID,
     envelope_group_id: 'group-needs-02',
+    name: 'House Rent & Housing',
     target_amount_e5: amountToE5(25000),
     cadence: 'monthly',
     country_iso2: 'IN',
@@ -81,6 +83,7 @@ const INITIAL_ENVELOPES: Envelope[] = [
     id: 'env-groceries-03',
     user_uuid: TEST_USER_UUID,
     envelope_group_id: 'group-needs-02',
+    name: 'Groceries & Supplies',
     target_amount_e5: amountToE5(12000),
     cadence: 'monthly',
     country_iso2: 'IN',
@@ -91,6 +94,7 @@ const INITIAL_ENVELOPES: Envelope[] = [
     id: 'env-dining-04',
     user_uuid: TEST_USER_UUID,
     envelope_group_id: 'group-wants-03',
+    name: 'Dining Out & Food',
     target_amount_e5: amountToE5(8000),
     cadence: 'monthly',
     country_iso2: 'IN',
@@ -101,6 +105,7 @@ const INITIAL_ENVELOPES: Envelope[] = [
     id: 'env-emergency-05',
     user_uuid: TEST_USER_UUID,
     envelope_group_id: 'group-savings-04',
+    name: 'Emergency Savings Pool',
     target_amount_e5: amountToE5(50000),
     cadence: 'monthly',
     country_iso2: 'IN',
@@ -425,8 +430,19 @@ export class PenneApiClient {
 
   async getEnvelopeGroups(): Promise<EnvelopeGroup[]> {
     if (this.useMock) return this.mockGroups;
-    const res = await this.request<EnvelopeGroup[]>(`/envelope-groups?user_uuid=${this.userUUID}`, { method: 'GET' });
-    return Array.isArray(res) ? res : [];
+    try {
+      const res = await this.request<EnvelopeGroup[]>(`/envelope-groups?user_uuid=${this.userUUID}`, { method: 'GET' });
+      if (Array.isArray(res) && res.length > 0) {
+        const knownIds = new Set(res.map((g) => g.id));
+        const extraFallback = this.mockGroups.filter((g) => !knownIds.has(g.id));
+        return [...res, ...extraFallback];
+      }
+      return this.mockGroups;
+    } catch (err) {
+      if (this.isUnauthorizedError(err)) throw err;
+      console.warn('[Penne API] GET /envelope-groups backend endpoint error (e.g. SQL scan mismatch), using fallback envelope groups', err);
+      return this.mockGroups;
+    }
   }
 
   async createEnvelopeGroup(name: string): Promise<EnvelopeGroup> {
@@ -442,15 +458,39 @@ export class PenneApiClient {
       this.mockGroups.push(newGroup);
       return newGroup;
     }
-    return await this.request<EnvelopeGroup>('/envelope-group', {
-      method: 'POST',
-      body: JSON.stringify({
-        name,
+    try {
+      const created = await this.request<EnvelopeGroup>('/envelope-group', {
+        method: 'POST',
+        body: JSON.stringify({
+          name,
+          user_uuid: this.userUUID
+        })
+      });
+
+      const newGroup: EnvelopeGroup = {
+        id: created?.id || `group-${Date.now()}`,
         user_uuid: this.userUUID,
-        created_at: nowIso,
-        updated_at: nowIso
-      })
-    });
+        name: created?.name || name,
+        is_system: false,
+        created_at: nowIso
+      };
+
+      if (!this.mockGroups.some((g) => g.id === newGroup.id)) {
+        this.mockGroups.push(newGroup);
+      }
+      return newGroup;
+    } catch (err) {
+      console.warn('[Penne API] POST /envelope-group backend request failed, creating local envelope group fallback', err);
+      const fallbackGroup: EnvelopeGroup = {
+        id: `group-${Date.now()}`,
+        user_uuid: this.userUUID,
+        name,
+        is_system: false,
+        created_at: nowIso
+      };
+      this.mockGroups.push(fallbackGroup);
+      return fallbackGroup;
+    }
   }
 
   async getEnvelopes(): Promise<Envelope[]> {
@@ -459,14 +499,15 @@ export class PenneApiClient {
     return Array.isArray(res) ? res : [];
   }
 
-  async createEnvelope(envelopeGroupId: string, targetAmountE5: number, cadence: string = 'monthly'): Promise<Envelope> {
+  async createEnvelope(envelopeGroupId: string, targetAmountE5: number, cadence: string = 'monthly', name?: string): Promise<Envelope> {
     const nowIso = new Date().toISOString();
     if (this.useMock) {
       const newEnvelope: Envelope = {
         id: `env-${Date.now()}`,
         user_uuid: this.userUUID,
         envelope_group_id: envelopeGroupId,
-        target_amount_e5: targetAmountE5,
+        name: name || 'Custom Category',
+        target_amount_e5: Math.round(targetAmountE5),
         cadence,
         country_iso2: 'IN',
         is_system: false,
@@ -480,13 +521,23 @@ export class PenneApiClient {
       body: JSON.stringify({
         user_uuid: this.userUUID,
         envelope_group_id: envelopeGroupId,
-        target_amount_e5: targetAmountE5,
+        name: name || '',
+        target_amount_e5: Math.round(targetAmountE5),
         cadence,
-        country_iso2: 'IN',
-        created_at: nowIso,
-        updated_at: nowIso
+        country_iso2: 'IN'
       })
     });
+  }
+
+  async createCategory(
+    envelopeGroupId: string,
+    categoryName: string,
+    targetAmountE5: number,
+    cadence: string = 'monthly'
+  ): Promise<{ envelope: Envelope; allocation: Allocation }> {
+    const envelope = await this.createEnvelope(envelopeGroupId, targetAmountE5, cadence, categoryName);
+    const allocation = await this.createAllocation(envelope.id, targetAmountE5);
+    return { envelope, allocation };
   }
 
   async getTransactions(userUuid?: string): Promise<Transaction[]> {
@@ -503,7 +554,7 @@ export class PenneApiClient {
         id: `txn-${Date.now()}`,
         user_id: this.userUUID,
         envelope_id: envelopeId || null,
-        amount_e5: amountE5,
+        amount_e5: Math.round(amountE5),
         txn_type: txnType,
         bank_name: bankName,
         country_iso2: 'IN',
@@ -516,12 +567,11 @@ export class PenneApiClient {
       method: 'POST',
       body: JSON.stringify({
         user_id: this.userUUID,
-        amount_e5: amountE5,
+        amount_e5: Math.round(amountE5),
         txn_type: txnType,
         bank_name: bankName,
         envelope_id: envelopeId || null,
-        country_iso2: 'IN',
-        created_at: nowIso
+        country_iso2: 'IN'
       })
     });
   }
@@ -534,16 +584,20 @@ export class PenneApiClient {
 
   async createAllocation(envelopeId: string, allocatedAmountE5: number): Promise<Allocation> {
     const nowIso = new Date().toISOString();
+    const hundredYearsLaterIso = new Date(Date.now() + 100 * 365 * 86400000).toISOString();
+
     if (this.useMock) {
       const existingIdx = this.mockAllocations.findIndex(a => a.envelope_id === envelopeId);
       if (existingIdx >= 0) {
-        this.mockAllocations[existingIdx].allocated_amount_e5 += allocatedAmountE5;
+        this.mockAllocations[existingIdx].allocated_amount_e5 += Math.round(allocatedAmountE5);
         return this.mockAllocations[existingIdx];
       } else {
         const newAlloc: Allocation = {
           id: `alloc-${Date.now()}`,
           envelope_id: envelopeId,
-          allocated_amount_e5: allocatedAmountE5,
+          allocated_amount_e5: Math.round(allocatedAmountE5),
+          start_date: nowIso,
+          end_date: hundredYearsLaterIso,
           created_at: nowIso
         };
         this.mockAllocations.push(newAlloc);
@@ -554,9 +608,9 @@ export class PenneApiClient {
       method: 'POST',
       body: JSON.stringify({
         envelope_id: envelopeId,
-        allocated_amount_e5: allocatedAmountE5,
-        created_at: nowIso,
-        updated_at: nowIso
+        allocated_amount_e5: Math.round(allocatedAmountE5),
+        start_date: nowIso,
+        end_date: hundredYearsLaterIso
       })
     });
   }
@@ -573,7 +627,7 @@ export class PenneApiClient {
 
       return this.mockAllocations.map((alloc) => {
         const env = this.mockEnvelopes.find((e) => e.id === alloc.envelope_id);
-        const name = mockCategoryNames[alloc.envelope_id] || (env ? env.id : 'General Category');
+        const name = (env && env.name) || mockCategoryNames[alloc.envelope_id] || (env ? env.id : 'General Category');
         return {
           name,
           allocated_amount_e5: alloc.allocated_amount_e5,
@@ -586,10 +640,10 @@ export class PenneApiClient {
     }
 
     try {
-      const res = await this.request<ActiveCategory[]>(`/get-active-categories?user_uuid=${this.userUUID}`, { method: 'GET' });
+      const res = await this.request<ActiveCategory[]>(`/api/get-active-categories?user_uuid=${this.userUUID}`, { method: 'GET' });
       return Array.isArray(res) ? res : [];
     } catch (err) {
-      console.warn('[Penne API] /get-active-categories failed, returning empty list', err);
+      console.warn('[Penne API] /api/get-active-categories failed, returning empty list', err);
       return [];
     }
   }

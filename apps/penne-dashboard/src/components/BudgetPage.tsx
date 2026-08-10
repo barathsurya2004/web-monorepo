@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ActiveCategory, Transaction, e5ToAmount } from '@packages/types';
+import { ActiveCategory, Transaction, EnvelopeGroup, Envelope, e5ToAmount } from '@packages/types';
 import { Button, Card, Badge, ProgressBar } from '@packages/ui';
 import {
   PieChart,
@@ -16,7 +16,9 @@ import {
   HelpCircle,
   FolderSync,
   ShieldAlert,
-  SlidersHorizontal
+  SlidersHorizontal,
+  Plus,
+  Folder
 } from 'lucide-react';
 import { formatTransactionDateTime } from './HomePage';
 import { BudgetPageSkeleton } from './Skeleton';
@@ -24,22 +26,28 @@ import { BudgetPageSkeleton } from './Skeleton';
 interface BudgetPageProps {
   categories: ActiveCategory[];
   transactions: Transaction[];
+  envelopeGroups?: EnvelopeGroup[];
+  envelopes?: Envelope[];
   isServerOffline?: boolean;
   isMockMode?: boolean;
   onRetryConnection?: () => void;
   onToggleMock?: () => void;
   onOpenNewTxnModal: () => void;
+  onOpenNewCategoryModal?: () => void;
   isLoadingData?: boolean;
 }
 
 export const BudgetPage: React.FC<BudgetPageProps> = ({
   categories,
   transactions,
+  envelopeGroups = [],
+  envelopes = [],
   isServerOffline,
   isMockMode,
   onRetryConnection,
   onToggleMock,
   onOpenNewTxnModal,
+  onOpenNewCategoryModal,
   isLoadingData
 }) => {
   if (isLoadingData) {
@@ -53,6 +61,19 @@ export const BudgetPage: React.FC<BudgetPageProps> = ({
   const safeCategories = Array.isArray(categories) ? categories : [];
   const safeTxns = Array.isArray(transactions) ? transactions : [];
 
+  // Envelope Group & Envelope maps for clear Envelope Name & Parent Group display
+  const parentGroupMap = new Map<string, string>();
+  (envelopeGroups || []).forEach((g) => {
+    if (g && g.id) parentGroupMap.set(g.id, g.name);
+  });
+
+  const envelopeGroupLinkMap = new Map<string, string>();
+  (envelopes || []).forEach((env) => {
+    if (env && env.id && env.envelope_group_id) {
+      envelopeGroupLinkMap.set(env.id, env.envelope_group_id);
+    }
+  });
+
   // Map each category to matching debit transactions & calculate total spent per envelope ID
   const categorySpending = safeCategories.map((cat) => {
     const matchingDebitTxns = safeTxns.filter(
@@ -64,8 +85,17 @@ export const BudgetPage: React.FC<BudgetPageProps> = ({
     const isOverBudget = spentE5 > cat.allocated_amount_e5;
     const isWarning = usagePercent >= 80 && !isOverBudget;
 
+    const matchedEnv = (envelopes || []).find((e) => e && e.id === cat.envelope_id);
+    const envGroupId = matchedEnv?.envelope_group_id || envelopeGroupLinkMap.get(cat.envelope_id);
+    const groupName =
+      (envGroupId ? parentGroupMap.get(envGroupId) : null) ||
+      (cat.is_system ? 'Unallocated Budget' : 'General Group');
+    const envelopeName = cat.name || matchedEnv?.name || 'Category Envelope';
+
     return {
       ...cat,
+      envelopeName,
+      groupName,
       spentE5,
       remainingE5,
       usagePercent,
@@ -96,10 +126,11 @@ export const BudgetPage: React.FC<BudgetPageProps> = ({
 
   // Filter Categories
   const filteredCategories = categorySpending.filter((cat) => {
-    const displayName = cat.is_system ? 'Untracked General Budget' : cat.name;
+    const displayName = cat.is_system ? 'Untracked General Budget' : cat.envelopeName;
     const matchesSearch =
       !searchTerm ||
       displayName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      cat.groupName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       cat.envelope_id.toLowerCase().includes(searchTerm.toLowerCase());
 
     if (!matchesSearch) return false;
@@ -147,22 +178,30 @@ export const BudgetPage: React.FC<BudgetPageProps> = ({
 
       {/* Hero Overview Banner */}
       <div className="relative overflow-hidden bg-gradient-to-br from-[#292421] via-[#1E1B19] to-[#141210] border border-[#3E3835] rounded-3xl p-5 shadow-2xl space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2.5 rounded-2xl bg-gradient-to-br from-[#E07A5F] to-[#C96449] text-white shadow-lg shadow-[#E07A5F]/20">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="p-2.5 rounded-2xl bg-gradient-to-br from-[#E07A5F] to-[#C96449] text-white shadow-lg shadow-[#E07A5F]/20 shrink-0">
               <PieChart className="w-5 h-5 stroke-[2.5]" />
             </div>
-            <div>
-              <h1 className="text-base font-extrabold text-[#F4F1DE] tracking-tight flex items-center gap-1.5">
+            <div className="min-w-0">
+              <h1 className="text-base font-extrabold text-[#F4F1DE] tracking-tight flex items-center gap-1.5 truncate">
                 <span>Budget Overview</span>
-                <Sparkles className="w-3.5 h-3.5 text-[#F2CC8F]" />
+                <Sparkles className="w-3.5 h-3.5 text-[#F2CC8F] shrink-0" />
               </h1>
-              <p className="text-[11px] text-[#A89F95]">Active Categories & Live Transaction Tracking</p>
+              <p className="text-[11px] text-[#A89F95] truncate">Active Categories & Live Tracking</p>
             </div>
           </div>
-          <Badge variant="amber" className="text-[10px] font-bold py-0.5 px-2.5">
-            {safeCategories.length} Active
-          </Badge>
+          {onOpenNewCategoryModal && (
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={onOpenNewCategoryModal}
+              className="gap-1.5 font-bold text-xs shrink-0 shadow-md px-3"
+            >
+              <Plus className="w-4 h-4" />
+              <span>New Category</span>
+            </Button>
+          )}
         </div>
 
         {/* Primary Budget Metric Cards */}
@@ -220,7 +259,7 @@ export const BudgetPage: React.FC<BudgetPageProps> = ({
             <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-[#8C837A]" />
             <input
               type="text"
-              placeholder="Search category or envelope ID..."
+              placeholder="Search envelope or group name..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full bg-[#1A1715] border border-[#38322E] text-[#F4F1DE] placeholder-[#6E665E] text-xs rounded-2xl pl-10 pr-4 py-2.5 focus:outline-none focus:border-[#E07A5F] transition-all shadow-inner"
@@ -274,7 +313,7 @@ export const BudgetPage: React.FC<BudgetPageProps> = ({
         <div className="space-y-3.5 w-full max-w-full">
           {filteredCategories.map((cat) => {
             const isExpanded = expandedEnvelopeId === cat.envelope_id;
-            const categoryTitle = cat.is_system ? 'Untracked General Budget' : cat.name;
+            const categoryTitle = cat.is_system ? 'Untracked General Budget' : cat.envelopeName;
 
             return (
               <div
@@ -285,13 +324,19 @@ export const BudgetPage: React.FC<BudgetPageProps> = ({
                     : 'border-[#342F2C] hover:border-[#4A433F]'
                 }`}
               >
-                {/* Category Header Row */}
+                {/* Category Header Row: Envelope Heading + Group Name Tag */}
                 <div className="flex items-start justify-between gap-2.5">
                   <div className="space-y-1 min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="font-extrabold text-sm text-[#F4F1DE] truncate">{categoryTitle}</h3>
+                      <h3 className="font-extrabold text-base text-[#F4F1DE] tracking-tight truncate">{categoryTitle}</h3>
                       
-                      {/* Untracked Pool Badge (Replaces any internal system tags) */}
+                      {/* Group Name Tag */}
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#E07A5F] bg-[#E07A5F]/15 border border-[#E07A5F]/35 px-2.5 py-0.5 rounded-lg shadow-sm">
+                        <Folder className="w-3 h-3 text-[#E07A5F]" />
+                        <span>{cat.groupName}</span>
+                      </span>
+
+                      {/* Untracked Pool Badge */}
                       {cat.is_system && (
                         <Badge variant="amber" className="text-[9px] py-0 px-2 font-bold flex items-center gap-1">
                           <HelpCircle className="w-3 h-3 text-[#F2CC8F]" /> Untracked Pool
@@ -309,15 +354,6 @@ export const BudgetPage: React.FC<BudgetPageProps> = ({
                           <ShieldAlert className="w-3 h-3" /> 80%+ Used
                         </Badge>
                       )}
-                    </div>
-
-                    <div className="flex items-center gap-2 text-[11px] text-[#A89F95] flex-wrap">
-                      <span className="flex items-center gap-1 font-mono text-[10px] bg-[#1A1715] px-2 py-0.5 rounded-lg border border-[#342F2C]">
-                        <Tag className="w-3 h-3 text-[#E07A5F]" />
-                        ENV: {cat.envelope_id.slice(0, 8)}...
-                      </span>
-                      <span>Cadence: {cat.cadence}</span>
-                      <span>Region: {cat.currency}</span>
                     </div>
                   </div>
                 </div>
@@ -351,26 +387,26 @@ export const BudgetPage: React.FC<BudgetPageProps> = ({
                   </div>
                 )}
 
-                {/* Financial Grid (Allocated, Spent, Remaining) */}
+                {/* Financial Grid (Total, Spent, Remaining) */}
                 <div className="grid grid-cols-3 gap-1.5 pt-2 border-t border-[#342F2C] text-center">
-                  <div className="bg-[#1A1715] p-2 rounded-2xl border border-[#342F2C] min-w-0">
-                    <p className="text-[9px] text-[#8C837A] uppercase font-bold tracking-wider truncate">Allocated</p>
-                    <p className="text-xs font-black text-[#F4F1DE] mt-0.5 truncate">
+                  <div className="bg-[#1A1715] p-2.5 rounded-2xl border border-[#342F2C] min-w-0">
+                    <p className="text-[9px] text-[#8C837A] uppercase font-bold tracking-wider truncate">Total</p>
+                    <p className="text-xs sm:text-sm font-black text-[#F4F1DE] mt-0.5 truncate">
                       ₹{e5ToAmount(cat.allocated_amount_e5).toLocaleString('en-IN')}
                     </p>
                   </div>
 
-                  <div className="bg-[#1A1715] p-2 rounded-2xl border border-[#342F2C] min-w-0">
+                  <div className="bg-[#1A1715] p-2.5 rounded-2xl border border-[#342F2C] min-w-0">
                     <p className="text-[9px] text-[#8C837A] uppercase font-bold tracking-wider truncate">Spent</p>
-                    <p className="text-xs font-black text-[#E8A598] mt-0.5 truncate">
+                    <p className="text-xs sm:text-sm font-black text-[#E8A598] mt-0.5 truncate">
                       ₹{e5ToAmount(cat.spentE5).toLocaleString('en-IN')}
                     </p>
                   </div>
 
-                  <div className="bg-[#1A1715] p-2 rounded-2xl border border-[#342F2C] min-w-0">
+                  <div className="bg-[#1A1715] p-2.5 rounded-2xl border border-[#342F2C] min-w-0">
                     <p className="text-[9px] text-[#8C837A] uppercase font-bold tracking-wider truncate">Remaining</p>
                     <p
-                      className={`text-xs font-black mt-0.5 truncate ${
+                      className={`text-xs sm:text-sm font-black mt-0.5 truncate ${
                         cat.remainingE5 < 0 ? 'text-[#E8A598]' : 'text-[#81B29A]'
                       }`}
                     >

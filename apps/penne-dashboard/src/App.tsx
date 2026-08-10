@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { api } from './services/api';
-import { User, Transaction, AuthSession, ActiveCategory } from '@packages/types';
+import { User, Transaction, AuthSession, ActiveCategory, EnvelopeGroup, Envelope } from '@packages/types';
 
 import { Header } from './components/Header';
 import { SignupPage } from './components/SignupPage';
@@ -9,7 +9,7 @@ import { HomePage } from './components/HomePage';
 import { BudgetPage } from './components/BudgetPage';
 import { AccountView } from './components/AccountView';
 import { BottomTabBar, NavTab } from './components/BottomTabBar';
-import { NewTxnModal } from './components/Modals';
+import { NewTxnModal, NewCategoryModal } from './components/Modals';
 
 export const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -21,12 +21,15 @@ export const App: React.FC = () => {
 
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [categories, setCategories] = useState<ActiveCategory[]>([]);
+  const [envelopeGroups, setEnvelopeGroups] = useState<EnvelopeGroup[]>([]);
+  const [envelopes, setEnvelopes] = useState<Envelope[]>([]);
   const [isMockMode, setIsMockMode] = useState<boolean>(false);
   const [isServerOffline, setIsServerOffline] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Modal State
   const [isTxnModalOpen, setIsTxnModalOpen] = useState(false);
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -42,6 +45,8 @@ export const App: React.FC = () => {
         setUser(u);
         setTransactions(await api.getTransactions());
         setCategories(await api.getActiveCategories());
+        setEnvelopeGroups(await api.getEnvelopeGroups());
+        setEnvelopes(await api.getEnvelopes());
       } catch (e) {
         console.error('Error loading mock data', e);
       } finally {
@@ -54,7 +59,7 @@ export const App: React.FC = () => {
       const u = await api.getUser();
       setUser(u);
 
-      const [t, c] = await Promise.all([
+      const [t, c, g, envs] = await Promise.all([
         api.getTransactions().catch((err) => {
           if (api.isUnauthorizedError(err)) throw err;
           return [];
@@ -62,11 +67,21 @@ export const App: React.FC = () => {
         api.getActiveCategories().catch((err) => {
           if (api.isUnauthorizedError(err)) throw err;
           return [];
+        }),
+        api.getEnvelopeGroups().catch((err) => {
+          if (api.isUnauthorizedError(err)) throw err;
+          return [];
+        }),
+        api.getEnvelopes().catch((err) => {
+          if (api.isUnauthorizedError(err)) throw err;
+          return [];
         })
       ]);
 
       setTransactions(Array.isArray(t) ? t : []);
       setCategories(Array.isArray(c) ? c : []);
+      setEnvelopeGroups(Array.isArray(g) ? g : []);
+      setEnvelopes(Array.isArray(envs) ? envs : []);
       setIsServerOffline(false);
       setIsLoadingData(false);
     } catch (err: any) {
@@ -142,6 +157,29 @@ export const App: React.FC = () => {
     await loadData();
   };
 
+  const handleCreateCategory = async (
+    groupId: string | null,
+    newGroupName: string | null,
+    categoryName: string,
+    targetAmountE5: number,
+    cadence: string
+  ) => {
+    let targetGroupId = groupId;
+    if (!targetGroupId && newGroupName) {
+      const createdGroup = await api.createEnvelopeGroup(newGroupName);
+      targetGroupId = createdGroup.id;
+    }
+
+    if (!targetGroupId) {
+      showToast('Please select or enter a valid Envelope Group');
+      return;
+    }
+
+    await api.createCategory(targetGroupId, categoryName, targetAmountE5, cadence);
+    showToast(`Category '${categoryName}' created successfully!`);
+    await loadData();
+  };
+
   // Unauthenticated Views (Only Signup / Login pages shown when user does not have a token)
   if (!isAuthenticated) {
     if (authView === 'signup') {
@@ -197,6 +235,7 @@ export const App: React.FC = () => {
             onRetryConnection={loadData}
             onToggleMock={toggleMockMode}
             onOpenNewTxnModal={() => setIsTxnModalOpen(true)}
+            onOpenNewCategoryModal={() => setIsCategoryModalOpen(true)}
             isLoadingData={isLoadingData}
           />
         )}
@@ -205,11 +244,14 @@ export const App: React.FC = () => {
           <BudgetPage
             categories={categories}
             transactions={transactions}
+            envelopeGroups={envelopeGroups}
+            envelopes={envelopes}
             isServerOffline={isServerOffline}
             isMockMode={isMockMode}
             onRetryConnection={loadData}
             onToggleMock={toggleMockMode}
             onOpenNewTxnModal={() => setIsTxnModalOpen(true)}
+            onOpenNewCategoryModal={() => setIsCategoryModalOpen(true)}
             isLoadingData={isLoadingData}
           />
         )}
@@ -240,6 +282,14 @@ export const App: React.FC = () => {
         onClose={() => setIsTxnModalOpen(false)}
         envelopes={[]}
         onSubmit={handleCreateTxn}
+      />
+
+      {/* New Category Modal */}
+      <NewCategoryModal
+        isOpen={isCategoryModalOpen}
+        onClose={() => setIsCategoryModalOpen(false)}
+        groups={envelopeGroups}
+        onSubmit={handleCreateCategory}
       />
     </div>
   );
