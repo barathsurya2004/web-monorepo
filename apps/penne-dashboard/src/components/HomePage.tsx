@@ -25,6 +25,7 @@ interface HomePageProps {
   onOpenNewTxnModal: () => void;
   onOpenNewCategoryModal?: () => void;
   onSelectTxnForEdit?: (txn: Transaction) => void;
+  onNavigateToTransactions?: () => void;
   isLoadingData?: boolean;
 }
 
@@ -71,14 +72,12 @@ export const HomePage: React.FC<HomePageProps> = ({
   onOpenNewTxnModal,
   onOpenNewCategoryModal,
   onSelectTxnForEdit,
+  onNavigateToTransactions,
   isLoadingData
 }) => {
   if (isLoadingData) {
     return <HomePageSkeleton />;
   }
-
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterType, setFilterType] = useState<'all' | 'debit' | 'credit'>('all');
 
   const safeTxns = Array.isArray(transactions) ? transactions : [];
 
@@ -88,6 +87,9 @@ export const HomePage: React.FC<HomePageProps> = ({
     const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
     return timeB - timeA;
   });
+
+  // Display only the top 5-6 recent transactions (both credit & debit)
+  const recentTxns = sortedTxns.slice(0, 6);
 
   // Calculate Total Income & Total Spend
   const totalIncomeE5 = sortedTxns
@@ -103,16 +105,6 @@ export const HomePage: React.FC<HomePageProps> = ({
   const totalSpentFormatted = `₹${e5ToAmount(totalSpentE5).toLocaleString('en-IN')}`;
   const totalRemainingFormatted = `₹${e5ToAmount(totalRemainingE5).toLocaleString('en-IN')}`;
   const totalIncomeFormatted = `₹${e5ToAmount(totalIncomeE5).toLocaleString('en-IN')}`;
-
-  // Filter transactions
-  const filteredTxns = sortedTxns.filter((t) => {
-    if (!t) return false;
-    const matchesType = filterType === 'all' || t.txn_type === filterType;
-    const matchesSearch =
-      !searchTerm ||
-      (t.bank_name && t.bank_name.toLowerCase().includes(searchTerm.toLowerCase()));
-    return matchesType && matchesSearch;
-  });
 
   return (
     <div className="w-full max-w-md mx-auto px-4 py-6 space-y-5 animate-fadeIn pb-28 overflow-x-hidden">
@@ -168,10 +160,8 @@ export const HomePage: React.FC<HomePageProps> = ({
       {/* Action Banner: Add Transaction & Add Category */}
       <div className="flex items-center justify-between bg-[#24201D] border border-[#38322E] rounded-3xl p-4 shadow-lg shadow-black/20 w-full max-w-full overflow-x-hidden gap-2">
         <div className="space-y-0.5 min-w-0 pr-1 flex-1">
-          <h2 className="text-sm font-extrabold text-[#F4F1DE] truncate">Recent Activity</h2>
-          <p className="text-xs text-[#A89F95] truncate">
-            {sortedTxns.length} transaction{sortedTxns.length !== 1 ? 's' : ''}
-          </p>
+          <h2 className="text-sm font-extrabold text-[#F4F1DE] truncate">Quick Actions</h2>
+          <p className="text-xs text-[#A89F95] truncate">Record expenses & manage budget</p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {onOpenNewCategoryModal && (
@@ -199,65 +189,44 @@ export const HomePage: React.FC<HomePageProps> = ({
         </div>
       </div>
 
-      {/* Search & Filter Section */}
+      {/* Recent Transactions Preview Section (Only Top 5-6 Txns, No Filters) */}
       <div className="space-y-3 w-full max-w-full overflow-x-hidden">
-        <div className="flex flex-col gap-2.5 w-full max-w-full overflow-x-hidden">
-          {/* Search Input */}
-          <div className="relative w-full">
-            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-[#8C837A]" />
-            <input
-              type="text"
-              placeholder="Search bank name..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-[#1A1715] border border-[#38322E] text-[#F4F1DE] placeholder-[#6E665E] text-xs rounded-2xl pl-10 pr-4 py-2.5 focus:outline-none focus:border-[#E07A5F]"
-            />
-          </div>
-
-          {/* Filter Pills */}
-          <div className="flex items-center gap-1.5 bg-[#1A1715] p-1 rounded-2xl border border-[#38322E] w-full overflow-x-auto no-scrollbar">
-            {(['all', 'debit', 'credit'] as const).map((type) => (
-              <button
-                key={type}
-                onClick={() => setFilterType(type)}
-                className={`flex-1 min-h-[36px] py-1.5 px-3 text-[11px] font-bold rounded-xl capitalize transition-all cursor-pointer whitespace-nowrap ${
-                  filterType === type
-                    ? 'bg-[#38322E] text-[#F4F1DE] shadow-sm'
-                    : 'text-[#A89F95] hover:text-[#F4F1DE]'
-                }`}
-              >
-                {type === 'debit' ? 'Expenses' : type === 'credit' ? 'Income' : 'All'}
-              </button>
-            ))}
-          </div>
+        <div className="flex items-center justify-between px-1">
+          <h3 className="text-sm font-extrabold text-[#F4F1DE]">Recent Transactions</h3>
+          {onNavigateToTransactions && (
+            <button
+              onClick={onNavigateToTransactions}
+              className="text-xs font-bold text-[#E07A5F] hover:underline flex items-center gap-1 cursor-pointer"
+            >
+              <span>View All</span>
+              <ArrowUpRight className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
 
-        {/* Transactions List */}
-        {filteredTxns.length === 0 ? (
+        {recentTxns.length === 0 ? (
           <Card className="text-center py-10 space-y-3 w-full max-w-full">
             <div className="w-12 h-12 rounded-2xl bg-[#2E2A27] text-[#A89F95] flex items-center justify-center mx-auto">
               <Wallet className="w-6 h-6" />
             </div>
             <div className="space-y-1">
               <h3 className="text-sm font-bold text-[#F4F1DE]">
-                {isServerOffline && !isMockMode ? 'Server Offline' : 'No transactions found'}
+                {isServerOffline && !isMockMode ? 'Server Offline' : 'No transactions yet'}
               </h3>
               <p className="text-xs text-[#8C837A] max-w-xs mx-auto">
                 {isServerOffline && !isMockMode
                   ? 'Connect your backend server to view your live transactions.'
-                  : sortedTxns.length === 0
-                  ? "You haven't recorded any expenses yet. Tap '+ New Expense' to get started!"
-                  : 'No transactions match your search query.'}
+                  : "You haven't recorded any transactions yet. Tap '+ New Expense' to get started!"}
               </p>
             </div>
           </Card>
         ) : (
           <div className="space-y-2.5 w-full max-w-full overflow-x-hidden">
-            {filteredTxns.map((txn) => {
+            {recentTxns.map((txn) => {
               const isDebit = txn.txn_type === 'debit';
               const formattedAmt = `₹${e5ToAmount(txn.amount_e5).toLocaleString('en-IN')}`;
               
-              // Format RFC3339/ISO-8601 date & time in UTC to match exact DB timestamp
+              // Format ISO-8601 date & time
               const { dateStr, timeStr } = formatTransactionDateTime(txn.created_at);
 
               return (
@@ -288,15 +257,9 @@ export const HomePage: React.FC<HomePageProps> = ({
                         <p className="text-xs font-extrabold text-[#F4F1DE] group-hover:text-[#E07A5F] transition-colors truncate">
                           {txn.bank_name || 'Bank Txn'}
                         </p>
-                        <Badge
-                          variant={isDebit ? 'rose' : 'sage'}
-                          className="text-[9px] py-0 px-1.5 font-bold uppercase shrink-0"
-                        >
-                          {isDebit ? 'Expense' : 'Income'}
-                        </Badge>
                       </div>
 
-                      {/* Display Date and Time of Transaction (UUID removed from FE display) */}
+                      {/* Display Date and Time of Transaction */}
                       <div className="flex items-center gap-2 text-[11px] text-[#A89F95] min-w-0">
                         <span className="flex items-center gap-1 font-mono text-[10px] text-[#C4BBB1]">
                           <Calendar className="w-3 h-3 text-[#8C837A]" />
@@ -334,3 +297,4 @@ export const HomePage: React.FC<HomePageProps> = ({
     </div>
   );
 };
+

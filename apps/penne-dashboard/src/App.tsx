@@ -6,6 +6,7 @@ import { Header } from './components/Header';
 import { SignupPage } from './components/SignupPage';
 import { LoginPage } from './components/LoginPage';
 import { HomePage } from './components/HomePage';
+import { TransactionsPage } from './components/TransactionsPage';
 import { BudgetPage } from './components/BudgetPage';
 import { AccountView } from './components/AccountView';
 import { BottomTabBar, NavTab } from './components/BottomTabBar';
@@ -256,6 +257,22 @@ export const App: React.FC = () => {
             onToggleMock={toggleMockMode}
             onOpenNewTxnModal={() => setIsTxnModalOpen(true)}
             onOpenNewCategoryModal={() => setIsCategoryModalOpen(true)}
+            onSelectTxnForEdit={handleSelectTxnForEdit}
+            onNavigateToTransactions={() => setActiveTab('transactions')}
+            isLoadingData={isLoadingData}
+          />
+        )}
+
+        {activeTab === 'transactions' && (
+          <TransactionsPage
+            transactions={transactions}
+            envelopeGroups={envelopeGroups}
+            envelopes={envelopes}
+            isServerOffline={isServerOffline}
+            isMockMode={isMockMode}
+            onRetryConnection={loadData}
+            onToggleMock={toggleMockMode}
+            onOpenNewTxnModal={() => setIsTxnModalOpen(true)}
             onSelectTxnForEdit={handleSelectTxnForEdit}
             isLoadingData={isLoadingData}
           />

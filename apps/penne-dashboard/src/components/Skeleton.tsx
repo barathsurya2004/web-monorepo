@@ -141,3 +141,45 @@ export const AccountSkeleton: React.FC = () => {
     </div>
   );
 };
+
+export const TransactionsPageSkeleton: React.FC = () => {
+  return (
+    <div className="w-full max-w-md mx-auto px-4 py-6 space-y-5 animate-pulse pb-28">
+      {/* Header Skeleton */}
+      <div className="flex items-center justify-between bg-[#24201D] border border-[#38322E] rounded-3xl p-4">
+        <div className="space-y-2 flex-1">
+          <div className="h-4 w-32 bg-[#2E2A27] rounded" />
+          <div className="h-3 w-40 bg-[#2E2A27] rounded" />
+        </div>
+        <div className="h-9 w-20 bg-[#2E2A27] rounded-2xl" />
+      </div>
+
+      {/* Search & Filter Trigger Skeleton */}
+      <div className="flex items-center gap-2">
+        <div className="h-10 flex-1 bg-[#1A1715] border border-[#38322E] rounded-2xl" />
+        <div className="h-10 w-24 bg-[#1A1715] border border-[#38322E] rounded-2xl" />
+      </div>
+
+      {/* Date Group Skeleton */}
+      <div className="space-y-3">
+        <div className="h-4 w-28 bg-[#2E2A27] rounded" />
+        {[1, 2, 3, 4, 5].map((i) => (
+          <div
+            key={i}
+            className="bg-[#24201D] border border-[#342F2C] rounded-2xl p-3.5 flex items-center justify-between gap-3 shadow-md"
+          >
+            <div className="flex items-center gap-3 flex-1">
+              <div className="w-9 h-9 rounded-2xl bg-[#2E2A27] shrink-0" />
+              <div className="space-y-2 flex-1">
+                <div className="h-3.5 w-32 bg-[#2E2A27] rounded" />
+                <div className="h-3 w-24 bg-[#2E2A27] rounded" />
+              </div>
+            </div>
+            <div className="h-5 w-16 bg-[#2E2A27] rounded-lg shrink-0" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
