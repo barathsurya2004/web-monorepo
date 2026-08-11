@@ -7,12 +7,14 @@ interface TransactionTrackerProps {
   transactions: Transaction[];
   envelopes: Envelope[];
   onOpenNewTxnModal: () => void;
+  onSelectTxnForEdit?: (txn: Transaction) => void;
 }
 
 export const TransactionTracker: React.FC<TransactionTrackerProps> = ({
   transactions,
   envelopes,
-  onOpenNewTxnModal
+  onOpenNewTxnModal,
+  onSelectTxnForEdit
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
@@ -43,7 +45,7 @@ export const TransactionTracker: React.FC<TransactionTrackerProps> = ({
             <CreditCard className="w-5 h-5 text-emerald-400" />
             Transaction History
           </h2>
-          <p className="text-xs text-slate-400">Recorded bank transactions and envelope assignments</p>
+          <p className="text-xs text-slate-400">Recorded bank transactions and envelope assignments (click any row to edit)</p>
         </div>
 
         <div className="flex items-center gap-3 w-full md:w-auto">
@@ -94,13 +96,18 @@ export const TransactionTracker: React.FC<TransactionTrackerProps> = ({
                 const dateStr = formatDate(t.created_at || t.CreatedAt);
 
                 return (
-                  <tr key={t.id || idx} className="hover:bg-slate-800/30 transition-colors">
+                  <tr
+                    key={t.id || idx}
+                    onClick={() => onSelectTxnForEdit?.(t)}
+                    className="hover:bg-slate-800/60 cursor-pointer transition-colors group"
+                    title="Click to edit transaction"
+                  >
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-2">
                         <div className={`p-1.5 rounded-lg ${isCredit ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>
                           {isCredit ? <ArrowDownLeft className="w-3.5 h-3.5" /> : <ArrowUpRight className="w-3.5 h-3.5" />}
                         </div>
-                        <span className="font-semibold capitalize text-slate-200">{t.txn_type || 'debit'}</span>
+                        <span className="font-semibold capitalize text-slate-200 group-hover:text-emerald-400 transition-colors">{t.txn_type || 'debit'}</span>
                       </div>
                     </td>
 
@@ -116,7 +123,7 @@ export const TransactionTracker: React.FC<TransactionTrackerProps> = ({
                       {assignedEnv ? (
                         <Badge variant="indigo" className="gap-1">
                           <Tag className="w-3 h-3" />
-                          <span>{assignedEnv.is_system ? 'Unallocated Pool' : `Envelope #${assignedEnv.id.slice(-4)}`}</span>
+                          <span>{assignedEnv.name || (assignedEnv.is_system ? 'Unallocated Pool' : `Envelope #${assignedEnv.id.slice(-4)}`)}</span>
                         </Badge>
                       ) : (
                         <Badge variant="amber">Uncategorized</Badge>

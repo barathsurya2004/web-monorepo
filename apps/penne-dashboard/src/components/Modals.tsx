@@ -1,40 +1,83 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Modal, Input, Select, Button } from '@packages/ui';
-import { EnvelopeGroup, Envelope, amountToE5, formatCurrency } from '@packages/types';
+import { Transaction, EnvelopeGroup, Envelope, amountToE5, e5ToAmount, formatCurrency } from '@packages/types';
 
 // --- New Transaction Modal ---
 interface NewTxnModalProps {
   isOpen: boolean;
   onClose: () => void;
   envelopes: Envelope[];
-  onSubmit: (amountE5: number, txnType: string, bankName: string, envelopeId?: string) => Promise<void>;
+  groups?: EnvelopeGroup[];
+  onSubmit: (amountE5: number, txnType: string, bankName: string, envelopeId?: string | null) => Promise<void>;
 }
 
 export const NewTxnModal: React.FC<NewTxnModalProps> = ({
   isOpen,
   onClose,
   envelopes,
+  groups = [],
   onSubmit
 }) => {
+  const systemEnv = (envelopes || []).find((e) => e && (e.is_system || e.name === 'Unallocated Budget'));
+  const systemEnvId = systemEnv?.id || '';
+
   const [amount, setAmount] = useState<string>('');
   const [txnType, setTxnType] = useState<string>('debit');
   const [bankName, setBankName] = useState<string>('HDFC Bank');
+  const [envelopeId, setEnvelopeId] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      if (!envelopeId && systemEnvId) {
+        setEnvelopeId(systemEnvId);
+      }
+    }
+  }, [isOpen, systemEnvId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const parsed = parseFloat(amount);
     if (isNaN(parsed) || parsed <= 0) return;
 
+    const targetEnvId = envelopeId || systemEnvId;
+
     setLoading(true);
     try {
-      await onSubmit(amountToE5(parsed), txnType, bankName);
+      await onSubmit(amountToE5(parsed), txnType, bankName, targetEnvId);
       setAmount('');
+      setEnvelopeId('');
       onClose();
     } finally {
       setLoading(false);
     }
   };
+
+  const groupMap = new Map<string, string>();
+  (groups || []).forEach((g) => {
+    if (g && g.id) groupMap.set(g.id, g.name);
+  });
+
+  const envelopeOptions = (envelopes || []).map((env) => {
+    const gName = groupMap.get(env.envelope_group_id);
+    const envName = env.name || (env.is_system ? 'Unallocated Budget' : `Envelope #${env.id.slice(-4)}`);
+    const label = env.is_system
+      ? 'Unallocated Budget (System Pool)'
+      : gName
+      ? `${gName} › ${envName}`
+      : envName;
+    return {
+      value: env.id,
+      label
+    };
+  });
+
+  if (envelopeOptions.length === 0) {
+    envelopeOptions.push({
+      value: systemEnvId,
+      label: 'Unallocated Budget (System Pool)'
+    });
+  }
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Record Expense / Income">
@@ -60,6 +103,13 @@ export const NewTxnModal: React.FC<NewTxnModalProps> = ({
           ]}
         />
 
+        <Select
+          label="Assigned Envelope"
+          value={envelopeId}
+          onChange={(e) => setEnvelopeId(e.target.value)}
+          options={envelopeOptions}
+        />
+
         <Input
           label="Bank / Account Name"
           type="text"
@@ -75,6 +125,145 @@ export const NewTxnModal: React.FC<NewTxnModalProps> = ({
           </Button>
           <Button type="submit" variant="primary" disabled={loading}>
             {loading ? 'Saving...' : 'Add Transaction'}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+};
+
+// --- Edit Transaction Modal ---
+interface EditTxnModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  transaction: Transaction | null;
+  envelopes: Envelope[];
+  groups?: EnvelopeGroup[];
+  onSubmit: (txnId: string, amountE5: number, txnType: string, bankName: string, envelopeId?: string | null) => Promise<void>;
+}
+
+export const EditTxnModal: React.FC<EditTxnModalProps> = ({
+  isOpen,
+  onClose,
+  transaction,
+  envelopes,
+  groups = [],
+  onSubmit
+}) => {
+  const systemEnv = (envelopes || []).find((e) => e && (e.is_system || e.name === 'Unallocated Budget'));
+  const systemEnvId = systemEnv?.id || '';
+
+  const [amount, setAmount] = useState<string>('');
+  const [txnType, setTxnType] = useState<string>('debit');
+  const [bankName, setBankName] = useState<string>('');
+  const [envelopeId, setEnvelopeId] = useState<string>('');
+  const [loading, setLoading] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (transaction) {
+      setAmount(e5ToAmount(transaction.amount_e5 || 0).toString());
+      setTxnType(transaction.txn_type || 'debit');
+      setBankName(transaction.bank_name || '');
+      setEnvelopeId(transaction.envelope_id || systemEnvId);
+    }
+  }, [transaction, isOpen, systemEnvId]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!transaction) return;
+
+    const parsed = parseFloat(amount);
+    if (isNaN(parsed) || parsed <= 0) return;
+
+    const targetEnvId = envelopeId || systemEnvId;
+
+    setLoading(true);
+    try {
+      await onSubmit(
+        transaction.id,
+        amountToE5(parsed),
+        txnType,
+        bankName,
+        targetEnvId
+      );
+      onClose();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const groupMap = new Map<string, string>();
+  (groups || []).forEach((g) => {
+    if (g && g.id) groupMap.set(g.id, g.name);
+  });
+
+  const envelopeOptions = (envelopes || []).map((env) => {
+    const gName = groupMap.get(env.envelope_group_id);
+    const envName = env.name || (env.is_system ? 'Unallocated Budget' : `Envelope #${env.id.slice(-4)}`);
+    const label = env.is_system
+      ? 'Unallocated Budget (System Pool)'
+      : gName
+      ? `${gName} › ${envName}`
+      : envName;
+    return {
+      value: env.id,
+      label
+    };
+  });
+
+  if (envelopeOptions.length === 0) {
+    envelopeOptions.push({
+      value: systemEnvId,
+      label: 'Unallocated Budget (System Pool)'
+    });
+  }
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title="Edit Transaction Details">
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <Input
+          label="Amount (₹)"
+          type="number"
+          step="0.01"
+          placeholder="e.g. 1500.00"
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+          required
+          autoFocus
+        />
+
+        <Select
+          label="Transaction Type"
+          value={txnType}
+          onChange={(e) => setTxnType(e.target.value)}
+          options={[
+            { value: 'debit', label: 'Expense (Debit Outflow)' },
+            { value: 'credit', label: 'Income (Credit Inflow)' }
+          ]}
+        />
+
+        <Select
+          label="Assigned Envelope"
+          value={envelopeId}
+          onChange={(e) => setEnvelopeId(e.target.value)}
+          options={envelopeOptions}
+        />
+
+        <Input
+          label="Bank / Account Name"
+          type="text"
+          placeholder="e.g. HDFC Bank, ICICI Bank, Cash"
+          value={bankName}
+          onChange={(e) => setBankName(e.target.value)}
+          required
+        />
+
+        <div className="flex justify-end gap-3 pt-3 border-t border-[#342F2C]">
+          <Button type="button" variant="ghost" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" variant="primary" disabled={loading}>
+            {loading ? 'Saving...' : 'Save Changes'}
           </Button>
         </div>
       </form>

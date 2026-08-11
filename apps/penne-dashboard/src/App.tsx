@@ -9,7 +9,7 @@ import { HomePage } from './components/HomePage';
 import { BudgetPage } from './components/BudgetPage';
 import { AccountView } from './components/AccountView';
 import { BottomTabBar, NavTab } from './components/BottomTabBar';
-import { NewTxnModal, NewCategoryModal } from './components/Modals';
+import { NewTxnModal, NewCategoryModal, EditTxnModal } from './components/Modals';
 
 export const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -30,6 +30,8 @@ export const App: React.FC = () => {
   // Modal State
   const [isTxnModalOpen, setIsTxnModalOpen] = useState(false);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [selectedTxnForEdit, setSelectedTxnForEdit] = useState<Transaction | null>(null);
+  const [isEditTxnModalOpen, setIsEditTxnModalOpen] = useState(false);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -150,10 +152,28 @@ export const App: React.FC = () => {
   const handleCreateTxn = async (
     amountE5: number,
     txnType: string,
-    bankName: string
+    bankName: string,
+    envelopeId?: string | null
   ) => {
-    await api.createTransaction(amountE5, txnType, bankName);
+    await api.createTransaction(amountE5, txnType, bankName, envelopeId);
     showToast('Transaction recorded successfully!');
+    await loadData();
+  };
+
+  const handleSelectTxnForEdit = (txn: Transaction) => {
+    setSelectedTxnForEdit(txn);
+    setIsEditTxnModalOpen(true);
+  };
+
+  const handleUpdateTxn = async (
+    txnId: string,
+    amountE5: number,
+    txnType: string,
+    bankName: string,
+    envelopeId?: string | null
+  ) => {
+    await api.updateTransaction(txnId, amountE5, txnType, bankName, envelopeId);
+    showToast('Transaction details updated!');
     await loadData();
   };
 
@@ -236,6 +256,7 @@ export const App: React.FC = () => {
             onToggleMock={toggleMockMode}
             onOpenNewTxnModal={() => setIsTxnModalOpen(true)}
             onOpenNewCategoryModal={() => setIsCategoryModalOpen(true)}
+            onSelectTxnForEdit={handleSelectTxnForEdit}
             isLoadingData={isLoadingData}
           />
         )}
@@ -252,6 +273,7 @@ export const App: React.FC = () => {
             onToggleMock={toggleMockMode}
             onOpenNewTxnModal={() => setIsTxnModalOpen(true)}
             onOpenNewCategoryModal={() => setIsCategoryModalOpen(true)}
+            onSelectTxnForEdit={handleSelectTxnForEdit}
             isLoadingData={isLoadingData}
           />
         )}
@@ -280,8 +302,22 @@ export const App: React.FC = () => {
       <NewTxnModal
         isOpen={isTxnModalOpen}
         onClose={() => setIsTxnModalOpen(false)}
-        envelopes={[]}
+        envelopes={envelopes}
+        groups={envelopeGroups}
         onSubmit={handleCreateTxn}
+      />
+
+      {/* Edit Transaction Modal */}
+      <EditTxnModal
+        isOpen={isEditTxnModalOpen}
+        onClose={() => {
+          setIsEditTxnModalOpen(false);
+          setSelectedTxnForEdit(null);
+        }}
+        transaction={selectedTxnForEdit}
+        envelopes={envelopes}
+        groups={envelopeGroups}
+        onSubmit={handleUpdateTxn}
       />
 
       {/* New Category Modal */}

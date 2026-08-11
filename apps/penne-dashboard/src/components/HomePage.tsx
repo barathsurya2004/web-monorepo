@@ -24,6 +24,7 @@ interface HomePageProps {
   onToggleMock?: () => void;
   onOpenNewTxnModal: () => void;
   onOpenNewCategoryModal?: () => void;
+  onSelectTxnForEdit?: (txn: Transaction) => void;
   isLoadingData?: boolean;
 }
 
@@ -69,6 +70,7 @@ export const HomePage: React.FC<HomePageProps> = ({
   onToggleMock,
   onOpenNewTxnModal,
   onOpenNewCategoryModal,
+  onSelectTxnForEdit,
   isLoadingData
 }) => {
   if (isLoadingData) {
@@ -261,12 +263,14 @@ export const HomePage: React.FC<HomePageProps> = ({
               return (
                 <div
                   key={txn.id}
-                  className="bg-[#24201D] border border-[#342F2C] rounded-2xl p-3.5 transition-all flex items-center justify-between gap-2.5 shadow-md w-full max-w-full overflow-x-hidden min-w-0"
+                  onClick={() => onSelectTxnForEdit?.(txn)}
+                  className="bg-[#24201D] border border-[#342F2C] hover:border-[#E07A5F]/60 hover:bg-[#2B2623] cursor-pointer rounded-2xl p-3.5 transition-all flex items-center justify-between gap-2.5 shadow-md w-full max-w-full overflow-x-hidden min-w-0 group"
+                  title="Click to edit transaction details"
                 >
                   {/* Left: Icon & Bank Details */}
                   <div className="flex items-center gap-2.5 min-w-0 flex-1 overflow-x-hidden">
                     <div
-                      className={`w-9 h-9 rounded-2xl flex items-center justify-center shrink-0 ${
+                      className={`w-9 h-9 rounded-2xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-105 ${
                         isDebit
                           ? 'bg-[#E8A598]/15 text-[#E8A598] border border-[#E8A598]/20'
                           : 'bg-[#81B29A]/15 text-[#81B29A] border border-[#81B29A]/20'
@@ -281,7 +285,7 @@ export const HomePage: React.FC<HomePageProps> = ({
 
                     <div className="min-w-0 flex-1 space-y-0.5 overflow-x-hidden">
                       <div className="flex items-center gap-1.5 min-w-0">
-                        <p className="text-xs font-extrabold text-[#F4F1DE] truncate">
+                        <p className="text-xs font-extrabold text-[#F4F1DE] group-hover:text-[#E07A5F] transition-colors truncate">
                           {txn.bank_name || 'Bank Txn'}
                         </p>
                         <Badge

@@ -34,6 +34,7 @@ interface BudgetPageProps {
   onToggleMock?: () => void;
   onOpenNewTxnModal: () => void;
   onOpenNewCategoryModal?: () => void;
+  onSelectTxnForEdit?: (txn: Transaction) => void;
   isLoadingData?: boolean;
 }
 
@@ -48,6 +49,7 @@ export const BudgetPage: React.FC<BudgetPageProps> = ({
   onToggleMock,
   onOpenNewTxnModal,
   onOpenNewCategoryModal,
+  onSelectTxnForEdit,
   isLoadingData
 }) => {
   if (isLoadingData) {
@@ -440,14 +442,16 @@ export const BudgetPage: React.FC<BudgetPageProps> = ({
                         return (
                           <div
                             key={txn.id}
-                            className="bg-[#1A1715] border border-[#342F2C] rounded-2xl p-2.5 flex items-center justify-between gap-2 shadow-inner"
+                            onClick={() => onSelectTxnForEdit?.(txn)}
+                            className="bg-[#1A1715] border border-[#342F2C] hover:border-[#E07A5F]/60 hover:bg-[#25201C] cursor-pointer rounded-2xl p-2.5 flex items-center justify-between gap-2 shadow-inner transition-all group"
+                            title="Click to edit transaction"
                           >
                             <div className="flex items-center gap-2 min-w-0">
-                              <div className="w-7 h-7 rounded-xl bg-[#E8A598]/15 text-[#E8A598] flex items-center justify-center shrink-0 border border-[#E8A598]/20">
+                              <div className="w-7 h-7 rounded-xl bg-[#E8A598]/15 text-[#E8A598] flex items-center justify-center shrink-0 border border-[#E8A598]/20 group-hover:scale-105 transition-transform">
                                 <ArrowUpRight className="w-3.5 h-3.5" />
                               </div>
                               <div className="min-w-0">
-                                <p className="text-xs font-bold text-[#F4F1DE] truncate">
+                                <p className="text-xs font-bold text-[#F4F1DE] group-hover:text-[#E07A5F] transition-colors truncate">
                                   {txn.bank_name || 'Debit Expense'}
                                 </p>
                                 <p className="text-[10px] text-[#A89F95] flex items-center gap-1">
@@ -481,12 +485,47 @@ export const BudgetPage: React.FC<BudgetPageProps> = ({
                 Unassigned Expenses
               </h3>
               <p className="text-[11px] text-[#A89F95]">
-                {uncategorizedDebitTxns.length} transaction{uncategorizedDebitTxns.length !== 1 ? 's' : ''} outside active category envelopes
+                {uncategorizedDebitTxns.length} transaction{uncategorizedDebitTxns.length !== 1 ? 's' : ''} outside active category envelopes (click to assign)
               </p>
             </div>
             <span className="text-xs font-black text-[#E8A598]">
               ₹{e5ToAmount(uncategorizedSpentE5).toLocaleString('en-IN')}
             </span>
+          </div>
+
+          <div className="space-y-2 pt-1 border-t border-[#342F2C]">
+            {uncategorizedDebitTxns.map((txn) => {
+              const { dateStr, timeStr } = formatTransactionDateTime(txn.created_at);
+              return (
+                <div
+                  key={txn.id}
+                  onClick={() => onSelectTxnForEdit?.(txn)}
+                  className="bg-[#1A1715] border border-[#342F2C] hover:border-[#F2CC8F]/60 hover:bg-[#25201C] cursor-pointer rounded-2xl p-2.5 flex items-center justify-between gap-2 shadow-inner transition-all group"
+                  title="Click to assign to an envelope"
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="w-7 h-7 rounded-xl bg-[#F2CC8F]/15 text-[#F2CC8F] flex items-center justify-center shrink-0 border border-[#F2CC8F]/20 group-hover:scale-105 transition-transform">
+                      <Tag className="w-3.5 h-3.5" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-[#F4F1DE] group-hover:text-[#F2CC8F] transition-colors truncate">
+                        {txn.bank_name || 'Unassigned Expense'}
+                      </p>
+                      <p className="text-[10px] text-[#A89F95] flex items-center gap-1">
+                        <span>{dateStr}</span>
+                        {timeStr && <span>• {timeStr}</span>}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Badge variant="amber" className="text-[9px] py-0.5 px-1.5 font-bold">Assign</Badge>
+                    <span className="text-xs font-black text-[#E8A598]">
+                      -₹{e5ToAmount(txn.amount_e5).toLocaleString('en-IN')}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
