@@ -203,6 +203,9 @@ export class PenneApiClient {
   }
 
   public setToken(token: string) {
+    if (this.token !== token) {
+      this.clearEnvelopeCache();
+    }
     this.token = token;
     localStorage.setItem('penne_auth_token', token);
   }
@@ -212,6 +215,7 @@ export class PenneApiClient {
   }
 
   public setUseMock(useMock: boolean) {
+    this.clearEnvelopeCache();
     this.useMock = useMock;
   }
 
@@ -267,6 +271,7 @@ export class PenneApiClient {
 
   public logout() {
     this.token = null;
+    this.clearEnvelopeCache();
     localStorage.removeItem('penne_auth_token');
   }
 
@@ -447,18 +452,14 @@ export class PenneApiClient {
     }
     try {
       const res = await this.request<EnvelopeGroup[]>(`/envelope-groups?user_uuid=${this.userUUID}`, { method: 'GET' });
-      let result = this.mockGroups;
-      if (Array.isArray(res) && res.length > 0) {
-        const knownIds = new Set(res.map((g) => g.id));
-        const extraFallback = this.mockGroups.filter((g) => !knownIds.has(g.id));
-        result = [...res, ...extraFallback];
-      }
+      const result = Array.isArray(res) ? res : [];
       this.groupsCache = { data: result, timestamp: Date.now() };
       return result;
     } catch (err) {
       if (this.isUnauthorizedError(err)) throw err;
-      console.warn('[Penne API] GET /envelope-groups backend endpoint error (e.g. SQL scan mismatch), using fallback envelope groups', err);
-      return this.mockGroups;
+      console.warn('[Penne API] GET /envelope-groups backend endpoint error', err);
+      if (this.groupsCache) return this.groupsCache.data;
+      return [];
     }
   }
 

@@ -115,6 +115,32 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
     return map;
   }, [safeGroups]);
 
+  // Extract unique Tag (Group) names for clean select list
+  const uniqueTagNames = useMemo(() => {
+    const names = new Set<string>();
+    safeGroups.forEach((g) => {
+      if (g && g.name && g.name.trim()) {
+        names.add(g.name.trim());
+      }
+    });
+    return Array.from(names).sort();
+  }, [safeGroups]);
+
+  // Map of Group Name -> Set of Group IDs sharing that name
+  const groupIdsByNameMap = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+    safeGroups.forEach((g) => {
+      if (g && g.name && g.id) {
+        const nameKey = g.name.trim();
+        if (!map.has(nameKey)) {
+          map.set(nameKey, new Set());
+        }
+        map.get(nameKey)!.add(g.id);
+      }
+    });
+    return map;
+  }, [safeGroups]);
+
   // Categories filtered by selected group (if group filter active)
   const availableEnvelopes = useMemo(() => {
     if (selectedGroupTag === 'all') return safeEnvelopes;
