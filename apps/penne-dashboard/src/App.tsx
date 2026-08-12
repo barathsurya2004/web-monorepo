@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { api } from './services/api';
+import { api, ApiEventListenerPayload } from './services/api';
 import { User, Transaction, AuthSession, ActiveCategory, EnvelopeGroup, Envelope } from '@packages/types';
 
 import { Header } from './components/Header';
@@ -11,8 +11,11 @@ import { BudgetPage } from './components/BudgetPage';
 import { AccountView } from './components/AccountView';
 import { BottomTabBar, NavTab } from './components/BottomTabBar';
 import { NewTxnModal, NewCategoryModal, EditTxnModal } from './components/Modals';
+import { ToastProvider, useToast } from './components/AlertBanner';
 
-export const App: React.FC = () => {
+const AppInner: React.FC = () => {
+  const { addToast } = useToast();
+
   const [user, setUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => !!api.getToken());
   const [isLoadingData, setIsLoadingData] = useState<boolean>(() => !!api.getToken());
@@ -26,7 +29,6 @@ export const App: React.FC = () => {
   const [envelopes, setEnvelopes] = useState<Envelope[]>([]);
   const [isMockMode, setIsMockMode] = useState<boolean>(false);
   const [isServerOffline, setIsServerOffline] = useState<boolean>(false);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Modal State
   const [isTxnModalOpen, setIsTxnModalOpen] = useState(false);
@@ -34,10 +36,24 @@ export const App: React.FC = () => {
   const [selectedTxnForEdit, setSelectedTxnForEdit] = useState<Transaction | null>(null);
   const [isEditTxnModalOpen, setIsEditTxnModalOpen] = useState(false);
 
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3000);
-  };
+  // Subscribe to API Request & Status Events globally
+  useEffect(() => {
+    const unsubscribe = api.onApiResult((event: ApiEventListenerPayload) => {
+      addToast({
+        type: event.type,
+        statusCode: event.statusCode,
+        title: event.title,
+        message: event.message,
+        method: event.method,
+        endpoint: event.endpoint,
+        duration: 1000
+      });
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [addToast]);
 
   const loadData = async () => {
     setIsLoadingData(true);
@@ -90,13 +106,17 @@ export const App: React.FC = () => {
     } catch (err: any) {
       console.warn('[Penne App] Live server connection or auth check failed', err);
       if (api.isUnauthorizedError(err)) {
-        // Backend unauthorized/unauthenticated failure -> clear token & redirect to Signup page
         api.logout();
         setUser(null);
         setIsAuthenticated(false);
         setIsLoadingData(false);
         setAuthView('signup');
-        showToast('Unauthorized session. Redirected to Signup.');
+        addToast({
+          type: 'warning',
+          statusCode: '401 UNAUTHORIZED',
+          title: 'Session Expired',
+          message: 'Your session has expired. Redirecting to Signup.'
+        });
       } else {
         setIsServerOffline(true);
         setIsLoadingData(false);
@@ -124,7 +144,12 @@ export const App: React.FC = () => {
     setUser(authUser);
     setIsAuthenticated(true);
     setRecentSessions(api.getCachedSessions());
-    showToast(`Welcome back, ${authUser.name}!`);
+    addToast({
+      type: 'success',
+      statusCode: '200 OK',
+      title: 'Welcome Back!',
+      message: `Signed in as ${authUser.name}`
+    });
     await loadData();
   };
 
@@ -136,12 +161,20 @@ export const App: React.FC = () => {
     setAuthView('signup');
     setActiveTab('home');
     setIsServerOffline(false);
-    showToast('Signed out of Penne Budget');
+    addToast({
+      type: 'info',
+      title: 'Signed Out',
+      message: 'You have signed out of Penne Budget'
+    });
   };
 
   const handleRefreshData = async () => {
     await loadData();
-    showToast('App data rehydrated!');
+    addToast({
+      type: 'info',
+      title: 'Data Synced',
+      message: 'Latest transactions & budget envelopes rehydrated.'
+    });
   };
 
   const toggleMockMode = async () => {
@@ -149,7 +182,14 @@ export const App: React.FC = () => {
     api.setUseMock(nextMock);
     setIsMockMode(nextMock);
     setIsServerOffline(false);
-    showToast(`Switched to ${nextMock ? 'Demo Mode' : 'Live Backend Server'}`);
+    addToast({
+      type: 'info',
+      statusCode: 'MODE CHANGE',
+      title: `Switched to ${nextMock ? 'Demo Mode' : 'Live Server'}`,
+      message: nextMock
+        ? 'Using simulated in-memory store.'
+        : 'Connecting to backend server.'
+    });
     if (isAuthenticated) {
       await loadData();
     }
@@ -161,9 +201,17 @@ export const App: React.FC = () => {
     bankName: string,
     envelopeId?: string | null
   ) => {
-    await api.createTransaction(amountE5, txnType, bankName, envelopeId);
-    showToast('Transaction recorded successfully!');
-    await loadData();
+    try {
+      await api.createTransaction(amountE5, txnType, bankName, envelopeId);
+      await loadData();
+    } catch (err: any) {
+      addToast({
+        type: 'error',
+        statusCode: err.status || 'ERROR',
+        title: 'Transaction Failed',
+        message: err.message || 'Failed to create transaction'
+      });
+    }
   };
 
   const handleSelectTxnForEdit = (txn: Transaction) => {
@@ -178,15 +226,31 @@ export const App: React.FC = () => {
     bankName: string,
     envelopeId?: string | null
   ) => {
-    await api.updateTransaction(txnId, amountE5, txnType, bankName, envelopeId);
-    showToast('Transaction details updated!');
-    await loadData();
+    try {
+      await api.updateTransaction(txnId, amountE5, txnType, bankName, envelopeId);
+      await loadData();
+    } catch (err: any) {
+      addToast({
+        type: 'error',
+        statusCode: err.status || 'ERROR',
+        title: 'Update Failed',
+        message: err.message || 'Failed to update transaction'
+      });
+    }
   };
 
   const handleDeleteTxn = async (txnId: string) => {
-    await api.deleteTransaction(txnId);
-    showToast('Transaction deleted successfully!');
-    await loadData();
+    try {
+      await api.deleteTransaction(txnId);
+      await loadData();
+    } catch (err: any) {
+      addToast({
+        type: 'error',
+        statusCode: err.status || 'ERROR',
+        title: 'Deletion Failed',
+        message: err.message || 'Failed to delete transaction'
+      });
+    }
   };
 
   const handleCreateCategory = async (
@@ -196,23 +260,35 @@ export const App: React.FC = () => {
     targetAmountE5: number,
     cadence: string
   ) => {
-    let targetGroupId = groupId;
-    if (!targetGroupId && newGroupName) {
-      const createdGroup = await api.createEnvelopeGroup(newGroupName);
-      targetGroupId = createdGroup.id;
-    }
+    try {
+      let targetGroupId = groupId;
+      if (!targetGroupId && newGroupName) {
+        const createdGroup = await api.createEnvelopeGroup(newGroupName);
+        targetGroupId = createdGroup.id;
+      }
 
-    if (!targetGroupId) {
-      showToast('Please select or enter a valid Envelope Group');
-      return;
-    }
+      if (!targetGroupId) {
+        addToast({
+          type: 'warning',
+          title: 'Missing Group',
+          message: 'Please select or enter a valid Envelope Group'
+        });
+        return;
+      }
 
-    await api.createCategory(targetGroupId, categoryName, targetAmountE5, cadence);
-    showToast(`Category '${categoryName}' created successfully!`);
-    await loadData();
+      await api.createCategory(targetGroupId, categoryName, targetAmountE5, cadence);
+      await loadData();
+    } catch (err: any) {
+      addToast({
+        type: 'error',
+        statusCode: err.status || 'ERROR',
+        title: 'Category Creation Failed',
+        message: err.message || 'Failed to create budget category'
+      });
+    }
   };
 
-  // Unauthenticated Views (Only Signup / Login pages shown when user does not have a token)
+  // Unauthenticated Views
   if (!isAuthenticated) {
     if (authView === 'signup') {
       return (
@@ -235,18 +311,10 @@ export const App: React.FC = () => {
     );
   }
 
-  // Authenticated Views (Instant entry when token present with Skeleton Loaders during Lazy Load)
+  // Authenticated Views
   return (
     <div className="min-h-screen min-h-[100dvh] flex flex-col bg-[#171513] text-[#F4F1DE] w-full max-w-full overflow-x-hidden">
-      {/* Toast Banner */}
-      {toastMessage && (
-        <div className="fixed bottom-20 right-4 z-50 bg-[#E07A5F] text-[#F4F1DE] px-4 py-2.5 rounded-2xl font-bold text-xs shadow-2xl shadow-[#E07A5F]/30 animate-fadeIn flex items-center gap-2 border border-[#E07A5F]/40 max-w-xs truncate">
-          <span>✨</span>
-          <span className="truncate">{toastMessage}</span>
-        </div>
-      )}
-
-      {/* Non-sticky Top Header */}
+      {/* Top Header */}
       <Header
         user={user}
         authToken={api.getToken()}
@@ -320,7 +388,7 @@ export const App: React.FC = () => {
         )}
       </main>
 
-      {/* Mobile Fixed Bottom Navigation Bar (Home, Budget & Account) */}
+      {/* Mobile Fixed Bottom Navigation Bar */}
       <BottomTabBar
         activeTab={activeTab}
         onTabChange={(tab) => setActiveTab(tab)}
@@ -361,5 +429,13 @@ export const App: React.FC = () => {
   );
 };
 
+export const App: React.FC = () => {
+  return (
+    <ToastProvider>
+      <AppInner />
+    </ToastProvider>
+  );
+};
 
 export default App;
+

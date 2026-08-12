@@ -174,10 +174,24 @@ const INITIAL_TRANSACTIONS: Transaction[] = [
   }
 ];
 
+export interface ApiEventListenerPayload {
+  endpoint: string;
+  method: string;
+  statusCode?: string | number;
+  type: 'success' | 'error' | 'warning' | 'info';
+  title: string;
+  message?: string;
+  isMock?: boolean;
+}
+
+export type ApiEventListener = (event: ApiEventListenerPayload) => void;
+
 export class PenneApiClient {
   private token: string | null = null;
   private userUUID: string = TEST_USER_UUID;
   private useMock: boolean = false;
+
+  private apiListeners: Set<ApiEventListener> = new Set();
 
   // Local state for mock store
   private mockUser: User = INITIAL_DEMO_USER;
@@ -195,6 +209,24 @@ export class PenneApiClient {
   constructor() {
     this.token = localStorage.getItem('penne_auth_token');
   }
+
+  public onApiResult(listener: ApiEventListener): () => void {
+    this.apiListeners.add(listener);
+    return () => {
+      this.apiListeners.delete(listener);
+    };
+  }
+
+  public notifyApiResult(event: ApiEventListenerPayload) {
+    this.apiListeners.forEach((listener) => {
+      try {
+        listener(event);
+      } catch (err) {
+        console.error('Error executing API result listener', err);
+      }
+    });
+  }
+
 
   public clearEnvelopeCache() {
     this.envelopesCache = null;
@@ -282,6 +314,7 @@ export class PenneApiClient {
     }
 
     const tokenToUse = explicitToken || this.token;
+    const method = (options.method || 'GET').toUpperCase();
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -293,7 +326,7 @@ export class PenneApiClient {
       headers['Authorization'] = `Bearer ${tokenToUse}`;
     }
 
-    console.log(`[Penne API Request] ${options.method || 'GET'} ${API_BASE_URL}${endpoint}`);
+    console.log(`[Penne API Request] ${method} ${API_BASE_URL}${endpoint}`);
 
     let res: Response;
     try {
@@ -303,18 +336,53 @@ export class PenneApiClient {
       });
     } catch (networkErr: any) {
       console.warn(`[Penne API Network Error] Backend unreachable at ${API_BASE_URL}${endpoint}`, networkErr);
+      const errMsg = `Backend server unreachable at ${API_BASE_URL}. Ensure backend is running.`;
+      this.notifyApiResult({
+        endpoint,
+        method,
+        statusCode: 'NETWORK ERR',
+        type: 'warning',
+        title: 'Backend Server Unreachable',
+        message: errMsg,
+        isMock: false
+      });
       throw new Error(`Failed to fetch from backend at ${API_BASE_URL}. Ensure backend server is running and CORS is enabled.`);
     }
 
     if (!res.ok) {
       const errText = await res.text();
       console.warn(`[Penne API Error] ${res.status}: ${errText}`);
+      const codeStr = `${res.status} ${res.statusText || 'SERVER ERR'}`.trim();
+      this.notifyApiResult({
+        endpoint,
+        method,
+        statusCode: codeStr,
+        type: 'error',
+        title: `Backend Request Failed (${res.status})`,
+        message: errText || `Server returned error status code ${res.status}`,
+        isMock: false
+      });
       const error: any = new Error(errText || `Request failed with status ${res.status}`);
       error.status = res.status;
       throw error;
     }
 
     const text = await res.text();
+    const codeStr = `${res.status} ${res.statusText || 'OK'}`.trim();
+
+    // Trigger success notification for state-modifying requests or auth endpoints
+    if (method !== 'GET' || endpoint.includes('/auth/')) {
+      this.notifyApiResult({
+        endpoint,
+        method,
+        statusCode: codeStr,
+        type: 'success',
+        title: `Request Succeeded (${codeStr})`,
+        message: `Successfully executed ${method} ${endpoint}`,
+        isMock: false
+      });
+    }
+
     if (!text) return [] as unknown as T;
 
     try {
@@ -602,6 +670,15 @@ export class PenneApiClient {
         created_at: nowIso
       };
       this.mockTransactions.unshift(newTxn);
+      this.notifyApiResult({
+        endpoint: '/transaction',
+        method: 'POST',
+        statusCode: '200 OK (DEMO)',
+        type: 'success',
+        title: 'Transaction Recorded (Demo)',
+        message: `Created ₹${(Math.round(amountE5)/100000).toLocaleString()} ${txnType} in demo store`,
+        isMock: true
+      });
       return newTxn;
     }
     return await this.request<Transaction>('/transaction', {
@@ -641,6 +718,15 @@ export class PenneApiClient {
           envelope_id: targetEnvelopeId
         };
         this.clearEnvelopeCache();
+        this.notifyApiResult({
+          endpoint: '/transaction',
+          method: 'PUT',
+          statusCode: '200 OK (DEMO)',
+          type: 'success',
+          title: 'Transaction Updated (Demo)',
+          message: `Updated transaction #${id.slice(-4)} in demo store`,
+          isMock: true
+        });
         return this.mockTransactions[idx];
       }
       throw new Error('Transaction not found in mock store');
@@ -666,6 +752,15 @@ export class PenneApiClient {
     this.clearEnvelopeCache();
     if (this.useMock) {
       this.mockTransactions = this.mockTransactions.filter((t) => t.id !== id);
+      this.notifyApiResult({
+        endpoint: `/transaction?uuid=${id}`,
+        method: 'DELETE',
+        statusCode: '200 OK (DEMO)',
+        type: 'success',
+        title: 'Transaction Deleted (Demo)',
+        message: `Removed transaction #${id.slice(-4)} from demo store`,
+        isMock: true
+      });
       return;
     }
 
