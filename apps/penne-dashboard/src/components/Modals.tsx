@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Input, Select, Button } from '@packages/ui';
 import { Transaction, EnvelopeGroup, Envelope, amountToE5, e5ToAmount, formatCurrency } from '@packages/types';
+import { Trash2, AlertTriangle } from 'lucide-react';
 
 // --- New Transaction Modal ---
 interface NewTxnModalProps {
@@ -140,6 +141,7 @@ interface EditTxnModalProps {
   envelopes: Envelope[];
   groups?: EnvelopeGroup[];
   onSubmit: (txnId: string, amountE5: number, txnType: string, bankName: string, envelopeId?: string | null) => Promise<void>;
+  onDelete?: (txnId: string) => Promise<void>;
 }
 
 export const EditTxnModal: React.FC<EditTxnModalProps> = ({
@@ -148,7 +150,8 @@ export const EditTxnModal: React.FC<EditTxnModalProps> = ({
   transaction,
   envelopes,
   groups = [],
-  onSubmit
+  onSubmit,
+  onDelete
 }) => {
   const systemEnv = (envelopes || []).find((e) => e && (e.is_system || e.name === 'Unallocated Budget'));
   const systemEnvId = systemEnv?.id || '';
@@ -158,6 +161,8 @@ export const EditTxnModal: React.FC<EditTxnModalProps> = ({
   const [bankName, setBankName] = useState<string>('');
   const [envelopeId, setEnvelopeId] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState<boolean>(false);
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
 
   useEffect(() => {
     if (transaction) {
@@ -165,6 +170,9 @@ export const EditTxnModal: React.FC<EditTxnModalProps> = ({
       setTxnType(transaction.txn_type || 'debit');
       setBankName(transaction.bank_name || '');
       setEnvelopeId(transaction.envelope_id || systemEnvId);
+    }
+    if (!isOpen) {
+      setIsDeleteConfirmOpen(false);
     }
   }, [transaction, isOpen, systemEnvId]);
 
@@ -189,6 +197,18 @@ export const EditTxnModal: React.FC<EditTxnModalProps> = ({
       onClose();
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!transaction || !onDelete) return;
+    setIsDeleting(true);
+    try {
+      await onDelete(transaction.id);
+      setIsDeleteConfirmOpen(false);
+      onClose();
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -219,55 +239,117 @@ export const EditTxnModal: React.FC<EditTxnModalProps> = ({
   }
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Edit Transaction Details">
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <Input
-          label="Amount (₹)"
-          type="number"
-          step="0.01"
-          placeholder="e.g. 1500.00"
-          value={amount}
-          onChange={(e) => setAmount(e.target.value)}
-          required
-          autoFocus
-        />
+    <>
+      <Modal isOpen={isOpen} onClose={onClose} title="Edit Transaction Details">
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <Input
+            label="Amount (₹)"
+            type="number"
+            step="0.01"
+            placeholder="e.g. 1500.00"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            required
+          />
 
-        <Select
-          label="Transaction Type"
-          value={txnType}
-          onChange={(e) => setTxnType(e.target.value)}
-          options={[
-            { value: 'debit', label: 'Expense (Debit Outflow)' },
-            { value: 'credit', label: 'Income (Credit Inflow)' }
-          ]}
-        />
+          <Select
+            label="Transaction Type"
+            value={txnType}
+            onChange={(e) => setTxnType(e.target.value)}
+            options={[
+              { value: 'debit', label: 'Expense (Debit Outflow)' },
+              { value: 'credit', label: 'Income (Credit Inflow)' }
+            ]}
+          />
 
-        <Select
-          label="Assigned Envelope"
-          value={envelopeId}
-          onChange={(e) => setEnvelopeId(e.target.value)}
-          options={envelopeOptions}
-        />
+          <Select
+            label="Assigned Envelope"
+            value={envelopeId}
+            onChange={(e) => setEnvelopeId(e.target.value)}
+            options={envelopeOptions}
+          />
 
-        <Input
-          label="Bank / Account Name"
-          type="text"
-          placeholder="e.g. HDFC Bank, ICICI Bank, Cash"
-          value={bankName}
-          onChange={(e) => setBankName(e.target.value)}
-          required
-        />
+          <Input
+            label="Bank / Account Name"
+            type="text"
+            placeholder="e.g. HDFC Bank, ICICI Bank, Cash"
+            value={bankName}
+            onChange={(e) => setBankName(e.target.value)}
+            required
+          />
 
-        <div className="flex justify-end gap-3 pt-3 border-t border-[#342F2C]">
-          <Button type="button" variant="ghost" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button type="submit" variant="primary" disabled={loading}>
-            {loading ? 'Saving...' : 'Save Changes'}
-          </Button>
-        </div>
-      </form>
-    </Modal>
+          <div className="flex items-center justify-between gap-3 pt-3 border-t border-[#342F2C]">
+            {onDelete ? (
+              <Button
+                type="button"
+                variant="danger"
+                onClick={() => setIsDeleteConfirmOpen(true)}
+                className="flex items-center gap-1.5"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>Delete</span>
+              </Button>
+            ) : (
+              <div />
+            )}
+
+            <div className="flex items-center gap-3">
+              <Button type="button" variant="ghost" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button type="submit" variant="primary" disabled={loading}>
+                {loading ? 'Saving...' : 'Save Changes'}
+              </Button>
+            </div>
+          </div>
+        </form>
+      </Modal>
+
+      {isDeleteConfirmOpen && (
+        <Modal
+          isOpen={isDeleteConfirmOpen}
+          onClose={() => setIsDeleteConfirmOpen(false)}
+          title="Delete Transaction"
+        >
+          <div className="space-y-4">
+            <div className="flex items-start gap-3.5 p-4 bg-rose-500/10 border border-rose-500/20 rounded-2xl">
+              <div className="p-2 bg-rose-500/20 text-rose-400 rounded-xl shrink-0 mt-0.5">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div className="space-y-1">
+                <h4 className="text-sm font-bold text-[#F4F1DE]">Confirm Transaction Deletion</h4>
+                <p className="text-xs text-[#B0A79E] leading-relaxed">
+                  Are you sure you want to delete this transaction of{' '}
+                  <span className="font-semibold text-rose-300">
+                    {formatCurrency(transaction?.amount_e5 || 0)}
+                  </span>
+                  {transaction?.bank_name ? ` (${transaction.bank_name})` : ''}? This action cannot be undone.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-2">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setIsDeleteConfirmOpen(false)}
+                disabled={isDeleting}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant="danger"
+                onClick={handleConfirmDelete}
+                disabled={isDeleting}
+              >
+                {isDeleting ? 'Deleting...' : 'Continue'}
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+    </>
   );
 };
 

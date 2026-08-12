@@ -662,6 +662,23 @@ export class PenneApiClient {
     return updated;
   }
 
+  async deleteTransaction(id: string): Promise<void> {
+    this.clearEnvelopeCache();
+    if (this.useMock) {
+      this.mockTransactions = this.mockTransactions.filter((t) => t.id !== id);
+      return;
+    }
+
+    await this.request('/transaction', {
+      method: 'DELETE',
+      body: JSON.stringify({
+        id,
+        user_id: this.userUUID
+      })
+    });
+  }
+
+
   async getActiveAllocations(): Promise<Allocation[]> {
     if (this.useMock) return this.mockAllocations;
     const res = await this.request<Allocation[]>(`/allocations/active?user_uuid=${this.userUUID}`, { method: 'GET' });

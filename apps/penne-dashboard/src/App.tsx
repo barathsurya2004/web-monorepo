@@ -183,6 +183,12 @@ export const App: React.FC = () => {
     await loadData();
   };
 
+  const handleDeleteTxn = async (txnId: string) => {
+    await api.deleteTransaction(txnId);
+    showToast('Transaction deleted successfully!');
+    await loadData();
+  };
+
   const handleCreateCategory = async (
     groupId: string | null,
     newGroupName: string | null,
@@ -341,6 +347,7 @@ export const App: React.FC = () => {
         envelopes={envelopes}
         groups={envelopeGroups}
         onSubmit={handleUpdateTxn}
+        onDelete={handleDeleteTxn}
       />
 
       {/* New Category Modal */}
