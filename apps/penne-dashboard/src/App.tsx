@@ -139,6 +139,11 @@ export const App: React.FC = () => {
     showToast('Signed out of Penne Budget');
   };
 
+  const handleRefreshData = async () => {
+    await loadData();
+    showToast('App data rehydrated!');
+  };
+
   const toggleMockMode = async () => {
     const nextMock = !isMockMode;
     api.setUseMock(nextMock);
@@ -241,6 +246,7 @@ export const App: React.FC = () => {
         authToken={api.getToken()}
         isMockMode={isMockMode}
         onToggleMock={toggleMockMode}
+        onRefresh={handleRefreshData}
         onLogout={handleLogout}
         onOpenNewTxn={() => setIsTxnModalOpen(true)}
         isLoadingData={isLoadingData}

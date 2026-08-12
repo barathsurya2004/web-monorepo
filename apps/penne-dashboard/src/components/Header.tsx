@@ -1,12 +1,13 @@
 import React from 'react';
 import { User } from '@packages/types';
-import { Wallet, Server } from 'lucide-react';
+import { Wallet, Server, RefreshCw } from 'lucide-react';
 
 interface HeaderProps {
   user: User | null;
   authToken: string | null;
   isMockMode: boolean;
   onToggleMock: () => void;
+  onRefresh?: () => void;
   onLogout: () => void;
   onOpenNewTxn?: () => void;
   isLoadingData?: boolean;
@@ -16,6 +17,7 @@ export const Header: React.FC<HeaderProps> = ({
   user,
   isMockMode,
   onToggleMock,
+  onRefresh,
   isLoadingData
 }) => {
   return (
@@ -36,7 +38,7 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
 
-        {/* Right: Live/Demo Status Pill & User Avatar */}
+        {/* Right: Live/Demo Status Pill, Refresh Button & User Avatar */}
         <div className="flex items-center gap-2 shrink-0">
           {/* Server Mode Toggle Pill */}
           <button
@@ -51,6 +53,19 @@ export const Header: React.FC<HeaderProps> = ({
             <Server className="w-3 h-3" />
             <span>{isMockMode ? 'Demo' : 'Live'}</span>
           </button>
+
+          {/* Data Rehydrate / Refresh Button */}
+          {onRefresh && (
+            <button
+              onClick={onRefresh}
+              disabled={isLoadingData}
+              className="flex items-center justify-center p-1.5 rounded-full border border-[#342F2C] bg-[#2A2624] text-[#F4F1DE]/80 hover:text-[#F4F1DE] hover:bg-[#342F2C] hover:border-[#E07A5F]/40 active:scale-95 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Rehydrate / Refresh Data"
+              aria-label="Refresh Data"
+            >
+              <RefreshCw className={`w-3 h-3 ${isLoadingData ? 'animate-spin text-[#E07A5F]' : ''}`} />
+            </button>
+          )}
 
           {/* User Avatar Circle or Loading Skeleton */}
           {isLoadingData ? (
