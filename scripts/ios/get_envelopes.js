@@ -72,35 +72,15 @@ async function main() {
 
     console.log(`Successfully retrieved ${envelopeList.length} envelopes.`);
 
-    if (config.runsInShortcuts) {
-      // Pass the envelope list back to Apple Shortcuts workflow
+    if (config.runsInShortcuts || config.runsWithSiri) {
+      // Pass the envelope list back to Apple Shortcuts / Siri workflow
       Script.setShortcutOutput(envelopeList);
-    } else if (config.runsInApp) {
-      // Interactive test dialog inside Scriptable App
-      const alert = new Alert();
-      alert.title = "Envelopes";
-      alert.message = `Fetched ${envelopeList.length} envelopes successfully.`;
-
-      envelopeList.forEach(env => {
-        alert.addAction(env.display_label);
-      });
-      alert.addCancelAction("Close");
-
-      const selectedIndex = await alert.presentAlert();
-      if (selectedIndex >= 0 && selectedIndex < envelopeList.length) {
-        const selected = envelopeList[selectedIndex];
-        const detailAlert = new Alert();
-        detailAlert.title = "Selected Envelope";
-        detailAlert.message = `Name: ${selected.name}\nID: ${selected.id}\nGroup ID: ${selected.envelope_group_id}`;
-        detailAlert.addAction("OK");
-        await detailAlert.present();
-      }
     } else {
       console.log(JSON.stringify(envelopeList, null, 2));
     }
   } catch (err) {
     console.error(`Error fetching envelopes: ${err.message || err}`);
-    if (config.runsInShortcuts) {
+    if (config.runsInShortcuts || config.runsWithSiri) {
       Script.setShortcutOutput({ error: err.message || String(err) });
     }
   }
