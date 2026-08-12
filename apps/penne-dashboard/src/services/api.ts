@@ -669,12 +669,8 @@ export class PenneApiClient {
       return;
     }
 
-    await this.request('/transaction', {
-      method: 'DELETE',
-      body: JSON.stringify({
-        id,
-        user_id: this.userUUID
-      })
+    await this.request(`/transaction?uuid=${id}`, {
+      method: 'DELETE'
     });
   }
 
