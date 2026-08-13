@@ -24,13 +24,13 @@ export const TransactionTracker: React.FC<TransactionTrackerProps> = ({
 
   const filteredTxns = safeTransactions.filter((t) => {
     if (!t) return false;
-    const bank = t.bank_name || '';
+    const paymentMethod = t.payment_method || '';
     const id = t.id || '';
 
     const matchesSearch =
-      bank.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      paymentMethod.toLowerCase().includes(searchTerm.toLowerCase()) ||
       id.toLowerCase().includes(searchTerm.toLowerCase());
-    
+
     const matchesType = typeFilter === 'all' || t.txn_type === typeFilter;
 
     return matchesSearch && matchesType;
@@ -83,7 +83,7 @@ export const TransactionTracker: React.FC<TransactionTrackerProps> = ({
             <thead>
               <tr className="border-b border-slate-800/80 text-slate-400 uppercase font-semibold text-[10px] tracking-wider">
                 <th className="py-3 px-4">Type</th>
-                <th className="py-3 px-4">Bank</th>
+                <th className="py-3 px-4">Payment Method</th>
                 <th className="py-3 px-4">Envelope Category</th>
                 <th className="py-3 px-4">Date</th>
                 <th className="py-3 px-4 text-right">Amount</th>
@@ -112,11 +112,17 @@ export const TransactionTracker: React.FC<TransactionTrackerProps> = ({
                     </td>
 
                     <td className="py-3 px-4 text-slate-300">
-                      <div className="flex items-center gap-1.5">
-                        <Building2 className="w-3.5 h-3.5 text-slate-500" />
-                        <span>{t.bank_name || 'Bank'}</span>
-                        <span className="text-[10px] text-slate-500">({t.country_iso2 || 'IN'})</span>
-                      </div>
+                      {t.payment_method === 'bank_card' ? (
+                        <span className="inline-flex items-center gap-1 text-[10px] bg-[#818CF8]/15 text-[#818CF8] border border-[#818CF8]/30 px-2 py-0.5 rounded-md font-extrabold">
+                          <CreditCard className="w-3 h-3" />
+                          <span>Bank Card</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-[10px] bg-[#2DD4BF]/15 text-[#2DD4BF] border border-[#2DD4BF]/30 px-2 py-0.5 rounded-md font-extrabold">
+                          <Building2 className="w-3 h-3" />
+                          <span>Bank Account</span>
+                        </span>
+                      )}
                     </td>
 
                     <td className="py-3 px-4">

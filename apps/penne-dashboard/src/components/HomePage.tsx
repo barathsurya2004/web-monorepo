@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Transaction, e5ToAmount } from '@packages/types';
+import React, { useState, useMemo } from 'react';
+import { Transaction, Envelope, EnvelopeGroup, e5ToAmount } from '@packages/types';
 import { Button, Card, Badge, StatCard } from '@packages/ui';
 import {
   TrendingDown,
@@ -12,12 +12,17 @@ import {
   Calendar,
   Clock,
   WifiOff,
-  RefreshCw
+  RefreshCw,
+  Tag,
+  CreditCard,
+  Building2
 } from 'lucide-react';
 import { HomePageSkeleton } from './Skeleton';
 
 interface HomePageProps {
   transactions: Transaction[];
+  envelopes?: Envelope[];
+  envelopeGroups?: EnvelopeGroup[];
   isServerOffline?: boolean;
   isMockMode?: boolean;
   onRetryConnection?: () => void;
@@ -41,8 +46,10 @@ export function formatTransactionDateTime(isoString?: string): { dateStr: string
       normalized += 'Z';
     }
 
-    const d = new Date(normalized);
-    if (isNaN(d.getTime())) return { dateStr: 'Recent', timeStr: '' };
+    let d = new Date(normalized);
+    if (isNaN(d.getTime()) || d.getFullYear() <= 1 || d.getFullYear() < 2000) {
+      d = new Date();
+    }
 
     // Format in user's local timezone for date & time
     const dateStr = d.toLocaleDateString('en-IN', {
@@ -65,6 +72,8 @@ export function formatTransactionDateTime(isoString?: string): { dateStr: string
 
 export const HomePage: React.FC<HomePageProps> = ({
   transactions,
+  envelopes = [],
+  envelopeGroups = [],
   isServerOffline,
   isMockMode,
   onRetryConnection,
@@ -75,6 +84,21 @@ export const HomePage: React.FC<HomePageProps> = ({
   onNavigateToTransactions,
   isLoadingData
 }) => {
+  const envelopeMap = useMemo(() => {
+    const map = new Map<string, Envelope>();
+    (envelopes || []).forEach((e) => {
+      if (e && e.id) map.set(e.id, e);
+    });
+    return map;
+  }, [envelopes]);
+
+  const groupMap = useMemo(() => {
+    const map = new Map<string, EnvelopeGroup>();
+    (envelopeGroups || []).forEach((g) => {
+      if (g && g.id) map.set(g.id, g);
+    });
+    return map;
+  }, [envelopeGroups]);
   if (isLoadingData) {
     return <HomePageSkeleton />;
   }
@@ -225,9 +249,17 @@ export const HomePage: React.FC<HomePageProps> = ({
             {recentTxns.map((txn) => {
               const isDebit = txn.txn_type === 'debit';
               const formattedAmt = `₹${e5ToAmount(txn.amount_e5).toLocaleString('en-IN')}`;
-              
+
               // Format ISO-8601 date & time
               const { dateStr, timeStr } = formatTransactionDateTime(txn.created_at);
+
+              const assignedEnv = txn.envelope_id ? envelopeMap.get(txn.envelope_id) : null;
+              const cardHeading = (!assignedEnv || assignedEnv.is_system || assignedEnv.name === 'Unallocated Budget')
+                ? 'General'
+                : (assignedEnv.name || 'General');
+
+              const groupName = assignedEnv?.envelope_group_id ? groupMap.get(assignedEnv.envelope_group_id)?.name : null;
+              const isBankCard = txn.payment_method === 'bank_card';
 
               return (
                 <div
@@ -236,14 +268,13 @@ export const HomePage: React.FC<HomePageProps> = ({
                   className="bg-[#24201D] border border-[#342F2C] hover:border-[#E07A5F]/60 hover:bg-[#2B2623] cursor-pointer rounded-2xl p-3.5 transition-all flex items-center justify-between gap-2.5 shadow-md w-full max-w-full overflow-x-hidden min-w-0 group"
                   title="Click to edit transaction details"
                 >
-                  {/* Left: Icon & Bank Details */}
+                  {/* Left: Icon & Details */}
                   <div className="flex items-center gap-2.5 min-w-0 flex-1 overflow-x-hidden">
                     <div
-                      className={`w-9 h-9 rounded-2xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-105 ${
-                        isDebit
+                      className={`w-9 h-9 rounded-2xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-105 ${isDebit
                           ? 'bg-[#E8A598]/15 text-[#E8A598] border border-[#E8A598]/20'
                           : 'bg-[#81B29A]/15 text-[#81B29A] border border-[#81B29A]/20'
-                      }`}
+                        }`}
                     >
                       {isDebit ? (
                         <ArrowUpRight className="w-4 h-4" />
@@ -252,28 +283,44 @@ export const HomePage: React.FC<HomePageProps> = ({
                       )}
                     </div>
 
-                    <div className="min-w-0 flex-1 space-y-0.5 overflow-x-hidden">
+                    <div className="min-w-0 flex-1 space-y-1 overflow-x-hidden">
                       <div className="flex items-center gap-1.5 min-w-0">
                         <p className="text-xs font-extrabold text-[#F4F1DE] group-hover:text-[#E07A5F] transition-colors truncate">
-                          {txn.bank_name || 'Bank Txn'}
+                          {cardHeading}
                         </p>
                       </div>
 
-                      {/* Display Date and Time of Transaction */}
-                      <div className="flex items-center gap-2 text-[11px] text-[#A89F95] min-w-0">
-                        <span className="flex items-center gap-1 font-mono text-[10px] text-[#C4BBB1]">
-                          <Calendar className="w-3 h-3 text-[#8C837A]" />
-                          {dateStr}
-                        </span>
-                        {timeStr && (
-                          <>
-                            <span className="text-[#8C837A]">•</span>
-                            <span className="flex items-center gap-1 font-mono text-[10px] text-[#A89F95]">
-                              <Clock className="w-3 h-3 text-[#8C837A]" />
-                              {timeStr}
-                            </span>
-                          </>
+                      {/* Tags & Time */}
+                      <div className="flex items-center gap-2 text-[11px] text-[#A89F95] flex-wrap">
+                        {dateStr && (
+                          <span className="flex items-center gap-1 font-mono text-[10px] text-[#C4BBB1]">
+                            <Calendar className="w-3 h-3 text-[#8C837A]" />
+                            {dateStr}
+                          </span>
                         )}
+                        {timeStr && (
+                          <span className="flex items-center gap-1 font-mono text-[10px] text-[#A89F95]">
+                            <Clock className="w-3 h-3 text-[#8C837A]" />
+                            {timeStr}
+                          </span>
+                        )}
+
+                        {groupName && (
+                          <span className="inline-flex items-center gap-1 text-[10px] bg-[#E07A5F]/15 text-[#E07A5F] border border-[#E07A5F]/30 px-1.5 py-0.5 rounded-md font-extrabold truncate max-w-[110px]">
+                            <Tag className="w-2.5 h-2.5 shrink-0" />
+                            <span className="truncate">{groupName}</span>
+                          </span>
+                        )}
+
+                        <span
+                          className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-md font-extrabold border ${isBankCard
+                              ? 'bg-[#818CF8]/15 text-[#818CF8] border-[#818CF8]/30'
+                              : 'bg-[#2DD4BF]/15 text-[#2DD4BF] border-[#2DD4BF]/30'
+                            }`}
+                        >
+                          {isBankCard ? <CreditCard className="w-2.5 h-2.5 shrink-0" /> : <Building2 className="w-2.5 h-2.5 shrink-0" />}
+                          <span>{isBankCard ? 'Bank Card' : 'Bank Account'}</span>
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -281,9 +328,8 @@ export const HomePage: React.FC<HomePageProps> = ({
                   {/* Right: Amount */}
                   <div className="text-right shrink-0 pl-1">
                     <span
-                      className={`text-sm sm:text-base font-black tracking-tight ${
-                        isDebit ? 'text-[#E8A598]' : 'text-[#81B29A]'
-                      }`}
+                      className={`text-sm sm:text-base font-black tracking-tight ${isDebit ? 'text-[#E8A598]' : 'text-[#81B29A]'
+                        }`}
                     >
                       {isDebit ? '-' : '+'}{formattedAmt}
                     </span>

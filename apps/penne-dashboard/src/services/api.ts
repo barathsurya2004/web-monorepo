@@ -148,7 +148,7 @@ const INITIAL_TRANSACTIONS: Transaction[] = [
     envelope_id: 'env-sys-01',
     amount_e5: amountToE5(90000),
     txn_type: 'credit',
-    bank_name: 'HDFC Bank',
+    payment_method: 'bank_account',
     country_iso2: 'IN',
     created_at: new Date(Date.now() - 86400000 * 2).toISOString()
   },
@@ -158,7 +158,7 @@ const INITIAL_TRANSACTIONS: Transaction[] = [
     envelope_id: 'env-rent-02',
     amount_e5: amountToE5(25000),
     txn_type: 'debit',
-    bank_name: 'HDFC Bank',
+    payment_method: 'bank_card',
     country_iso2: 'IN',
     created_at: new Date(Date.now() - 86400000 * 1).toISOString()
   },
@@ -168,7 +168,7 @@ const INITIAL_TRANSACTIONS: Transaction[] = [
     envelope_id: 'env-groceries-03',
     amount_e5: amountToE5(3450),
     txn_type: 'debit',
-    bank_name: 'ICICI Bank',
+    payment_method: 'bank_card',
     country_iso2: 'IN',
     created_at: new Date().toISOString()
   }
@@ -638,7 +638,13 @@ export class PenneApiClient {
     if (this.useMock) return this.mockTransactions;
     const targetUuid = userUuid || this.userUUID;
     const res = await this.request<Transaction[]>(`/transactions?user_uuid=${targetUuid}`, { method: 'GET' });
-    return Array.isArray(res) ? res : [];
+    const list = Array.isArray(res) ? res : [];
+    return list.map((t) => {
+      if (!t.created_at || t.created_at.startsWith('0001-01-01')) {
+        return { ...t, created_at: new Date().toISOString() };
+      }
+      return t;
+    });
   }
 
   async getSystemEnvelopeId(): Promise<string | null> {
@@ -651,7 +657,7 @@ export class PenneApiClient {
     }
   }
 
-  async createTransaction(amountE5: number, txnType: string, bankName: string, envelopeId?: string | null): Promise<Transaction> {
+  async createTransaction(amountE5: number, txnType: string, paymentMethod: string, envelopeId?: string | null): Promise<Transaction> {
     this.clearEnvelopeCache();
     let targetEnvId = envelopeId || null;
     if (!targetEnvId) {
@@ -665,7 +671,7 @@ export class PenneApiClient {
         envelope_id: targetEnvId,
         amount_e5: Math.round(amountE5),
         txn_type: txnType,
-        bank_name: bankName,
+        payment_method: paymentMethod,
         country_iso2: 'IN',
         created_at: nowIso
       };
@@ -676,29 +682,33 @@ export class PenneApiClient {
         statusCode: '200 OK (DEMO)',
         type: 'success',
         title: 'Transaction Recorded (Demo)',
-        message: `Created ₹${(Math.round(amountE5)/100000).toLocaleString()} ${txnType} in demo store`,
+        message: `Created ₹${(Math.round(amountE5) / 100000).toLocaleString()} ${txnType} in demo store`,
         isMock: true
       });
       return newTxn;
     }
-    return await this.request<Transaction>('/transaction', {
+    const created = await this.request<Transaction>('/transaction', {
       method: 'POST',
       body: JSON.stringify({
         user_id: this.userUUID,
         amount_e5: Math.round(amountE5),
         txn_type: txnType,
-        bank_name: bankName,
+        payment_method: paymentMethod,
         envelope_id: targetEnvId,
         country_iso2: 'IN'
       })
     });
+    if (created && (!created.created_at || created.created_at.startsWith('0001-01-01'))) {
+      created.created_at = nowIso;
+    }
+    return created;
   }
 
   async updateTransaction(
     id: string,
     amountE5: number,
     txnType: string,
-    bankName: string,
+    paymentMethod: string,
     envelopeId?: string | null
   ): Promise<Transaction> {
     let targetEnvelopeId = envelopeId || null;
@@ -714,7 +724,7 @@ export class PenneApiClient {
           ...this.mockTransactions[idx],
           amount_e5: roundedAmount,
           txn_type: txnType,
-          bank_name: bankName,
+          payment_method: paymentMethod,
           envelope_id: targetEnvelopeId
         };
         this.clearEnvelopeCache();
@@ -739,12 +749,15 @@ export class PenneApiClient {
         user_id: this.userUUID,
         amount_e5: roundedAmount,
         txn_type: txnType,
-        bank_name: bankName,
+        payment_method: paymentMethod,
         envelope_id: targetEnvelopeId,
         country_iso2: 'IN'
       })
     });
     this.clearEnvelopeCache();
+    if (updated && (!updated.created_at || updated.created_at.startsWith('0001-01-01'))) {
+      updated.created_at = new Date().toISOString();
+    }
     return updated;
   }
 

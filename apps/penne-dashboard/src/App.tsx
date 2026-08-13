@@ -331,6 +331,8 @@ const AppInner: React.FC = () => {
         {activeTab === 'home' && (
           <HomePage
             transactions={transactions}
+            envelopes={envelopes}
+            envelopeGroups={envelopeGroups}
             isServerOffline={isServerOffline}
             isMockMode={isMockMode}
             onRetryConnection={loadData}

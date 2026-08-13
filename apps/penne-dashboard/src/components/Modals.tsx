@@ -9,7 +9,7 @@ interface NewTxnModalProps {
   onClose: () => void;
   envelopes: Envelope[];
   groups?: EnvelopeGroup[];
-  onSubmit: (amountE5: number, txnType: string, bankName: string, envelopeId?: string | null) => Promise<void>;
+  onSubmit: (amountE5: number, txnType: string, paymentMethod: string, envelopeId?: string | null) => Promise<void>;
 }
 
 export const NewTxnModal: React.FC<NewTxnModalProps> = ({
@@ -24,7 +24,7 @@ export const NewTxnModal: React.FC<NewTxnModalProps> = ({
 
   const [amount, setAmount] = useState<string>('');
   const [txnType, setTxnType] = useState<string>('debit');
-  const [bankName, setBankName] = useState<string>('HDFC Bank');
+  const [paymentMethod, setPaymentMethod] = useState<string>('bank_card');
   const [envelopeId, setEnvelopeId] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
 
@@ -45,7 +45,7 @@ export const NewTxnModal: React.FC<NewTxnModalProps> = ({
 
     setLoading(true);
     try {
-      await onSubmit(amountToE5(parsed), txnType, bankName, targetEnvId);
+      await onSubmit(amountToE5(parsed), txnType, paymentMethod, targetEnvId);
       setAmount('');
       setEnvelopeId('');
       onClose();
@@ -65,8 +65,8 @@ export const NewTxnModal: React.FC<NewTxnModalProps> = ({
     const label = env.is_system
       ? 'Unallocated Budget (System Pool)'
       : gName
-      ? `${gName} › ${envName}`
-      : envName;
+        ? `${gName} › ${envName}`
+        : envName;
     return {
       value: env.id,
       label
@@ -111,13 +111,14 @@ export const NewTxnModal: React.FC<NewTxnModalProps> = ({
           options={envelopeOptions}
         />
 
-        <Input
-          label="Bank / Account Name"
-          type="text"
-          placeholder="e.g. HDFC Bank, ICICI Bank, Cash"
-          value={bankName}
-          onChange={(e) => setBankName(e.target.value)}
-          required
+        <Select
+          label="Payment Method"
+          value={paymentMethod}
+          onChange={(e) => setPaymentMethod(e.target.value)}
+          options={[
+            { value: 'bank_card', label: 'Bank Card' },
+            { value: 'bank_account', label: 'Bank Account' }
+          ]}
         />
 
         <div className="flex justify-end gap-3 pt-3 border-t border-[#342F2C]">
@@ -140,7 +141,7 @@ interface EditTxnModalProps {
   transaction: Transaction | null;
   envelopes: Envelope[];
   groups?: EnvelopeGroup[];
-  onSubmit: (txnId: string, amountE5: number, txnType: string, bankName: string, envelopeId?: string | null) => Promise<void>;
+  onSubmit: (txnId: string, amountE5: number, txnType: string, paymentMethod: string, envelopeId?: string | null) => Promise<void>;
   onDelete?: (txnId: string) => Promise<void>;
 }
 
@@ -158,7 +159,7 @@ export const EditTxnModal: React.FC<EditTxnModalProps> = ({
 
   const [amount, setAmount] = useState<string>('');
   const [txnType, setTxnType] = useState<string>('debit');
-  const [bankName, setBankName] = useState<string>('');
+  const [paymentMethod, setPaymentMethod] = useState<string>('');
   const [envelopeId, setEnvelopeId] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState<boolean>(false);
@@ -168,7 +169,7 @@ export const EditTxnModal: React.FC<EditTxnModalProps> = ({
     if (transaction) {
       setAmount(e5ToAmount(transaction.amount_e5 || 0).toString());
       setTxnType(transaction.txn_type || 'debit');
-      setBankName(transaction.bank_name || '');
+      setPaymentMethod(transaction.payment_method || 'bank_card');
       setEnvelopeId(transaction.envelope_id || systemEnvId);
     }
     if (!isOpen) {
@@ -191,7 +192,7 @@ export const EditTxnModal: React.FC<EditTxnModalProps> = ({
         transaction.id,
         amountToE5(parsed),
         txnType,
-        bankName,
+        paymentMethod,
         targetEnvId
       );
       onClose();
@@ -223,8 +224,8 @@ export const EditTxnModal: React.FC<EditTxnModalProps> = ({
     const label = env.is_system
       ? 'Unallocated Budget (System Pool)'
       : gName
-      ? `${gName} › ${envName}`
-      : envName;
+        ? `${gName} › ${envName}`
+        : envName;
     return {
       value: env.id,
       label
@@ -269,13 +270,14 @@ export const EditTxnModal: React.FC<EditTxnModalProps> = ({
             options={envelopeOptions}
           />
 
-          <Input
-            label="Bank / Account Name"
-            type="text"
-            placeholder="e.g. HDFC Bank, ICICI Bank, Cash"
-            value={bankName}
-            onChange={(e) => setBankName(e.target.value)}
-            required
+          <Select
+            label="Payment Method"
+            value={paymentMethod}
+            onChange={(e) => setPaymentMethod(e.target.value)}
+            options={[
+              { value: 'bank_card', label: 'Bank Card' },
+              { value: 'bank_account', label: 'Bank Account' }
+            ]}
           />
 
           <div className="flex items-center justify-between gap-3 pt-3 border-t border-[#342F2C]">
@@ -323,7 +325,7 @@ export const EditTxnModal: React.FC<EditTxnModalProps> = ({
                   <span className="font-semibold text-rose-300">
                     {formatCurrency(transaction?.amount_e5 || 0)}
                   </span>
-                  {transaction?.bank_name ? ` (${transaction.bank_name})` : ''}? This action cannot be undone.
+                  {transaction?.payment_method ? ` (${transaction.payment_method})` : ''}? This action cannot be undone.
                 </p>
               </div>
             </div>

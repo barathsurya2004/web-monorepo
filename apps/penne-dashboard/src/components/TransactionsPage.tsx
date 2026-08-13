@@ -13,6 +13,7 @@ import {
   Tag,
   Folder,
   CreditCard,
+  Building2,
   WifiOff,
   RefreshCw,
   Plus
@@ -45,7 +46,9 @@ export function getDateGroupHeader(isoString?: string): string {
     }
 
     const d = new Date(normalized);
-    if (isNaN(d.getTime())) return 'Other Transactions';
+    if (isNaN(d.getTime()) || d.getFullYear() <= 1 || d.getFullYear() < 2000) {
+      return 'Today';
+    }
 
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -177,13 +180,13 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
       // Search term
       if (searchTerm.trim()) {
         const query = searchTerm.toLowerCase().trim();
-        const bankNameMatch = (t.bank_name || '').toLowerCase().includes(query);
+        const paymentMethodMatch = (t.payment_method || '').toLowerCase().includes(query);
         const categoryMatch = (assignedEnv?.name || '').toLowerCase().includes(query);
         const groupMatch = assignedGroupId
           ? (groupMap.get(assignedGroupId)?.name || '').toLowerCase().includes(query)
           : false;
 
-        if (!bankNameMatch && !categoryMatch && !groupMatch) {
+        if (!paymentMethodMatch && !categoryMatch && !groupMatch) {
           return false;
         }
       }
@@ -196,9 +199,13 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
   const groupedTransactions = useMemo(() => {
     // Sort transactions timewise descending (newest first)
     const sorted = [...filteredTxns].sort((a, b) => {
-      const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
-      const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
-      return timeB - timeA;
+      const getTime = (iso?: string) => {
+        if (!iso) return Date.now();
+        const d = new Date(iso);
+        if (isNaN(d.getTime()) || d.getFullYear() <= 1 || d.getFullYear() < 2000) return Date.now();
+        return d.getTime();
+      };
+      return getTime(b.created_at) - getTime(a.created_at);
     });
 
     const map = new Map<string, Transaction[]>();
@@ -303,11 +310,10 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
           {/* Filter Toggle Button */}
           <button
             onClick={() => setIsFilterPanelOpen(!isFilterPanelOpen)}
-            className={`flex items-center gap-2 py-2.5 px-3.5 rounded-2xl border text-xs font-bold transition-all cursor-pointer shrink-0 ${
-              isFilterPanelOpen || activeFiltersCount > 0
+            className={`flex items-center gap-2 py-2.5 px-3.5 rounded-2xl border text-xs font-bold transition-all cursor-pointer shrink-0 ${isFilterPanelOpen || activeFiltersCount > 0
                 ? 'bg-[#E07A5F] text-white border-[#E07A5F] shadow-lg shadow-[#E07A5F]/30'
                 : 'bg-[#1A1715] text-[#A89F95] border-[#38322E] hover:text-[#F4F1DE] hover:border-[#524B45]'
-            }`}
+              }`}
           >
             <SlidersHorizontal className="w-4 h-4" />
             <span>Filters</span>
@@ -388,11 +394,10 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
                   <button
                     key={type}
                     onClick={() => setTypeFilter(type)}
-                    className={`flex-1 py-1.5 px-3 text-[11px] font-bold rounded-xl capitalize transition-all cursor-pointer ${
-                      typeFilter === type
+                    className={`flex-1 py-1.5 px-3 text-[11px] font-bold rounded-xl capitalize transition-all cursor-pointer ${typeFilter === type
                         ? 'bg-[#38322E] text-[#F4F1DE] shadow-sm'
                         : 'text-[#A89F95] hover:text-[#F4F1DE]'
-                    }`}
+                      }`}
                   >
                     {type === 'debit' ? 'Expense' : type === 'credit' ? 'Income' : 'All'}
                   </button>
@@ -472,10 +477,14 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
                   const { timeStr } = formatTransactionDateTime(txn.created_at);
 
                   const assignedEnv = txn.envelope_id ? envelopeMap.get(txn.envelope_id) : null;
-                  const envName = assignedEnv?.name || (assignedEnv?.is_system ? 'Unallocated' : null);
+                  const cardHeading = (!assignedEnv || assignedEnv.is_system || assignedEnv.name === 'Unallocated Budget')
+                    ? 'General'
+                    : (assignedEnv.name || 'General');
+
                   const groupName = assignedEnv?.envelope_group_id
                     ? groupMap.get(assignedEnv.envelope_group_id)?.name
                     : null;
+                  const isBankCard = txn.payment_method === 'bank_card';
 
                   return (
                     <div
@@ -487,11 +496,10 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
                       {/* Left: Icon & Details */}
                       <div className="flex items-center gap-2.5 min-w-0 flex-1 overflow-x-hidden">
                         <div
-                          className={`w-9 h-9 rounded-2xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-105 ${
-                            isDebit
+                          className={`w-9 h-9 rounded-2xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-105 ${isDebit
                               ? 'bg-[#E8A598]/15 text-[#E8A598] border border-[#E8A598]/20'
                               : 'bg-[#81B29A]/15 text-[#81B29A] border border-[#81B29A]/20'
-                          }`}
+                            }`}
                         >
                           {isDebit ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownLeft className="w-4 h-4" />}
                         </div>
@@ -499,7 +507,7 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
                         <div className="min-w-0 flex-1 space-y-1">
                           <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
                             <p className="text-xs font-extrabold text-[#F4F1DE] group-hover:text-[#E07A5F] transition-colors truncate">
-                              {txn.bank_name || 'Bank Txn'}
+                              {cardHeading}
                             </p>
                           </div>
 
@@ -513,18 +521,21 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
                             )}
 
                             {groupName && (
-                              <span className="inline-flex items-center gap-1 text-[10px] bg-[#E07A5F]/10 text-[#E07A5F] border border-[#E07A5F]/20 px-1.5 py-0.5 rounded-md font-bold truncate max-w-[110px]">
+                              <span className="inline-flex items-center gap-1 text-[10px] bg-[#E07A5F]/15 text-[#E07A5F] border border-[#E07A5F]/30 px-1.5 py-0.5 rounded-md font-extrabold truncate max-w-[110px]">
                                 <Tag className="w-2.5 h-2.5 shrink-0" />
                                 <span className="truncate">{groupName}</span>
                               </span>
                             )}
 
-                            {envName && (
-                              <span className="inline-flex items-center gap-1 text-[10px] bg-[#81B29A]/10 text-[#81B29A] border border-[#81B29A]/20 px-1.5 py-0.5 rounded-md font-bold truncate max-w-[110px]">
-                                <Folder className="w-2.5 h-2.5 shrink-0" />
-                                <span className="truncate">{envName}</span>
-                              </span>
-                            )}
+                            <span
+                              className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-md font-extrabold border ${isBankCard
+                                  ? 'bg-[#818CF8]/15 text-[#818CF8] border-[#818CF8]/30'
+                                  : 'bg-[#2DD4BF]/15 text-[#2DD4BF] border-[#2DD4BF]/30'
+                                }`}
+                            >
+                              {isBankCard ? <CreditCard className="w-2.5 h-2.5 shrink-0" /> : <Building2 className="w-2.5 h-2.5 shrink-0" />}
+                              <span>{isBankCard ? 'Bank Card' : 'Bank Account'}</span>
+                            </span>
                           </div>
                         </div>
                       </div>
@@ -532,9 +543,8 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
                       {/* Right: Amount */}
                       <div className="text-right shrink-0 pl-1">
                         <span
-                          className={`text-sm sm:text-base font-black tracking-tight ${
-                            isDebit ? 'text-[#E8A598]' : 'text-[#81B29A]'
-                          }`}
+                          className={`text-sm sm:text-base font-black tracking-tight ${isDebit ? 'text-[#E8A598]' : 'text-[#81B29A]'
+                            }`}
                         >
                           {isDebit ? '-' : '+'}{formattedAmt}
                         </span>

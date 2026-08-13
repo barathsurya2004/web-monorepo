@@ -18,7 +18,10 @@ import {
   ShieldAlert,
   SlidersHorizontal,
   Plus,
-  Folder
+  CreditCard,
+  Building2,
+  Folder,
+  X
 } from 'lucide-react';
 import { formatTransactionDateTime } from './HomePage';
 import { BudgetPageSkeleton } from './Skeleton';
@@ -225,9 +228,8 @@ export const BudgetPage: React.FC<BudgetPageProps> = ({
           <div className="bg-[#1A1715]/90 p-2.5 rounded-2xl border border-[#342F2C] min-w-0">
             <p className="text-[9px] text-[#8C837A] uppercase font-bold tracking-wider truncate">Net Remaining</p>
             <p
-              className={`text-xs sm:text-sm font-black mt-0.5 truncate ${
-                totalNetRemainingE5 < 0 ? 'text-[#E8A598]' : 'text-[#81B29A]'
-              }`}
+              className={`text-xs sm:text-sm font-black mt-0.5 truncate ${totalNetRemainingE5 < 0 ? 'text-[#E8A598]' : 'text-[#81B29A]'
+                }`}
             >
               ₹{e5ToAmount(totalNetRemainingE5).toLocaleString('en-IN')}
             </p>
@@ -283,11 +285,10 @@ export const BudgetPage: React.FC<BudgetPageProps> = ({
               <button
                 key={filter.id}
                 onClick={() => setStatusFilter(filter.id)}
-                className={`px-3 py-1.5 min-h-[36px] text-[11px] font-bold rounded-xl whitespace-nowrap transition-all cursor-pointer ${
-                  statusFilter === filter.id
+                className={`px-3 py-1.5 min-h-[36px] text-[11px] font-bold rounded-xl whitespace-nowrap transition-all cursor-pointer ${statusFilter === filter.id
                     ? 'bg-[#38322E] text-[#F4F1DE] shadow-md border border-[#4A433F]'
                     : 'text-[#A89F95] hover:text-[#F4F1DE]'
-                }`}
+                  }`}
               >
                 {filter.label}
               </button>
@@ -320,18 +321,17 @@ export const BudgetPage: React.FC<BudgetPageProps> = ({
             return (
               <div
                 key={cat.envelope_id}
-                className={`bg-[#24201D] border rounded-3xl p-4 transition-all shadow-xl space-y-3.5 w-full overflow-x-hidden min-w-0 ${
-                  cat.is_system
+                className={`bg-[#24201D] border rounded-3xl p-4 transition-all shadow-xl space-y-3.5 w-full overflow-x-hidden min-w-0 ${cat.is_system
                     ? 'border-[#D4A373]/30 bg-gradient-to-b from-[#292420] to-[#211D1A]'
                     : 'border-[#342F2C] hover:border-[#4A433F]'
-                }`}
+                  }`}
               >
                 {/* Category Header Row: Envelope Heading + Group Name Tag */}
                 <div className="flex items-start justify-between gap-2.5">
                   <div className="space-y-1 min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <h3 className="font-extrabold text-base text-[#F4F1DE] tracking-tight truncate">{categoryTitle}</h3>
-                      
+
                       {/* Group Name Tag */}
                       <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#E07A5F] bg-[#E07A5F]/15 border border-[#E07A5F]/35 px-2.5 py-0.5 rounded-lg shadow-sm">
                         <Folder className="w-3 h-3 text-[#E07A5F]" />
@@ -370,8 +370,8 @@ export const BudgetPage: React.FC<BudgetPageProps> = ({
                           cat.isOverBudget
                             ? 'text-[#E8A598]'
                             : cat.isWarning
-                            ? 'text-[#F2CC8F]'
-                            : 'text-[#81B29A]'
+                              ? 'text-[#F2CC8F]'
+                              : 'text-[#81B29A]'
                         }
                       >
                         {cat.usagePercent.toFixed(1)}% Spent
@@ -408,9 +408,8 @@ export const BudgetPage: React.FC<BudgetPageProps> = ({
                   <div className="bg-[#1A1715] p-2.5 rounded-2xl border border-[#342F2C] min-w-0">
                     <p className="text-[9px] text-[#8C837A] uppercase font-bold tracking-wider truncate">Remaining</p>
                     <p
-                      className={`text-xs sm:text-sm font-black mt-0.5 truncate ${
-                        cat.remainingE5 < 0 ? 'text-[#E8A598]' : 'text-[#81B29A]'
-                      }`}
+                      className={`text-xs sm:text-sm font-black mt-0.5 truncate ${cat.remainingE5 < 0 ? 'text-[#E8A598]' : 'text-[#81B29A]'
+                        }`}
                     >
                       ₹{e5ToAmount(cat.remainingE5).toLocaleString('en-IN')}
                     </p>
@@ -439,6 +438,9 @@ export const BudgetPage: React.FC<BudgetPageProps> = ({
                     ) : (
                       cat.matchingTxns.map((txn) => {
                         const { dateStr, timeStr } = formatTransactionDateTime(txn.created_at);
+                        const envHeading = (cat.is_system || cat.name === 'Unallocated Budget') ? 'General' : (cat.name || 'General');
+                        const isBankCard = txn.payment_method === 'bank_card';
+
                         return (
                           <div
                             key={txn.id}
@@ -450,14 +452,23 @@ export const BudgetPage: React.FC<BudgetPageProps> = ({
                               <div className="w-7 h-7 rounded-xl bg-[#E8A598]/15 text-[#E8A598] flex items-center justify-center shrink-0 border border-[#E8A598]/20 group-hover:scale-105 transition-transform">
                                 <ArrowUpRight className="w-3.5 h-3.5" />
                               </div>
-                              <div className="min-w-0">
+                              <div className="min-w-0 space-y-0.5">
                                 <p className="text-xs font-bold text-[#F4F1DE] group-hover:text-[#E07A5F] transition-colors truncate">
-                                  {txn.bank_name || 'Debit Expense'}
+                                  {envHeading}
                                 </p>
-                                <p className="text-[10px] text-[#A89F95] flex items-center gap-1">
+                                <div className="flex items-center gap-1.5 text-[10px] text-[#A89F95] flex-wrap">
                                   <span>{dateStr}</span>
                                   {timeStr && <span>• {timeStr}</span>}
-                                </p>
+                                  <span
+                                    className={`inline-flex items-center gap-0.5 text-[9px] px-1 py-0.5 rounded font-extrabold border ${isBankCard
+                                        ? 'bg-[#818CF8]/15 text-[#818CF8] border-[#818CF8]/30'
+                                        : 'bg-[#2DD4BF]/15 text-[#2DD4BF] border-[#2DD4BF]/30'
+                                      }`}
+                                  >
+                                    {isBankCard ? <CreditCard className="w-2.5 h-2.5 shrink-0" /> : <Building2 className="w-2.5 h-2.5 shrink-0" />}
+                                    <span>{isBankCard ? 'Card' : 'Account'}</span>
+                                  </span>
+                                </div>
                               </div>
                             </div>
                             <span className="text-xs font-black text-[#E8A598] shrink-0">
@@ -496,6 +507,8 @@ export const BudgetPage: React.FC<BudgetPageProps> = ({
           <div className="space-y-2 pt-1 border-t border-[#342F2C]">
             {uncategorizedDebitTxns.map((txn) => {
               const { dateStr, timeStr } = formatTransactionDateTime(txn.created_at);
+              const isBankCard = txn.payment_method === 'bank_card';
+
               return (
                 <div
                   key={txn.id}
@@ -507,14 +520,23 @@ export const BudgetPage: React.FC<BudgetPageProps> = ({
                     <div className="w-7 h-7 rounded-xl bg-[#F2CC8F]/15 text-[#F2CC8F] flex items-center justify-center shrink-0 border border-[#F2CC8F]/20 group-hover:scale-105 transition-transform">
                       <Tag className="w-3.5 h-3.5" />
                     </div>
-                    <div className="min-w-0">
+                    <div className="min-w-0 space-y-0.5">
                       <p className="text-xs font-bold text-[#F4F1DE] group-hover:text-[#F2CC8F] transition-colors truncate">
-                        {txn.bank_name || 'Unassigned Expense'}
+                        General
                       </p>
-                      <p className="text-[10px] text-[#A89F95] flex items-center gap-1">
+                      <div className="flex items-center gap-1.5 text-[10px] text-[#A89F95] flex-wrap">
                         <span>{dateStr}</span>
                         {timeStr && <span>• {timeStr}</span>}
-                      </p>
+                        <span
+                          className={`inline-flex items-center gap-0.5 text-[9px] px-1 py-0.5 rounded font-extrabold border ${isBankCard
+                              ? 'bg-[#818CF8]/15 text-[#818CF8] border-[#818CF8]/30'
+                              : 'bg-[#2DD4BF]/15 text-[#2DD4BF] border-[#2DD4BF]/30'
+                            }`}
+                        >
+                          {isBankCard ? <CreditCard className="w-2.5 h-2.5 shrink-0" /> : <Building2 className="w-2.5 h-2.5 shrink-0" />}
+                          <span>{isBankCard ? 'Card' : 'Account'}</span>
+                        </span>
+                      </div>
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
