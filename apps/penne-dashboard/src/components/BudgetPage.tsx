@@ -55,13 +55,13 @@ export const BudgetPage: React.FC<BudgetPageProps> = ({
   onSelectTxnForEdit,
   isLoadingData
 }) => {
-  if (isLoadingData) {
-    return <BudgetPageSkeleton />;
-  }
-
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'tracked' | 'untracked' | 'ontrack' | 'warning' | 'overbudget'>('all');
   const [expandedEnvelopeId, setExpandedEnvelopeId] = useState<string | null>(null);
+
+  if (isLoadingData) {
+    return <BudgetPageSkeleton />;
+  }
 
   const safeCategories = Array.isArray(categories) ? categories : [];
   const safeTxns = Array.isArray(transactions) ? transactions : [];

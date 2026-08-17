@@ -15,9 +15,11 @@ import {
   RefreshCw,
   Tag,
   CreditCard,
-  Building2
+  Building2,
+  Flame
 } from 'lucide-react';
 import { HomePageSkeleton } from './Skeleton';
+import { getPaymentLimitStatus } from './AccountView';
 
 interface HomePageProps {
   transactions: Transaction[];
@@ -99,6 +101,17 @@ export const HomePage: React.FC<HomePageProps> = ({
     });
     return map;
   }, [envelopeGroups]);
+
+  const cardLimit = useMemo(() => {
+    const saved = localStorage.getItem('penne_limit_bank_card');
+    return saved ? Number(saved) : 25000;
+  }, []);
+
+  const bankLimit = useMemo(() => {
+    const saved = localStorage.getItem('penne_limit_bank_account');
+    return saved ? Number(saved) : 50000;
+  }, []);
+
   if (isLoadingData) {
     return <HomePageSkeleton />;
   }
@@ -143,6 +156,12 @@ export const HomePage: React.FC<HomePageProps> = ({
   const cardPercent = totalSpentE5 > 0 ? Math.round((cardSpentE5 / totalSpentE5) * 100) : 0;
   const bankPercent = totalSpentE5 > 0 ? 100 - cardPercent : 0;
 
+  const cardSpentAmount = e5ToAmount(cardSpentE5);
+  const bankAccountSpentAmount = e5ToAmount(bankAccountSpentE5);
+
+  const cardLimitStatus = getPaymentLimitStatus(cardSpentAmount, cardLimit);
+  const bankLimitStatus = getPaymentLimitStatus(bankAccountSpentAmount, bankLimit);
+
   return (
     <div className="w-full max-w-md mx-auto px-4 py-6 space-y-5 animate-fadeIn pb-28 overflow-x-hidden">
       {/* Explicit Server Offline Banner (No false mock data fallback) */}
@@ -181,36 +200,7 @@ export const HomePage: React.FC<HomePageProps> = ({
           variant="rose"
           icon={<TrendingDown className="w-5 h-5 text-[#E8A598]" />}
           className="w-full min-w-0"
-        >
-          <div className="space-y-2">
-            {/* Visual proportion bar */}
-            <div
-              className="w-full h-1.5 bg-[#1A1715] rounded-full overflow-hidden flex border border-[#38322E]/40"
-              title={`Card: ${cardPercent}%, Bank Account: ${bankPercent}%`}
-            >
-              <div
-                className="h-full bg-[#818CF8] transition-all duration-500"
-                style={{ width: `${totalSpentE5 > 0 ? cardPercent : 50}%` }}
-              />
-              <div
-                className="h-full bg-[#2DD4BF] transition-all duration-500"
-                style={{ width: `${totalSpentE5 > 0 ? bankPercent : 50}%` }}
-              />
-            </div>
-
-            {/* Breakdown Chips */}
-            <div className="flex items-center justify-between gap-1.5 text-[11px]">
-              <div className="flex items-center gap-1.5 text-[#818CF8] bg-[#818CF8]/10 px-2 py-1 rounded-lg border border-[#818CF8]/25 font-bold min-w-0 truncate">
-                <CreditCard className="w-3 h-3 shrink-0" />
-                <span className="truncate">Card: {cardSpentFormatted}</span>
-              </div>
-              <div className="flex items-center gap-1.5 text-[#2DD4BF] bg-[#2DD4BF]/10 px-2 py-1 rounded-lg border border-[#2DD4BF]/25 font-bold min-w-0 truncate">
-                <Building2 className="w-3 h-3 shrink-0" />
-                <span className="truncate">Bank: {bankAccountSpentFormatted}</span>
-              </div>
-            </div>
-          </div>
-        </StatCard>
+        />
 
         {/* Total Remaining Card */}
         <StatCard
@@ -221,6 +211,75 @@ export const HomePage: React.FC<HomePageProps> = ({
           icon={<TrendingUp className="w-5 h-5 text-[#81B29A]" />}
           className="w-full min-w-0"
         />
+      </div>
+
+      {/* Payment Method Spending Limits & Heatmap Status Card */}
+      <div className="bg-[#24201D] border border-[#38322E] rounded-3xl p-4 space-y-3.5 shadow-lg shadow-black/20 w-full max-w-full overflow-x-hidden">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Flame className="w-4 h-4 text-[#E07A5F]" />
+            <h3 className="text-xs font-extrabold text-[#F4F1DE] uppercase tracking-wider">Payment Method Usage & Limits</h3>
+          </div>
+          <span className="text-[10px] text-[#A89F95] font-mono">Monthly Ceilings</span>
+        </div>
+
+        {/* Bank Card Limit Usage */}
+        <div className={`p-3 rounded-2xl border ${cardLimitStatus.cardBorder} ${cardLimitStatus.bgGlow} transition-all space-y-2`}>
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="p-1.5 rounded-lg bg-[#818CF8]/15 text-[#818CF8] shrink-0">
+                <CreditCard className="w-3.5 h-3.5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-extrabold text-[#F4F1DE] truncate">Bank Card</p>
+                <p className="text-[11px] text-[#A89F95] font-mono">
+                  Spent: <span className="font-bold text-[#F4F1DE]">{cardSpentFormatted}</span> / ₹{cardLimit.toLocaleString('en-IN')}
+                </p>
+              </div>
+            </div>
+
+            <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-md border shrink-0 ${cardLimitStatus.badgeBg}`}>
+              {cardLimitStatus.pct}% • {cardLimitStatus.label}
+            </span>
+          </div>
+
+          {/* Progress Bar with dynamic heatmap color */}
+          <div className="w-full h-2 bg-[#1A1715] rounded-full overflow-hidden border border-[#38322E]/60">
+            <div
+              className={`h-full transition-all duration-500 rounded-full ${cardLimitStatus.barColor}`}
+              style={{ width: `${Math.min(cardLimitStatus.pct, 100)}%` }}
+            />
+          </div>
+        </div>
+
+        {/* Bank Account Limit Usage */}
+        <div className={`p-3 rounded-2xl border ${bankLimitStatus.cardBorder} ${bankLimitStatus.bgGlow} transition-all space-y-2`}>
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="p-1.5 rounded-lg bg-[#2DD4BF]/15 text-[#2DD4BF] shrink-0">
+                <Building2 className="w-3.5 h-3.5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-extrabold text-[#F4F1DE] truncate">Bank Account</p>
+                <p className="text-[11px] text-[#A89F95] font-mono">
+                  Spent: <span className="font-bold text-[#F4F1DE]">{bankAccountSpentFormatted}</span> / ₹{bankLimit.toLocaleString('en-IN')}
+                </p>
+              </div>
+            </div>
+
+            <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-md border shrink-0 ${bankLimitStatus.badgeBg}`}>
+              {bankLimitStatus.pct}% • {bankLimitStatus.label}
+            </span>
+          </div>
+
+          {/* Progress Bar with dynamic heatmap color */}
+          <div className="w-full h-2 bg-[#1A1715] rounded-full overflow-hidden border border-[#38322E]/60">
+            <div
+              className={`h-full transition-all duration-500 rounded-full ${bankLimitStatus.barColor}`}
+              style={{ width: `${Math.min(bankLimitStatus.pct, 100)}%` }}
+            />
+          </div>
+        </div>
       </div>
 
       {/* Action Banner: Add Transaction & Add Category */}

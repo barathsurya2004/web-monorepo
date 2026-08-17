@@ -381,6 +381,7 @@ const AppInner: React.FC = () => {
           <AccountView
             user={user}
             authToken={api.getToken()}
+            transactions={transactions}
             isMockMode={isMockMode}
             recentSessions={recentSessions}
             onToggleMock={toggleMockMode}

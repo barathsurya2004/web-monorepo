@@ -87,10 +87,6 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
   onSelectTxnForEdit,
   isLoadingData
 }) => {
-  if (isLoadingData) {
-    return <TransactionsPageSkeleton />;
-  }
-
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedGroupTag, setSelectedGroupTag] = useState<string>('all');
   const [selectedCategoryEnv, setSelectedCategoryEnv] = useState<string>('all');
@@ -232,6 +228,10 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
     setTypeFilter('all');
     setSearchTerm('');
   };
+
+  if (isLoadingData) {
+    return <TransactionsPageSkeleton />;
+  }
 
   return (
     <div className="w-full max-w-md mx-auto px-4 py-6 space-y-5 animate-fadeIn pb-28 overflow-x-hidden">
