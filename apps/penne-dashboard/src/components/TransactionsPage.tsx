@@ -455,19 +455,47 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
         </Card>
       ) : (
         <div className="space-y-6 w-full">
-          {groupedTransactions.map(([dateHeader, txns]) => (
-            <div key={dateHeader} className="space-y-2.5">
-              {/* Date Group Section Header */}
-              <div className="flex items-center gap-2 px-1">
-                <Calendar className="w-3.5 h-3.5 text-[#E07A5F]" />
-                <h3 className="text-xs font-extrabold text-[#F4F1DE] uppercase tracking-wider">
-                  {dateHeader}
-                </h3>
-                <div className="h-[1px] bg-[#342F2C] flex-1 ml-1" />
-                <span className="text-[10px] font-mono text-[#8C837A]">
-                  {txns.length} txn{txns.length !== 1 ? 's' : ''}
-                </span>
-              </div>
+          {groupedTransactions.map(([dateHeader, txns]) => {
+            const daySpentE5 = txns
+              .filter((t) => t && t.txn_type === 'debit')
+              .reduce((acc, t) => acc + (t.amount_e5 || 0), 0);
+
+            const dayIncomeE5 = txns
+              .filter((t) => t && t.txn_type === 'credit')
+              .reduce((acc, t) => acc + (t.amount_e5 || 0), 0);
+
+            const daySpentFormatted = `₹${e5ToAmount(daySpentE5).toLocaleString('en-IN')}`;
+            const dayIncomeFormatted = `₹${e5ToAmount(dayIncomeE5).toLocaleString('en-IN')}`;
+
+            return (
+              <div key={dateHeader} className="space-y-2.5">
+                {/* Date Group Section Header with Daily Totals */}
+                <div className="flex items-center justify-between gap-2 px-1 py-0.5 border-b border-[#342F2C]/60 pb-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Calendar className="w-3.5 h-3.5 text-[#E07A5F] shrink-0" />
+                    <h3 className="text-xs font-extrabold text-[#F4F1DE] uppercase tracking-wider truncate">
+                      {dateHeader}
+                    </h3>
+                    <span className="text-[10px] font-mono text-[#8C837A] bg-[#1E1B19] px-1.5 py-0.5 rounded-md border border-[#342F2C] shrink-0">
+                      {txns.length} {txns.length === 1 ? 'txn' : 'txns'}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 text-[11px] font-extrabold shrink-0">
+                    {daySpentE5 > 0 && (
+                      <span className="inline-flex items-center gap-1 text-[#E8A598] bg-[#E8A598]/10 border border-[#E8A598]/25 px-2 py-0.5 rounded-lg shadow-sm">
+                        <span className="text-[9px] text-[#A89F95] font-semibold uppercase">Spent</span>
+                        <span>-{daySpentFormatted}</span>
+                      </span>
+                    )}
+                    {dayIncomeE5 > 0 && (
+                      <span className="inline-flex items-center gap-1 text-[#81B29A] bg-[#81B29A]/10 border border-[#81B29A]/25 px-2 py-0.5 rounded-lg shadow-sm">
+                        <span className="text-[9px] text-[#A89F95] font-semibold uppercase">Income</span>
+                        <span>+{dayIncomeFormatted}</span>
+                      </span>
+                    )}
+                  </div>
+                </div>
 
               {/* Transactions in Date Group (Ordered Timewise) */}
               <div className="space-y-2.5">
@@ -554,7 +582,8 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
                 })}
               </div>
             </div>
-          ))}
+          );
+        })}
         </div>
       )}
     </div>

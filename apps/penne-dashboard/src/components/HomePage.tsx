@@ -120,15 +120,28 @@ export const HomePage: React.FC<HomePageProps> = ({
     .filter((t) => t && t.txn_type === 'credit')
     .reduce((acc, t) => acc + (t.amount_e5 || 0), 0);
 
-  const totalSpentE5 = sortedTxns
-    .filter((t) => t && t.txn_type === 'debit')
+  const debitTxns = sortedTxns.filter((t) => t && t.txn_type === 'debit');
+
+  const cardSpentE5 = debitTxns
+    .filter((t) => t.payment_method === 'bank_card')
     .reduce((acc, t) => acc + (t.amount_e5 || 0), 0);
+
+  const bankAccountSpentE5 = debitTxns
+    .filter((t) => t.payment_method !== 'bank_card')
+    .reduce((acc, t) => acc + (t.amount_e5 || 0), 0);
+
+  const totalSpentE5 = cardSpentE5 + bankAccountSpentE5;
 
   const totalRemainingE5 = totalIncomeE5 - totalSpentE5;
 
   const totalSpentFormatted = `₹${e5ToAmount(totalSpentE5).toLocaleString('en-IN')}`;
+  const cardSpentFormatted = `₹${e5ToAmount(cardSpentE5).toLocaleString('en-IN')}`;
+  const bankAccountSpentFormatted = `₹${e5ToAmount(bankAccountSpentE5).toLocaleString('en-IN')}`;
   const totalRemainingFormatted = `₹${e5ToAmount(totalRemainingE5).toLocaleString('en-IN')}`;
   const totalIncomeFormatted = `₹${e5ToAmount(totalIncomeE5).toLocaleString('en-IN')}`;
+
+  const cardPercent = totalSpentE5 > 0 ? Math.round((cardSpentE5 / totalSpentE5) * 100) : 0;
+  const bankPercent = totalSpentE5 > 0 ? 100 - cardPercent : 0;
 
   return (
     <div className="w-full max-w-md mx-auto px-4 py-6 space-y-5 animate-fadeIn pb-28 overflow-x-hidden">
@@ -159,7 +172,7 @@ export const HomePage: React.FC<HomePageProps> = ({
       )}
 
       {/* Overview Stat Cards: Total Spend & Total Remaining */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 w-full max-w-full overflow-x-hidden">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 w-full max-w-full overflow-x-hidden items-start">
         {/* Total Spend Card */}
         <StatCard
           title="Total Spend"
@@ -168,7 +181,36 @@ export const HomePage: React.FC<HomePageProps> = ({
           variant="rose"
           icon={<TrendingDown className="w-5 h-5 text-[#E8A598]" />}
           className="w-full min-w-0"
-        />
+        >
+          <div className="space-y-2">
+            {/* Visual proportion bar */}
+            <div
+              className="w-full h-1.5 bg-[#1A1715] rounded-full overflow-hidden flex border border-[#38322E]/40"
+              title={`Card: ${cardPercent}%, Bank Account: ${bankPercent}%`}
+            >
+              <div
+                className="h-full bg-[#818CF8] transition-all duration-500"
+                style={{ width: `${totalSpentE5 > 0 ? cardPercent : 50}%` }}
+              />
+              <div
+                className="h-full bg-[#2DD4BF] transition-all duration-500"
+                style={{ width: `${totalSpentE5 > 0 ? bankPercent : 50}%` }}
+              />
+            </div>
+
+            {/* Breakdown Chips */}
+            <div className="flex items-center justify-between gap-1.5 text-[11px]">
+              <div className="flex items-center gap-1.5 text-[#818CF8] bg-[#818CF8]/10 px-2 py-1 rounded-lg border border-[#818CF8]/25 font-bold min-w-0 truncate">
+                <CreditCard className="w-3 h-3 shrink-0" />
+                <span className="truncate">Card: {cardSpentFormatted}</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-[#2DD4BF] bg-[#2DD4BF]/10 px-2 py-1 rounded-lg border border-[#2DD4BF]/25 font-bold min-w-0 truncate">
+                <Building2 className="w-3 h-3 shrink-0" />
+                <span className="truncate">Bank: {bankAccountSpentFormatted}</span>
+              </div>
+            </div>
+          </div>
+        </StatCard>
 
         {/* Total Remaining Card */}
         <StatCard

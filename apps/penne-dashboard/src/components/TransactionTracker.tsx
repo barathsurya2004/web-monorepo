@@ -36,6 +36,19 @@ export const TransactionTracker: React.FC<TransactionTrackerProps> = ({
     return matchesSearch && matchesType;
   });
 
+  // Group filtered transactions by date
+  const groupedTxns = React.useMemo(() => {
+    const map = new Map<string, Transaction[]>();
+    filteredTxns.forEach((t) => {
+      const dateHeader = formatDate(t.created_at || t.CreatedAt);
+      if (!map.has(dateHeader)) {
+        map.set(dateHeader, []);
+      }
+      map.get(dateHeader)!.push(t);
+    });
+    return Array.from(map.entries());
+  }, [filteredTxns]);
+
   return (
     <Card className="p-6 space-y-6">
       {/* Header & Controls */}
@@ -90,60 +103,98 @@ export const TransactionTracker: React.FC<TransactionTrackerProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/40">
-              {filteredTxns.map((t, idx) => {
-                const isCredit = t.txn_type === 'credit';
-                const assignedEnv = safeEnvelopes.find((e) => e && e.id === t.envelope_id);
-                const dateStr = formatDate(t.created_at || t.CreatedAt);
+              {groupedTxns.map(([dateHeader, txns]) => {
+                const dayDebitE5 = txns
+                  .filter((t) => t.txn_type === 'debit')
+                  .reduce((acc, t) => acc + (t.amount_e5 || 0), 0);
+                const dayCreditE5 = txns
+                  .filter((t) => t.txn_type === 'credit')
+                  .reduce((acc, t) => acc + (t.amount_e5 || 0), 0);
 
                 return (
-                  <tr
-                    key={t.id || idx}
-                    onClick={() => onSelectTxnForEdit?.(t)}
-                    className="hover:bg-slate-800/60 cursor-pointer transition-colors group"
-                    title="Click to edit transaction"
-                  >
-                    <td className="py-3 px-4">
-                      <div className="flex items-center gap-2">
-                        <div className={`p-1.5 rounded-lg ${isCredit ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>
-                          {isCredit ? <ArrowDownLeft className="w-3.5 h-3.5" /> : <ArrowUpRight className="w-3.5 h-3.5" />}
+                  <React.Fragment key={dateHeader}>
+                    {/* Day Summary Row */}
+                    <tr className="bg-slate-900/90 border-t border-b border-slate-800/90">
+                      <td colSpan={5} className="py-2.5 px-4">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <span className="font-extrabold text-slate-200 uppercase text-[11px] tracking-wider">{dateHeader}</span>
+                            <span className="text-[10px] text-slate-500 font-mono">({txns.length} {txns.length === 1 ? 'txn' : 'txns'})</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-[11px] font-extrabold">
+                            {dayDebitE5 > 0 && (
+                              <span className="text-rose-400 bg-rose-500/10 border border-rose-500/20 px-2 py-0.5 rounded">
+                                Spent: -{formatCurrency(dayDebitE5)}
+                              </span>
+                            )}
+                            {dayCreditE5 > 0 && (
+                              <span className="text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded">
+                                Income: +{formatCurrency(dayCreditE5)}
+                              </span>
+                            )}
+                          </div>
                         </div>
-                        <span className="font-semibold capitalize text-slate-200 group-hover:text-emerald-400 transition-colors">{t.txn_type || 'debit'}</span>
-                      </div>
-                    </td>
+                      </td>
+                    </tr>
 
-                    <td className="py-3 px-4 text-slate-300">
-                      {t.payment_method === 'bank_card' ? (
-                        <span className="inline-flex items-center gap-1 text-[10px] bg-[#818CF8]/15 text-[#818CF8] border border-[#818CF8]/30 px-2 py-0.5 rounded-md font-extrabold">
-                          <CreditCard className="w-3 h-3" />
-                          <span>Bank Card</span>
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 text-[10px] bg-[#2DD4BF]/15 text-[#2DD4BF] border border-[#2DD4BF]/30 px-2 py-0.5 rounded-md font-extrabold">
-                          <Building2 className="w-3 h-3" />
-                          <span>Bank Account</span>
-                        </span>
-                      )}
-                    </td>
+                    {/* Day's Transactions */}
+                    {txns.map((t, idx) => {
+                      const isCredit = t.txn_type === 'credit';
+                      const assignedEnv = safeEnvelopes.find((e) => e && e.id === t.envelope_id);
+                      const dateStr = formatDate(t.created_at || t.CreatedAt);
 
-                    <td className="py-3 px-4">
-                      {assignedEnv ? (
-                        <Badge variant="indigo" className="gap-1">
-                          <Tag className="w-3 h-3" />
-                          <span>{assignedEnv.name || (assignedEnv.is_system ? 'Unallocated Pool' : `Envelope #${assignedEnv.id.slice(-4)}`)}</span>
-                        </Badge>
-                      ) : (
-                        <Badge variant="amber">Uncategorized</Badge>
-                      )}
-                    </td>
+                      return (
+                        <tr
+                          key={t.id || idx}
+                          onClick={() => onSelectTxnForEdit?.(t)}
+                          className="hover:bg-slate-800/60 cursor-pointer transition-colors group"
+                          title="Click to edit transaction"
+                        >
+                          <td className="py-3 px-4">
+                            <div className="flex items-center gap-2">
+                              <div className={`p-1.5 rounded-lg ${isCredit ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>
+                                {isCredit ? <ArrowDownLeft className="w-3.5 h-3.5" /> : <ArrowUpRight className="w-3.5 h-3.5" />}
+                              </div>
+                              <span className="font-semibold capitalize text-slate-200 group-hover:text-emerald-400 transition-colors">{t.txn_type || 'debit'}</span>
+                            </div>
+                          </td>
 
-                    <td className="py-3 px-4 text-slate-400">
-                      {dateStr}
-                    </td>
+                          <td className="py-3 px-4 text-slate-300">
+                            {t.payment_method === 'bank_card' ? (
+                              <span className="inline-flex items-center gap-1 text-[10px] bg-[#818CF8]/15 text-[#818CF8] border border-[#818CF8]/30 px-2 py-0.5 rounded-md font-extrabold">
+                                <CreditCard className="w-3 h-3" />
+                                <span>Bank Card</span>
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-[10px] bg-[#2DD4BF]/15 text-[#2DD4BF] border border-[#2DD4BF]/30 px-2 py-0.5 rounded-md font-extrabold">
+                                <Building2 className="w-3 h-3" />
+                                <span>Bank Account</span>
+                              </span>
+                            )}
+                          </td>
 
-                    <td className={`py-3 px-4 text-right font-bold text-sm ${isCredit ? 'text-emerald-400' : 'text-slate-100'}`}>
-                      {isCredit ? '+' : '-'}{formatCurrency(t.amount_e5 || 0)}
-                    </td>
-                  </tr>
+                          <td className="py-3 px-4">
+                            {assignedEnv ? (
+                              <Badge variant="indigo" className="gap-1">
+                                <Tag className="w-3 h-3" />
+                                <span>{assignedEnv.name || (assignedEnv.is_system ? 'Unallocated Pool' : `Envelope #${assignedEnv.id.slice(-4)}`)}</span>
+                              </Badge>
+                            ) : (
+                              <Badge variant="amber">Uncategorized</Badge>
+                            )}
+                          </td>
+
+                          <td className="py-3 px-4 text-slate-400">
+                            {dateStr}
+                          </td>
+
+                          <td className={`py-3 px-4 text-right font-bold text-sm ${isCredit ? 'text-emerald-400' : 'text-slate-100'}`}>
+                            {isCredit ? '+' : '-'}{formatCurrency(t.amount_e5 || 0)}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </React.Fragment>
                 );
               })}
             </tbody>

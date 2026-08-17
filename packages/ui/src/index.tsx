@@ -199,6 +199,7 @@ export interface StatCardProps {
   variant?: 'terracotta' | 'sage' | 'cream' | 'rose';
   accentColor?: string;
   className?: string;
+  children?: React.ReactNode;
 }
 
 export const StatCard: React.FC<StatCardProps> = ({
@@ -208,7 +209,8 @@ export const StatCard: React.FC<StatCardProps> = ({
   icon,
   variant = 'terracotta',
   accentColor,
-  className = ''
+  className = '',
+  children
 }) => {
   const borderAccents = {
     terracotta: 'border-l-[#E07A5F] bg-gradient-to-br from-[#292421] to-[#211D1A]',
@@ -225,8 +227,9 @@ export const StatCard: React.FC<StatCardProps> = ({
           <h3 className="text-xl sm:text-2xl md:text-3xl font-extrabold text-[#F4F1DE] tracking-tight truncate">{value}</h3>
           {subtitle && <p className="text-xs text-[#8C837A] truncate">{subtitle}</p>}
         </div>
-        {icon && <div className="p-2.5 sm:p-3 bg-[#1A1715]/80 text-[#E6E1DA] rounded-2xl shadow-inner shrink-0">{icon}</div>}
+        {icon && <div className="p-2.5 sm:p-3 bg-[#1A1715]/80 text-[#E6E1DA] rounded-2xl shadow-inner shrink-0 self-start">{icon}</div>}
       </div>
+      {children && <div className="mt-3 pt-2.5 border-t border-[#38322E]/60">{children}</div>}
     </Card>
   );
 };
