@@ -97,14 +97,39 @@ export function formatCurrency(e5: number, symbol: string = '₹'): string {
   return `${symbol}${amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-// Robust Date Formatting Helper (Handles missing, null, undefined, Go zero-time '0001-01-01T00:00:00Z', and invalid dates)
-export function formatDate(dateVal?: string | Date | null): string {
-  if (!dateVal) return 'Today';
+// Centralized UTC Date Parser (Handles missing, null, undefined, Go zero-time '0001-01-01T00:00:00Z', SQL space 'YYYY-MM-DD HH:MM:SS', and un-suffixed ISO strings)
+export function parseUtcDate(dateVal?: string | Date | null): Date | null {
+  if (!dateVal) return null;
+  if (dateVal instanceof Date) {
+    return isNaN(dateVal.getTime()) ? null : dateVal;
+  }
   try {
-    const d = new Date(dateVal);
-    if (isNaN(d.getTime()) || d.getFullYear() <= 1 || d.getFullYear() < 2000) {
-      return 'Today';
+    let normalized = String(dateVal).trim();
+    if (!normalized || normalized.startsWith('0001-01-01')) return null;
+
+    if (normalized.includes(' ') && !normalized.includes('T')) {
+      normalized = normalized.replace(' ', 'T');
     }
+    // If ISO timestamp string has no timezone offset or Z suffix, append Z so JavaScript parses as UTC ISO-8601
+    if (!normalized.endsWith('Z') && !/[+-]\d{2}(:\d{2})?$/.test(normalized)) {
+      normalized += 'Z';
+    }
+
+    const d = new Date(normalized);
+    if (isNaN(d.getTime()) || d.getFullYear() <= 1 || d.getFullYear() < 2000) {
+      return null;
+    }
+    return d;
+  } catch {
+    return null;
+  }
+}
+
+// Robust Date Formatting Helper
+export function formatDate(dateVal?: string | Date | null): string {
+  const d = parseUtcDate(dateVal);
+  if (!d) return 'Today';
+  try {
     return d.toLocaleDateString('en-IN', {
       day: '2-digit',
       month: 'short',
@@ -114,3 +139,4 @@ export function formatDate(dateVal?: string | Date | null): string {
     return 'Today';
   }
 }
+

@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Transaction, Envelope, EnvelopeGroup, e5ToAmount } from '@packages/types';
+import { Transaction, Envelope, EnvelopeGroup, e5ToAmount, parseUtcDate } from '@packages/types';
 import { Button, Card, Badge, StatCard } from '@packages/ui';
 import {
   TrendingDown,
@@ -37,39 +37,22 @@ interface HomePageProps {
 }
 
 export function formatTransactionDateTime(isoString?: string): { dateStr: string; timeStr: string } {
-  if (!isoString) return { dateStr: 'Recent', timeStr: '' };
-  try {
-    let normalized = isoString.trim();
-    if (normalized.includes(' ') && !normalized.includes('T')) {
-      normalized = normalized.replace(' ', 'T');
-    }
-    // If ISO timestamp string has no offset or Z suffix, append Z so JavaScript parses as UTC ISO-8601
-    if (!normalized.endsWith('Z') && !/[+-]\d{2}:\d{2}$/.test(normalized)) {
-      normalized += 'Z';
-    }
+  const d = parseUtcDate(isoString) || new Date();
 
-    let d = new Date(normalized);
-    if (isNaN(d.getTime()) || d.getFullYear() <= 1 || d.getFullYear() < 2000) {
-      d = new Date();
-    }
+  // Format in user's local timezone for date & time
+  const dateStr = d.toLocaleDateString('en-IN', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric'
+  });
 
-    // Format in user's local timezone for date & time
-    const dateStr = d.toLocaleDateString('en-IN', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric'
-    });
+  const timeStr = d.toLocaleTimeString('en-IN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true
+  });
 
-    const timeStr = d.toLocaleTimeString('en-IN', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true
-    });
-
-    return { dateStr, timeStr };
-  } catch {
-    return { dateStr: 'Recent', timeStr: '' };
-  }
+  return { dateStr, timeStr };
 }
 
 export const HomePage: React.FC<HomePageProps> = ({

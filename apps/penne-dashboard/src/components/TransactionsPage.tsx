@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Transaction, EnvelopeGroup, Envelope, e5ToAmount } from '@packages/types';
+import { Transaction, EnvelopeGroup, Envelope, e5ToAmount, parseUtcDate } from '@packages/types';
 import { Button, Card, Badge } from '@packages/ui';
 import {
   ArrowUpRight,
@@ -35,44 +35,29 @@ interface TransactionsPageProps {
 }
 
 export function getDateGroupHeader(isoString?: string): string {
-  if (!isoString) return 'Other Transactions';
-  try {
-    let normalized = isoString.trim();
-    if (normalized.includes(' ') && !normalized.includes('T')) {
-      normalized = normalized.replace(' ', 'T');
-    }
-    if (!normalized.endsWith('Z') && !/[+-]\d{2}:\d{2}$/.test(normalized)) {
-      normalized += 'Z';
-    }
+  const d = parseUtcDate(isoString);
+  if (!d) return 'Other Transactions';
 
-    const d = new Date(normalized);
-    if (isNaN(d.getTime()) || d.getFullYear() <= 1 || d.getFullYear() < 2000) {
-      return 'Today';
-    }
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
 
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
+  const targetDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
 
-    const targetDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-
-    if (targetDate.getTime() === today.getTime()) {
-      return 'Today';
-    }
-    if (targetDate.getTime() === yesterday.getTime()) {
-      return 'Yesterday';
-    }
-
-    return d.toLocaleDateString('en-IN', {
-      weekday: 'short',
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric'
-    });
-  } catch {
-    return 'Other Transactions';
+  if (targetDate.getTime() === today.getTime()) {
+    return 'Today';
   }
+  if (targetDate.getTime() === yesterday.getTime()) {
+    return 'Yesterday';
+  }
+
+  return d.toLocaleDateString('en-IN', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric'
+  });
 }
 
 export const TransactionsPage: React.FC<TransactionsPageProps> = ({
@@ -195,13 +180,9 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
   const groupedTransactions = useMemo(() => {
     // Sort transactions timewise descending (newest first)
     const sorted = [...filteredTxns].sort((a, b) => {
-      const getTime = (iso?: string) => {
-        if (!iso) return Date.now();
-        const d = new Date(iso);
-        if (isNaN(d.getTime()) || d.getFullYear() <= 1 || d.getFullYear() < 2000) return Date.now();
-        return d.getTime();
-      };
-      return getTime(b.created_at) - getTime(a.created_at);
+      const timeA = parseUtcDate(a.created_at || a.CreatedAt)?.getTime() ?? 0;
+      const timeB = parseUtcDate(b.created_at || b.CreatedAt)?.getTime() ?? 0;
+      return timeB - timeA;
     });
 
     const map = new Map<string, Transaction[]>();
