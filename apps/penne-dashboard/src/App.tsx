@@ -199,10 +199,11 @@ const AppInner: React.FC = () => {
     amountE5: number,
     txnType: string,
     bankName: string,
-    envelopeId?: string | null
+    envelopeId?: string | null,
+    createdAt?: string
   ) => {
     try {
-      await api.createTransaction(amountE5, txnType, bankName, envelopeId);
+      await api.createTransaction(amountE5, txnType, bankName, envelopeId, createdAt);
       await loadData();
     } catch (err: any) {
       addToast({

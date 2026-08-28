@@ -657,13 +657,19 @@ export class PenneApiClient {
     }
   }
 
-  async createTransaction(amountE5: number, txnType: string, paymentMethod: string, envelopeId?: string | null): Promise<Transaction> {
+  async createTransaction(
+    amountE5: number,
+    txnType: string,
+    paymentMethod: string,
+    envelopeId?: string | null,
+    createdAt?: string
+  ): Promise<Transaction> {
     this.clearEnvelopeCache();
     let targetEnvId = envelopeId || null;
     if (!targetEnvId) {
       targetEnvId = await this.getSystemEnvelopeId();
     }
-    const nowIso = new Date().toISOString();
+    const nowIso = createdAt || new Date().toISOString();
     if (this.useMock) {
       const newTxn: Transaction = {
         id: `txn-${Date.now()}`,
@@ -687,16 +693,20 @@ export class PenneApiClient {
       });
       return newTxn;
     }
+    const payload: Record<string, any> = {
+      user_id: this.userUUID,
+      amount_e5: Math.round(amountE5),
+      txn_type: txnType,
+      payment_method: paymentMethod,
+      envelope_id: targetEnvId,
+      country_iso2: 'IN'
+    };
+    if (createdAt) {
+      payload.created_at = createdAt;
+    }
     const created = await this.request<Transaction>('/transaction', {
       method: 'POST',
-      body: JSON.stringify({
-        user_id: this.userUUID,
-        amount_e5: Math.round(amountE5),
-        txn_type: txnType,
-        payment_method: paymentMethod,
-        envelope_id: targetEnvId,
-        country_iso2: 'IN'
-      })
+      body: JSON.stringify(payload)
     });
     if (created && (!created.created_at || created.created_at.startsWith('0001-01-01'))) {
       created.created_at = nowIso;
