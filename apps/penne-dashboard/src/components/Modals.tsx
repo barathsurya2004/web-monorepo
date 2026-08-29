@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Input, Select, Button } from '@packages/ui';
 import { Transaction, EnvelopeGroup, Envelope, amountToE5, e5ToAmount, formatCurrency } from '@packages/types';
-import { Trash2, AlertTriangle } from 'lucide-react';
+import { Trash2, AlertTriangle, Pencil } from 'lucide-react';
 
 // --- New Transaction Modal ---
 interface NewTxnModalProps {
@@ -705,6 +705,315 @@ export const NewCategoryModal: React.FC<NewCategoryModalProps> = ({
             {loading ? 'Creating...' : 'Create Category'}
           </Button>
         </div>
+      </form>
+    </Modal>
+  );
+};
+
+// --- Edit Category (Envelope) Modal ---
+interface EditCategoryModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  envelope: Envelope | null;
+  groups: EnvelopeGroup[];
+  onUpdate: (id: string, name: string, targetAmountE5: number, cadence: string, envelopeGroupId?: string) => Promise<void>;
+  onDelete?: (id: string) => Promise<void>;
+  onEditGroup?: (group: EnvelopeGroup) => void;
+}
+
+export const EditCategoryModal: React.FC<EditCategoryModalProps> = ({
+  isOpen,
+  onClose,
+  envelope,
+  groups = [],
+  onUpdate,
+  onDelete,
+  onEditGroup
+}) => {
+  const [categoryName, setCategoryName] = useState('');
+  const [budgetAmount, setBudgetAmount] = useState('');
+  const [cadence, setCadence] = useState('monthly');
+  const [groupId, setGroupId] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [showConfirmDelete, setShowConfirmDelete] = useState(false);
+
+  useEffect(() => {
+    if (envelope && isOpen) {
+      setCategoryName(envelope.name || '');
+      setBudgetAmount(e5ToAmount(envelope.target_amount_e5).toString());
+      setCadence(envelope.cadence || 'monthly');
+      setGroupId(envelope.envelope_group_id || '');
+      setShowConfirmDelete(false);
+    }
+  }, [envelope, isOpen]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!envelope) return;
+    const parsed = parseFloat(budgetAmount);
+    if (isNaN(parsed) || parsed <= 0) return;
+
+    setLoading(true);
+    try {
+      await onUpdate(envelope.id, categoryName, amountToE5(parsed), cadence, groupId);
+      onClose();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!envelope || !onDelete) return;
+    setDeleting(true);
+    try {
+      await onDelete(envelope.id);
+      onClose();
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const groupOptions = groups.map((g) => ({
+    value: g.id,
+    label: g.name
+  }));
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title="Edit Category Envelope">
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <Input
+          label="Category Name"
+          type="text"
+          value={categoryName}
+          onChange={(e) => setCategoryName(e.target.value)}
+          required
+        />
+        <Input
+          label="Budget Target Amount (₹)"
+          type="number"
+          step="0.01"
+          value={budgetAmount}
+          onChange={(e) => setBudgetAmount(e.target.value)}
+          required
+        />
+        <Select
+          label="Cadence"
+          value={cadence}
+          onChange={(e) => setCadence(e.target.value)}
+          options={[
+            { value: 'monthly', label: 'Monthly' },
+            { value: 'weekly', label: 'Weekly' },
+            { value: 'yearly', label: 'Yearly' }
+          ]}
+        />
+        {groupOptions.length > 0 && (
+          <div className="space-y-1">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-[#A89F95]">Parent Envelope Group</label>
+              {onEditGroup && groupId && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const matchedGroup = groups.find((g) => g.id === groupId);
+                    if (matchedGroup) {
+                      onClose();
+                      onEditGroup(matchedGroup);
+                    }
+                  }}
+                  className="text-[11px] font-bold text-[#E07A5F] hover:underline flex items-center gap-1 cursor-pointer"
+                >
+                  <Pencil className="w-3 h-3 text-[#E07A5F]" />
+                  <span>Rename Group</span>
+                </button>
+              )}
+            </div>
+            <Select
+              value={groupId}
+              onChange={(e) => setGroupId(e.target.value)}
+              options={groupOptions}
+            />
+          </div>
+        )}
+
+        {showConfirmDelete ? (
+          <div className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/30 space-y-2">
+            <p className="text-xs text-rose-300 font-bold flex items-center gap-1.5">
+              <AlertTriangle className="w-4 h-4 text-rose-400" />
+              Confirm Deletion?
+            </p>
+            <p className="text-[11px] text-[#A89F95]">
+              Deleting this category envelope will disassociate it from existing transactions.
+            </p>
+            <div className="flex gap-2 pt-1">
+              <Button
+                type="button"
+                variant="pastelRose"
+                size="sm"
+                onClick={handleDelete}
+                disabled={deleting}
+                className="w-full text-xs font-bold"
+              >
+                {deleting ? 'Deleting...' : 'Yes, Delete Category'}
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => setShowConfirmDelete(false)}
+                className="w-full text-xs"
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center justify-between pt-3 border-t border-[#342F2C]">
+            {onDelete && !envelope?.is_system ? (
+              <button
+                type="button"
+                onClick={() => setShowConfirmDelete(true)}
+                className="text-xs font-bold text-rose-400 hover:text-rose-300 flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>Delete Category</span>
+              </button>
+            ) : (
+              <div />
+            )}
+            <div className="flex gap-2">
+              <Button type="button" variant="ghost" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button type="submit" variant="primary" disabled={loading}>
+                {loading ? 'Saving...' : 'Save Changes'}
+              </Button>
+            </div>
+          </div>
+        )}
+      </form>
+    </Modal>
+  );
+};
+
+// --- Edit Envelope Group Modal ---
+interface EditGroupModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  group: EnvelopeGroup | null;
+  onUpdate: (id: string, name: string) => Promise<void>;
+  onDelete?: (id: string) => Promise<void>;
+}
+
+export const EditGroupModal: React.FC<EditGroupModalProps> = ({
+  isOpen,
+  onClose,
+  group,
+  onUpdate,
+  onDelete
+}) => {
+  const [groupName, setGroupName] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [showConfirmDelete, setShowConfirmDelete] = useState(false);
+
+  useEffect(() => {
+    if (group && isOpen) {
+      setGroupName(group.name || '');
+      setShowConfirmDelete(false);
+    }
+  }, [group, isOpen]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!group || !groupName.trim()) return;
+
+    setLoading(true);
+    try {
+      await onUpdate(group.id, groupName.trim());
+      onClose();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!group || !onDelete) return;
+    setDeleting(true);
+    try {
+      await onDelete(group.id);
+      onClose();
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title="Edit Envelope Group">
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <Input
+          label="Envelope Group Name"
+          type="text"
+          value={groupName}
+          onChange={(e) => setGroupName(e.target.value)}
+          required
+        />
+
+        {showConfirmDelete ? (
+          <div className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/30 space-y-2">
+            <p className="text-xs text-rose-300 font-bold flex items-center gap-1.5">
+              <AlertTriangle className="w-4 h-4 text-rose-400" />
+              Confirm Group Deletion?
+            </p>
+            <p className="text-[11px] text-[#A89F95]">
+              Deleting this group will remove it from category groupings.
+            </p>
+            <div className="flex gap-2 pt-1">
+              <Button
+                type="button"
+                variant="pastelRose"
+                size="sm"
+                onClick={handleDelete}
+                disabled={deleting}
+                className="w-full text-xs font-bold"
+              >
+                {deleting ? 'Deleting...' : 'Yes, Delete Group'}
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => setShowConfirmDelete(false)}
+                className="w-full text-xs"
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center justify-between pt-3 border-t border-[#342F2C]">
+            {onDelete && !group?.is_system ? (
+              <button
+                type="button"
+                onClick={() => setShowConfirmDelete(true)}
+                className="text-xs font-bold text-rose-400 hover:text-rose-300 flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>Delete Group</span>
+              </button>
+            ) : (
+              <div />
+            )}
+            <div className="flex gap-2">
+              <Button type="button" variant="ghost" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button type="submit" variant="primary" disabled={loading}>
+                {loading ? 'Saving...' : 'Save Group'}
+              </Button>
+            </div>
+          </div>
+        )}
       </form>
     </Modal>
   );

@@ -623,6 +623,84 @@ export class PenneApiClient {
     });
   }
 
+  async updateEnvelopeGroup(id: string, name: string): Promise<EnvelopeGroup> {
+    this.clearEnvelopeCache();
+    if (this.useMock) {
+      const idx = this.mockGroups.findIndex((g: EnvelopeGroup) => g.id === id);
+      if (idx !== -1) {
+        this.mockGroups[idx] = { ...this.mockGroups[idx], name };
+        return this.mockGroups[idx];
+      }
+    }
+    return await this.request<EnvelopeGroup>('/envelope-group', {
+      method: 'PUT',
+      body: JSON.stringify({
+        id,
+        user_uuid: this.userUUID,
+        name
+      })
+    });
+  }
+
+  async deleteEnvelopeGroup(id: string): Promise<void> {
+    this.clearEnvelopeCache();
+    if (this.useMock) {
+      this.mockGroups = this.mockGroups.filter((g: EnvelopeGroup) => g.id !== id);
+      return;
+    }
+    await this.request<void>(`/envelope-group?id=${id}`, { method: 'DELETE' });
+  }
+
+  async updateEnvelope(
+    id: string,
+    name: string,
+    targetAmountE5: number,
+    cadence: string = 'monthly',
+    envelopeGroupId?: string
+  ): Promise<Envelope> {
+    this.clearEnvelopeCache();
+    if (this.useMock) {
+      const idx = this.mockEnvelopes.findIndex((e) => e.id === id);
+      if (idx !== -1) {
+        const updated: Envelope = {
+          ...this.mockEnvelopes[idx],
+          name,
+          target_amount_e5: Math.round(targetAmountE5),
+          cadence,
+          ...(envelopeGroupId ? { envelope_group_id: envelopeGroupId } : {})
+        };
+        this.mockEnvelopes[idx] = updated;
+        return updated;
+      }
+    }
+
+    const payload: Record<string, any> = {
+      id,
+      user_uuid: this.userUUID,
+      name,
+      target_amount_e5: Math.round(targetAmountE5),
+      cadence,
+      country_iso2: 'IN'
+    };
+    if (envelopeGroupId) {
+      payload.envelope_group_id = envelopeGroupId;
+    }
+
+    return await this.request<Envelope>('/envelope', {
+      method: 'PUT',
+      body: JSON.stringify(payload)
+    });
+  }
+
+  async deleteEnvelope(id: string): Promise<void> {
+    this.clearEnvelopeCache();
+    if (this.useMock) {
+      this.mockEnvelopes = this.mockEnvelopes.filter((e) => e.id !== id);
+      return;
+    }
+    await this.request<void>(`/envelope?id=${id}`, { method: 'DELETE' });
+  }
+
   async createCategory(
     envelopeGroupId: string,
     categoryName: string,

@@ -10,7 +10,7 @@ import { TransactionsPage } from './components/TransactionsPage';
 import { BudgetPage } from './components/BudgetPage';
 import { AccountView } from './components/AccountView';
 import { BottomTabBar, NavTab } from './components/BottomTabBar';
-import { NewTxnModal, NewCategoryModal, EditTxnModal } from './components/Modals';
+import { NewTxnModal, NewCategoryModal, EditTxnModal, EditCategoryModal, EditGroupModal } from './components/Modals';
 import { ToastProvider, useToast } from './components/AlertBanner';
 
 export interface ResourceLoadingStates {
@@ -52,6 +52,11 @@ const AppInner: React.FC = () => {
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [selectedTxnForEdit, setSelectedTxnForEdit] = useState<Transaction | null>(null);
   const [isEditTxnModalOpen, setIsEditTxnModalOpen] = useState(false);
+
+  const [selectedEnvelopeForEdit, setSelectedEnvelopeForEdit] = useState<Envelope | null>(null);
+  const [isEditCategoryModalOpen, setIsEditCategoryModalOpen] = useState(false);
+  const [selectedGroupForEdit, setSelectedGroupForEdit] = useState<EnvelopeGroup | null>(null);
+  const [isEditGroupModalOpen, setIsEditGroupModalOpen] = useState(false);
 
   const [isLoadingMoreTxns, setIsLoadingMoreTxns] = useState(false);
   const [hasMoreTxns, setHasMoreTxns] = useState(true);
@@ -416,6 +421,108 @@ const AppInner: React.FC = () => {
     }
   };
 
+  const handleSelectEnvelopeForEdit = (env: Envelope) => {
+    setSelectedEnvelopeForEdit(env);
+    setIsEditCategoryModalOpen(true);
+  };
+
+  const handleSelectGroupForEdit = (group: EnvelopeGroup) => {
+    setSelectedGroupForEdit(group);
+    setIsEditGroupModalOpen(true);
+  };
+
+  const handleUpdateCategory = async (
+    id: string,
+    name: string,
+    targetAmountE5: number,
+    cadence: string,
+    envelopeGroupId?: string
+  ) => {
+    try {
+      const updatedEnv = await api.updateEnvelope(id, name, targetAmountE5, cadence, envelopeGroupId);
+      setEnvelopes((prev) => prev.map((e) => (e.id === id ? updatedEnv : e)));
+      refreshCategoriesSilent();
+      refreshSummarySilent();
+      addToast({
+        type: 'success',
+        statusCode: 'OK',
+        title: 'Category Updated',
+        message: `Updated category "${name}"`
+      });
+    } catch (err: any) {
+      addToast({
+        type: 'error',
+        statusCode: err.status || 'ERROR',
+        title: 'Update Failed',
+        message: err.message || 'Failed to update category envelope'
+      });
+    }
+  };
+
+  const handleDeleteCategory = async (id: string) => {
+    try {
+      await api.deleteEnvelope(id);
+      setEnvelopes((prev) => prev.filter((e) => e.id !== id));
+      refreshCategoriesSilent();
+      refreshSummarySilent();
+      addToast({
+        type: 'success',
+        statusCode: 'OK',
+        title: 'Category Deleted',
+        message: 'Successfully deleted category envelope'
+      });
+    } catch (err: any) {
+      addToast({
+        type: 'error',
+        statusCode: err.status || 'ERROR',
+        title: 'Deletion Failed',
+        message: err.message || 'Failed to delete category envelope'
+      });
+    }
+  };
+
+  const handleUpdateGroup = async (id: string, name: string) => {
+    try {
+      const updatedGroup = await api.updateEnvelopeGroup(id, name);
+      setEnvelopeGroups((prev) => prev.map((g) => (g.id === id ? updatedGroup : g)));
+      refreshCategoriesSilent();
+      addToast({
+        type: 'success',
+        statusCode: 'OK',
+        title: 'Group Updated',
+        message: `Renamed envelope group to "${name}"`
+      });
+    } catch (err: any) {
+      addToast({
+        type: 'error',
+        statusCode: err.status || 'ERROR',
+        title: 'Update Failed',
+        message: err.message || 'Failed to update envelope group'
+      });
+    }
+  };
+
+  const handleDeleteGroup = async (id: string) => {
+    try {
+      await api.deleteEnvelopeGroup(id);
+      setEnvelopeGroups((prev) => prev.filter((g) => g.id !== id));
+      refreshCategoriesSilent();
+      addToast({
+        type: 'success',
+        statusCode: 'OK',
+        title: 'Group Deleted',
+        message: 'Successfully deleted envelope group'
+      });
+    } catch (err: any) {
+      addToast({
+        type: 'error',
+        statusCode: err.status || 'ERROR',
+        title: 'Deletion Failed',
+        message: err.message || 'Failed to delete envelope group'
+      });
+    }
+  };
+
   // Unauthenticated Views
   if (!isAuthenticated) {
     if (authView === 'signup') {
@@ -508,6 +615,8 @@ const AppInner: React.FC = () => {
             onOpenNewTxnModal={() => setIsTxnModalOpen(true)}
             onOpenNewCategoryModal={() => setIsCategoryModalOpen(true)}
             onSelectTxnForEdit={handleSelectTxnForEdit}
+            onSelectEnvelopeForEdit={handleSelectEnvelopeForEdit}
+            onSelectGroupForEdit={handleSelectGroupForEdit}
             isLoadingCategories={loadingState.categories}
             isLoadingTransactions={loadingState.transactions}
             isLoadingEnvelopes={loadingState.envelopes}
@@ -565,6 +674,32 @@ const AppInner: React.FC = () => {
         onClose={() => setIsCategoryModalOpen(false)}
         groups={envelopeGroups}
         onSubmit={handleCreateCategory}
+      />
+
+      {/* Edit Category (Envelope) Modal */}
+      <EditCategoryModal
+        isOpen={isEditCategoryModalOpen}
+        onClose={() => {
+          setIsEditCategoryModalOpen(false);
+          setSelectedEnvelopeForEdit(null);
+        }}
+        envelope={selectedEnvelopeForEdit}
+        groups={envelopeGroups}
+        onUpdate={handleUpdateCategory}
+        onDelete={handleDeleteCategory}
+        onEditGroup={handleSelectGroupForEdit}
+      />
+
+      {/* Edit Envelope Group Modal */}
+      <EditGroupModal
+        isOpen={isEditGroupModalOpen}
+        onClose={() => {
+          setIsEditGroupModalOpen(false);
+          setSelectedGroupForEdit(null);
+        }}
+        group={selectedGroupForEdit}
+        onUpdate={handleUpdateGroup}
+        onDelete={handleDeleteGroup}
       />
     </div>
   );

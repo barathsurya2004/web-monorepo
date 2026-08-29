@@ -21,7 +21,8 @@ import {
   CreditCard,
   Building2,
   Folder,
-  X
+  X,
+  Pencil
 } from 'lucide-react';
 import { formatTransactionDateTime } from './HomePage';
 import { BudgetOverviewSkeleton, CategoryListSkeleton } from './Skeleton';
@@ -38,6 +39,8 @@ interface BudgetPageProps {
   onOpenNewTxnModal: () => void;
   onOpenNewCategoryModal?: () => void;
   onSelectTxnForEdit?: (txn: Transaction) => void;
+  onSelectEnvelopeForEdit?: (env: Envelope) => void;
+  onSelectGroupForEdit?: (group: EnvelopeGroup) => void;
   isLoadingCategories?: boolean;
   isLoadingTransactions?: boolean;
   isLoadingEnvelopes?: boolean;
@@ -55,6 +58,8 @@ export const BudgetPage: React.FC<BudgetPageProps> = ({
   onOpenNewTxnModal,
   onOpenNewCategoryModal,
   onSelectTxnForEdit,
+  onSelectEnvelopeForEdit,
+  onSelectGroupForEdit,
   isLoadingCategories,
   isLoadingTransactions,
   isLoadingEnvelopes
@@ -100,6 +105,7 @@ export const BudgetPage: React.FC<BudgetPageProps> = ({
       envelopeName,
       groupName,
       envGroupId,
+      matchedEnv,
       spentE5,
       remainingE5,
       usagePercent,
@@ -321,7 +327,7 @@ export const BudgetPage: React.FC<BudgetPageProps> = ({
                     <div className="flex items-center gap-2 flex-wrap">
                       <h3 className="font-extrabold text-base text-[#F4F1DE] tracking-tight truncate">{categoryTitle}</h3>
 
-                      {/* Group Name Tag */}
+                      {/* Group Name Tag (Non-interactive metadata badge) */}
                       <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#E07A5F] bg-[#E07A5F]/15 border border-[#E07A5F]/35 px-2.5 py-0.5 rounded-lg shadow-sm">
                         <Folder className="w-3 h-3 text-[#E07A5F]" />
                         <span>{cat.groupName}</span>
@@ -347,6 +353,23 @@ export const BudgetPage: React.FC<BudgetPageProps> = ({
                       )}
                     </div>
                   </div>
+
+                  {/* Edit Category Button */}
+                  {onSelectEnvelopeForEdit && cat.matchedEnv && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (cat.matchedEnv) {
+                          onSelectEnvelopeForEdit(cat.matchedEnv);
+                        }
+                      }}
+                      className="p-1.5 rounded-xl bg-[#1A1715] hover:bg-[#38322E] text-[#A89F95] hover:text-[#F4F1DE] border border-[#38322E] transition-colors shrink-0 cursor-pointer"
+                      title="Edit Category Envelope"
+                    >
+                      <Pencil className="w-3.5 h-3.5 text-[#E07A5F]" />
+                    </button>
+                  )}
                 </div>
 
                 {/* Spending Progress Indicator */}
