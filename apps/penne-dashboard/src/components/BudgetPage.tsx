@@ -24,7 +24,7 @@ import {
   X
 } from 'lucide-react';
 import { formatTransactionDateTime } from './HomePage';
-import { BudgetPageSkeleton } from './Skeleton';
+import { BudgetOverviewSkeleton, CategoryListSkeleton } from './Skeleton';
 
 interface BudgetPageProps {
   categories: ActiveCategory[];
@@ -38,7 +38,9 @@ interface BudgetPageProps {
   onOpenNewTxnModal: () => void;
   onOpenNewCategoryModal?: () => void;
   onSelectTxnForEdit?: (txn: Transaction) => void;
-  isLoadingData?: boolean;
+  isLoadingCategories?: boolean;
+  isLoadingTransactions?: boolean;
+  isLoadingEnvelopes?: boolean;
 }
 
 export const BudgetPage: React.FC<BudgetPageProps> = ({
@@ -53,20 +55,17 @@ export const BudgetPage: React.FC<BudgetPageProps> = ({
   onOpenNewTxnModal,
   onOpenNewCategoryModal,
   onSelectTxnForEdit,
-  isLoadingData
+  isLoadingCategories,
+  isLoadingTransactions,
+  isLoadingEnvelopes
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'tracked' | 'untracked' | 'ontrack' | 'warning' | 'overbudget'>('all');
   const [expandedEnvelopeId, setExpandedEnvelopeId] = useState<string | null>(null);
 
-  if (isLoadingData) {
-    return <BudgetPageSkeleton />;
-  }
-
   const safeCategories = Array.isArray(categories) ? categories : [];
   const safeTxns = Array.isArray(transactions) ? transactions : [];
 
-  // Envelope Group & Envelope maps for clear Envelope Name & Parent Group display
   const parentGroupMap = new Map<string, string>();
   (envelopeGroups || []).forEach((g) => {
     if (g && g.id) parentGroupMap.set(g.id, g.name);
@@ -79,7 +78,6 @@ export const BudgetPage: React.FC<BudgetPageProps> = ({
     }
   });
 
-  // Map each category to matching debit transactions & calculate total spent per envelope ID
   const categorySpending = safeCategories.map((cat) => {
     const matchingDebitTxns = safeTxns.filter(
       (t) => t && t.envelope_id === cat.envelope_id && t.txn_type === 'debit'
@@ -101,53 +99,46 @@ export const BudgetPage: React.FC<BudgetPageProps> = ({
       ...cat,
       envelopeName,
       groupName,
+      envGroupId,
       spentE5,
       remainingE5,
       usagePercent,
       isOverBudget,
       isWarning,
-      matchingTxns: matchingDebitTxns
+      matchingDebitTxns
     };
   });
 
-  // Separate Tracked Envelopes vs Untracked Budget Pools
-  const trackedCategories = categorySpending.filter((c) => !c.is_system);
-  const untrackedCategories = categorySpending.filter((c) => c.is_system);
-
-  // Overall Budget Metrics
-  const totalAllocatedE5 = categorySpending.reduce((sum, c) => sum + (c.allocated_amount_e5 || 0), 0);
-  const trackedAllocatedE5 = trackedCategories.reduce((sum, c) => sum + (c.allocated_amount_e5 || 0), 0);
-  const untrackedAllocatedE5 = untrackedCategories.reduce((sum, c) => sum + (c.allocated_amount_e5 || 0), 0);
-
-  const totalSpentE5 = categorySpending.reduce((sum, c) => sum + c.spentE5, 0);
-  const totalNetRemainingE5 = totalAllocatedE5 - totalSpentE5;
-
-  // Uncategorized Debit Transactions (envelope_id missing or not matching active categories)
-  const activeEnvelopeIds = new Set(safeCategories.map((c) => c.envelope_id));
-  const uncategorizedDebitTxns = safeTxns.filter(
-    (t) => t && t.txn_type === 'debit' && (!t.envelope_id || !activeEnvelopeIds.has(t.envelope_id))
-  );
-  const uncategorizedSpentE5 = uncategorizedDebitTxns.reduce((sum, t) => sum + (t.amount_e5 || 0), 0);
-
-  // Filter Categories
   const filteredCategories = categorySpending.filter((cat) => {
-    const displayName = cat.is_system ? 'Untracked General Budget' : cat.envelopeName;
-    const matchesSearch =
-      !searchTerm ||
-      displayName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      cat.groupName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      cat.envelope_id.toLowerCase().includes(searchTerm.toLowerCase());
+    if (statusFilter === 'tracked' && cat.is_system) return false;
+    if (statusFilter === 'untracked' && !cat.is_system) return false;
+    if (statusFilter === 'ontrack' && (cat.isOverBudget || cat.isWarning)) return false;
+    if (statusFilter === 'warning' && !cat.isWarning) return false;
+    if (statusFilter === 'overbudget' && !cat.isOverBudget) return false;
 
-    if (!matchesSearch) return false;
-
-    if (statusFilter === 'tracked') return !cat.is_system;
-    if (statusFilter === 'untracked') return cat.is_system;
-    if (statusFilter === 'ontrack') return !cat.isOverBudget && !cat.isWarning && !cat.is_system;
-    if (statusFilter === 'warning') return cat.isWarning && !cat.is_system;
-    if (statusFilter === 'overbudget') return cat.isOverBudget && !cat.is_system;
+    if (searchTerm.trim()) {
+      const q = searchTerm.toLowerCase().trim();
+      const matchName = cat.envelopeName.toLowerCase().includes(q);
+      const matchGroup = cat.groupName.toLowerCase().includes(q);
+      if (!matchName && !matchGroup) return false;
+    }
 
     return true;
   });
+
+  const totalAllocatedE5 = safeCategories.reduce((sum, c) => sum + (c.allocated_amount_e5 || 0), 0);
+  const totalSpentE5 = categorySpending.reduce((sum, c) => sum + c.spentE5, 0);
+  const totalNetRemainingE5 = totalAllocatedE5 - totalSpentE5;
+
+  const untrackedAllocatedE5 = safeCategories
+    .filter((c) => c.is_system)
+    .reduce((sum, c) => sum + (c.allocated_amount_e5 || 0), 0);
+  const trackedAllocatedE5 = totalAllocatedE5 - untrackedAllocatedE5;
+
+  const uncategorizedDebitTxns = safeTxns.filter(
+    (t) => t && t.txn_type === 'debit' && (!t.envelope_id || !new Set(safeCategories.map((c) => c.envelope_id)).has(t.envelope_id))
+  );
+  const uncategorizedSpentE5 = uncategorizedDebitTxns.reduce((sum, t) => sum + (t.amount_e5 || 0), 0);
 
   const toggleExpand = (envId: string) => {
     setExpandedEnvelopeId(expandedEnvelopeId === envId ? null : envId);
@@ -155,110 +146,108 @@ export const BudgetPage: React.FC<BudgetPageProps> = ({
 
   return (
     <div className="w-full max-w-md mx-auto px-4 py-6 space-y-5 animate-fadeIn pb-28 overflow-x-hidden">
-      {/* Backend Offline Alert Banner */}
       {isServerOffline && !isMockMode && (
-        <div className="bg-[#E8A598]/15 border border-[#E8A598]/40 rounded-3xl p-4 space-y-3 text-left animate-fadeIn shadow-xl">
+        <div className="bg-[#E8A598]/15 border border-[#E8A598]/40 rounded-3xl p-4 space-y-3 text-left animate-fadeIn">
           <div className="flex items-center gap-2 text-[#E8A598]">
             <WifiOff className="w-5 h-5 shrink-0" />
-            <h3 className="font-extrabold text-sm text-[#F4F1DE]">Backend Connection Offline</h3>
+            <h3 className="font-extrabold text-sm text-[#F4F1DE]">Backend Server Offline</h3>
           </div>
           <p className="text-xs text-[#A89F95] leading-relaxed">
-            Unable to connect to <code className="text-[#F2CC8F] font-mono">/api/get-active-categories</code>. Ensure server is active.
+            Cannot reach backend server. Please verify <code className="text-[#F2CC8F] font-mono">penne-server</code> is running.
           </p>
           <div className="flex items-center gap-2 pt-1">
             {onRetryConnection && (
               <Button size="sm" variant="pastelRose" onClick={onRetryConnection} className="gap-1.5 font-bold text-xs">
                 <RefreshCw className="w-3.5 h-3.5" />
-                <span>Retry</span>
+                <span>Retry Connection</span>
               </Button>
             )}
             {onToggleMock && (
               <Button size="sm" variant="secondary" onClick={onToggleMock} className="text-xs">
-                Switch to Demo
+                Switch to Demo Mode
               </Button>
             )}
           </div>
         </div>
       )}
 
-      {/* Hero Overview Banner */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-[#292421] via-[#1E1B19] to-[#141210] border border-[#3E3835] rounded-3xl p-5 shadow-2xl space-y-4">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="p-2.5 rounded-2xl bg-gradient-to-br from-[#E07A5F] to-[#C96449] text-white shadow-lg shadow-[#E07A5F]/20 shrink-0">
-              <PieChart className="w-5 h-5 stroke-[2.5]" />
+      {isLoadingCategories || isLoadingTransactions ? (
+        <BudgetOverviewSkeleton />
+      ) : (
+        <div className="relative overflow-hidden bg-gradient-to-br from-[#292421] via-[#1E1B19] to-[#141210] border border-[#3E3835] rounded-3xl p-5 shadow-2xl space-y-4">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="p-2.5 rounded-2xl bg-gradient-to-br from-[#E07A5F] to-[#C96449] text-white shadow-lg shadow-[#E07A5F]/20 shrink-0">
+                <PieChart className="w-5 h-5 stroke-[2.5]" />
+              </div>
+              <div className="min-w-0">
+                <h1 className="text-base font-extrabold text-[#F4F1DE] tracking-tight flex items-center gap-1.5 truncate">
+                  <span>Budget Overview</span>
+                  <Sparkles className="w-3.5 h-3.5 text-[#F2CC8F] shrink-0" />
+                </h1>
+                <p className="text-[11px] text-[#A89F95] truncate">Active Categories & Live Tracking</p>
+              </div>
             </div>
-            <div className="min-w-0">
-              <h1 className="text-base font-extrabold text-[#F4F1DE] tracking-tight flex items-center gap-1.5 truncate">
-                <span>Budget Overview</span>
-                <Sparkles className="w-3.5 h-3.5 text-[#F2CC8F] shrink-0" />
-              </h1>
-              <p className="text-[11px] text-[#A89F95] truncate">Active Categories & Live Tracking</p>
+            {onOpenNewCategoryModal && (
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={onOpenNewCategoryModal}
+                className="gap-1.5 font-bold text-xs shrink-0 shadow-md px-3"
+              >
+                <Plus className="w-4 h-4" />
+                <span>New Category</span>
+              </Button>
+            )}
+          </div>
+
+          <div className="grid grid-cols-3 gap-2 pt-2 border-t border-[#342F2C]">
+            <div className="bg-[#1A1715]/90 p-2.5 rounded-2xl border border-[#342F2C] min-w-0">
+              <p className="text-[9px] text-[#8C837A] uppercase font-bold tracking-wider truncate">Total Budgeted</p>
+              <p className="text-xs sm:text-sm font-black text-[#F4F1DE] mt-0.5 truncate">
+                ₹{e5ToAmount(totalAllocatedE5).toLocaleString('en-IN')}
+              </p>
+            </div>
+
+            <div className="bg-[#1A1715]/90 p-2.5 rounded-2xl border border-[#342F2C] min-w-0">
+              <p className="text-[9px] text-[#8C837A] uppercase font-bold tracking-wider truncate">Total Spent</p>
+              <p className="text-xs sm:text-sm font-black text-[#E8A598] mt-0.5 truncate">
+                ₹{e5ToAmount(totalSpentE5).toLocaleString('en-IN')}
+              </p>
+            </div>
+
+            <div className="bg-[#1A1715]/90 p-2.5 rounded-2xl border border-[#342F2C] min-w-0">
+              <p className="text-[9px] text-[#8C837A] uppercase font-bold tracking-wider truncate">Net Remaining</p>
+              <p
+                className={`text-xs sm:text-sm font-black mt-0.5 truncate ${totalNetRemainingE5 < 0 ? 'text-[#E8A598]' : 'text-[#81B29A]'
+                  }`}
+              >
+                ₹{e5ToAmount(totalNetRemainingE5).toLocaleString('en-IN')}
+              </p>
             </div>
           </div>
-          {onOpenNewCategoryModal && (
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={onOpenNewCategoryModal}
-              className="gap-1.5 font-bold text-xs shrink-0 shadow-md px-3"
-            >
-              <Plus className="w-4 h-4" />
-              <span>New Category</span>
-            </Button>
+
+          {untrackedAllocatedE5 > 0 && (
+            <div className="bg-[#1A1715]/60 border border-[#342F2C] rounded-2xl p-3 flex items-center justify-between text-xs gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="w-2 h-2 rounded-full bg-[#81B29A] shrink-0" />
+                <span className="text-[#A89F95] truncate">
+                  Tracked: <strong className="text-[#F4F1DE]">₹{e5ToAmount(trackedAllocatedE5).toLocaleString('en-IN')}</strong>
+                </span>
+              </div>
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="w-2 h-2 rounded-full bg-[#F2CC8F] shrink-0" />
+                <span className="text-[#A89F95] truncate">
+                  Untracked Pool: <strong className="text-[#F2CC8F]">₹{e5ToAmount(untrackedAllocatedE5).toLocaleString('en-IN')}</strong>
+                </span>
+              </div>
+            </div>
           )}
         </div>
+      )}
 
-        {/* Primary Budget Metric Cards */}
-        <div className="grid grid-cols-3 gap-2 pt-2 border-t border-[#342F2C]">
-          <div className="bg-[#1A1715]/90 p-2.5 rounded-2xl border border-[#342F2C] min-w-0">
-            <p className="text-[9px] text-[#8C837A] uppercase font-bold tracking-wider truncate">Total Budgeted</p>
-            <p className="text-xs sm:text-sm font-black text-[#F4F1DE] mt-0.5 truncate">
-              ₹{e5ToAmount(totalAllocatedE5).toLocaleString('en-IN')}
-            </p>
-          </div>
-
-          <div className="bg-[#1A1715]/90 p-2.5 rounded-2xl border border-[#342F2C] min-w-0">
-            <p className="text-[9px] text-[#8C837A] uppercase font-bold tracking-wider truncate">Total Spent</p>
-            <p className="text-xs sm:text-sm font-black text-[#E8A598] mt-0.5 truncate">
-              ₹{e5ToAmount(totalSpentE5).toLocaleString('en-IN')}
-            </p>
-          </div>
-
-          <div className="bg-[#1A1715]/90 p-2.5 rounded-2xl border border-[#342F2C] min-w-0">
-            <p className="text-[9px] text-[#8C837A] uppercase font-bold tracking-wider truncate">Net Remaining</p>
-            <p
-              className={`text-xs sm:text-sm font-black mt-0.5 truncate ${totalNetRemainingE5 < 0 ? 'text-[#E8A598]' : 'text-[#81B29A]'
-                }`}
-            >
-              ₹{e5ToAmount(totalNetRemainingE5).toLocaleString('en-IN')}
-            </p>
-          </div>
-        </div>
-
-        {/* Tracked vs Untracked Budget Distribution Breakdown */}
-        {untrackedAllocatedE5 > 0 && (
-          <div className="bg-[#1A1715]/60 border border-[#342F2C] rounded-2xl p-3 flex items-center justify-between text-xs gap-2">
-            <div className="flex items-center gap-2 min-w-0">
-              <div className="w-2 h-2 rounded-full bg-[#81B29A] shrink-0" />
-              <span className="text-[#A89F95] truncate">
-                Tracked: <strong className="text-[#F4F1DE]">₹{e5ToAmount(trackedAllocatedE5).toLocaleString('en-IN')}</strong>
-              </span>
-            </div>
-            <div className="flex items-center gap-2 min-w-0">
-              <div className="w-2 h-2 rounded-full bg-[#F2CC8F] shrink-0" />
-              <span className="text-[#A89F95] truncate">
-                Untracked Pool: <strong className="text-[#F2CC8F]">₹{e5ToAmount(untrackedAllocatedE5).toLocaleString('en-IN')}</strong>
-              </span>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Search & Filter Toolbar */}
       <div className="space-y-3 w-full max-w-full overflow-x-hidden">
         <div className="flex flex-col gap-2.5 w-full">
-          {/* Search Field */}
           <div className="relative w-full">
             <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-[#8C837A]" />
             <input
@@ -270,7 +259,6 @@ export const BudgetPage: React.FC<BudgetPageProps> = ({
             />
           </div>
 
-          {/* Filter Pills Toolbar */}
           <div className="flex items-center gap-1.5 bg-[#1A1715] p-1 rounded-2xl border border-[#38322E] overflow-x-auto no-scrollbar">
             {(
               [
@@ -297,8 +285,9 @@ export const BudgetPage: React.FC<BudgetPageProps> = ({
         </div>
       </div>
 
-      {/* Category Cards List */}
-      {filteredCategories.length === 0 ? (
+      {isLoadingCategories || isLoadingEnvelopes ? (
+        <CategoryListSkeleton count={3} />
+      ) : filteredCategories.length === 0 ? (
         <Card className="text-center py-10 space-y-3 w-full max-w-full">
           <div className="w-12 h-12 rounded-2xl bg-[#2E2A27] text-[#A89F95] flex items-center justify-center mx-auto">
             <Layers className="w-6 h-6" />
@@ -423,7 +412,7 @@ export const BudgetPage: React.FC<BudgetPageProps> = ({
                 >
                   <span className="flex items-center gap-1.5">
                     <Layers className="w-3.5 h-3.5 text-[#E07A5F]" />
-                    <span>Mapped Transactions ({cat.matchingTxns.length})</span>
+                    <span>Mapped Transactions ({cat.matchingDebitTxns.length})</span>
                   </span>
                   {isExpanded ? <ChevronUp className="w-4 h-4 text-[#E07A5F]" /> : <ChevronDown className="w-4 h-4" />}
                 </button>
@@ -431,12 +420,12 @@ export const BudgetPage: React.FC<BudgetPageProps> = ({
                 {/* Expanded Transactions List */}
                 {isExpanded && (
                   <div className="space-y-2 pt-2 animate-fadeIn">
-                    {cat.matchingTxns.length === 0 ? (
+                    {cat.matchingDebitTxns.length === 0 ? (
                       <div className="p-3 text-center text-xs text-[#8C837A] bg-[#1A1715] border border-dashed border-[#342F2C] rounded-2xl">
                         No expenses logged for this category envelope yet.
                       </div>
                     ) : (
-                      cat.matchingTxns.map((txn) => {
+                      cat.matchingDebitTxns.map((txn: Transaction) => {
                         const { dateStr, timeStr } = formatTransactionDateTime(txn.created_at);
                         const envHeading = (cat.is_system || cat.name === 'Unallocated Budget') ? 'General' : (cat.name || 'General');
                         const isBankCard = txn.payment_method === 'bank_card';

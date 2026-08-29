@@ -19,7 +19,7 @@ import {
   Plus
 } from 'lucide-react';
 import { formatTransactionDateTime } from './HomePage';
-import { TransactionsPageSkeleton } from './Skeleton';
+import { TransactionListSkeleton } from './Skeleton';
 
 interface TransactionsPageProps {
   transactions: Transaction[];
@@ -31,7 +31,7 @@ interface TransactionsPageProps {
   onToggleMock?: () => void;
   onOpenNewTxnModal: () => void;
   onSelectTxnForEdit?: (txn: Transaction) => void;
-  isLoadingData?: boolean;
+  isLoadingTransactions?: boolean;
 }
 
 export function getDateGroupHeader(isoString?: string): string {
@@ -70,7 +70,7 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
   onToggleMock,
   onOpenNewTxnModal,
   onSelectTxnForEdit,
-  isLoadingData
+  isLoadingTransactions
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedGroupTag, setSelectedGroupTag] = useState<string>('all');
@@ -95,32 +95,6 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
     const map = new Map<string, EnvelopeGroup>();
     safeGroups.forEach((g) => {
       if (g && g.id) map.set(g.id, g);
-    });
-    return map;
-  }, [safeGroups]);
-
-  // Extract unique Tag (Group) names for clean select list
-  const uniqueTagNames = useMemo(() => {
-    const names = new Set<string>();
-    safeGroups.forEach((g) => {
-      if (g && g.name && g.name.trim()) {
-        names.add(g.name.trim());
-      }
-    });
-    return Array.from(names).sort();
-  }, [safeGroups]);
-
-  // Map of Group Name -> Set of Group IDs sharing that name
-  const groupIdsByNameMap = useMemo(() => {
-    const map = new Map<string, Set<string>>();
-    safeGroups.forEach((g) => {
-      if (g && g.name && g.id) {
-        const nameKey = g.name.trim();
-        if (!map.has(nameKey)) {
-          map.set(nameKey, new Set());
-        }
-        map.get(nameKey)!.add(g.id);
-      }
     });
     return map;
   }, [safeGroups]);
@@ -210,10 +184,6 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
     setSearchTerm('');
   };
 
-  if (isLoadingData) {
-    return <TransactionsPageSkeleton />;
-  }
-
   return (
     <div className="w-full max-w-md mx-auto px-4 py-6 space-y-5 animate-fadeIn pb-28 overflow-x-hidden">
       {/* Offline Banner */}
@@ -249,15 +219,13 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
             <CreditCard className="w-5 h-5 text-[#E07A5F]" />
             <h2 className="text-base font-extrabold text-[#F4F1DE] truncate">All Transactions</h2>
           </div>
-          <p className="text-xs text-[#A89F95] truncate">
-            {filteredTxns.length} of {safeTxns.length} transaction{safeTxns.length !== 1 ? 's' : ''}
-          </p>
+          <p className="text-xs text-[#A89F95] truncate">Filter & search transaction records</p>
         </div>
         <Button
           variant="primary"
-          size="md"
+          size="sm"
           onClick={onOpenNewTxnModal}
-          className="gap-1.5 shadow-lg font-bold shrink-0 text-xs px-3.5"
+          className="gap-1.5 font-bold text-xs shrink-0 px-3"
           disabled={isServerOffline && !isMockMode}
         >
           <Plus className="w-4 h-4" />
@@ -265,18 +233,18 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
         </Button>
       </div>
 
-      {/* Search & Filter Trigger Bar */}
-      <div className="space-y-3 w-full">
+      {/* Search & Filter Bar */}
+      <div className="space-y-2">
         <div className="flex items-center gap-2">
-          {/* Search Input */}
+          {/* Search Input Box */}
           <div className="relative flex-1">
-            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-[#8C837A]" />
+            <Search className="w-4 h-4 text-[#8C837A] absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Search bank or category..."
+              placeholder="Search category, payment, tag..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-[#1A1715] border border-[#38322E] text-[#F4F1DE] placeholder-[#6E665E] text-xs rounded-2xl pl-10 pr-4 py-2.5 focus:outline-none focus:border-[#E07A5F]"
+              className="w-full bg-[#1A1715] border border-[#38322E] text-[#F4F1DE] placeholder-[#8C837A] text-xs rounded-2xl pl-9 pr-8 py-2.5 focus:outline-none focus:border-[#E07A5F] transition-all"
             />
             {searchTerm && (
               <button
@@ -291,39 +259,42 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
           {/* Filter Toggle Button */}
           <button
             onClick={() => setIsFilterPanelOpen(!isFilterPanelOpen)}
-            className={`flex items-center gap-2 py-2.5 px-3.5 rounded-2xl border text-xs font-bold transition-all cursor-pointer shrink-0 ${isFilterPanelOpen || activeFiltersCount > 0
-                ? 'bg-[#E07A5F] text-white border-[#E07A5F] shadow-lg shadow-[#E07A5F]/30'
-                : 'bg-[#1A1715] text-[#A89F95] border-[#38322E] hover:text-[#F4F1DE] hover:border-[#524B45]'
-              }`}
+            className={`flex items-center gap-1.5 px-3 py-2.5 rounded-2xl border text-xs font-bold transition-all cursor-pointer ${
+              isFilterPanelOpen || activeFiltersCount > 0
+                ? 'bg-[#E07A5F]/20 text-[#E07A5F] border-[#E07A5F]/40'
+                : 'bg-[#1A1715] text-[#A89F95] border-[#38322E] hover:text-[#F4F1DE]'
+            }`}
           >
-            <SlidersHorizontal className="w-4 h-4" />
+            <SlidersHorizontal className="w-3.5 h-3.5" />
             <span>Filters</span>
             {activeFiltersCount > 0 && (
-              <span className="w-5 h-5 rounded-full bg-white text-[#E07A5F] text-[10px] font-black flex items-center justify-center">
+              <span className="w-4 h-4 rounded-full bg-[#E07A5F] text-[#171513] text-[10px] font-black flex items-center justify-center">
                 {activeFiltersCount}
               </span>
             )}
           </button>
         </div>
+      </div>
 
-        {/* Collapsible Filter Panel */}
-        {isFilterPanelOpen && (
-          <div className="bg-[#24201D] border border-[#38322E] rounded-3xl p-4 space-y-4 animate-fadeIn shadow-xl">
-            <div className="flex items-center justify-between border-b border-[#342F2C] pb-2.5">
-              <h3 className="text-xs font-extrabold text-[#F4F1DE] flex items-center gap-1.5">
-                <Filter className="w-3.5 h-3.5 text-[#E07A5F]" />
-                <span>Filter Transactions</span>
-              </h3>
-              {(activeFiltersCount > 0 || searchTerm) && (
-                <button
-                  onClick={resetFilters}
-                  className="text-[11px] font-bold text-[#E07A5F] hover:underline"
-                >
-                  Reset All
-                </button>
-              )}
-            </div>
+      {/* Expandable Filter Panel */}
+      {isFilterPanelOpen && (
+        <div className="bg-[#24201D] border border-[#38322E] rounded-3xl p-4 space-y-3.5 animate-fadeIn">
+          <div className="flex items-center justify-between border-b border-[#342F2C] pb-2">
+            <h3 className="text-xs font-bold text-[#F4F1DE] flex items-center gap-1.5">
+              <Filter className="w-3.5 h-3.5 text-[#E07A5F]" />
+              <span>Filter Transactions</span>
+            </h3>
+            {activeFiltersCount > 0 && (
+              <button
+                onClick={resetFilters}
+                className="text-[11px] font-bold text-[#E8A598] hover:underline cursor-pointer"
+              >
+                Reset
+              </button>
+            )}
+          </div>
 
+          <div className="space-y-3">
             {/* Filter 1: Tag (Envelope Group) */}
             <div className="space-y-1.5">
               <label className="text-[11px] font-bold text-[#A89F95] flex items-center gap-1">
@@ -334,7 +305,7 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
                 value={selectedGroupTag}
                 onChange={(e) => {
                   setSelectedGroupTag(e.target.value);
-                  setSelectedCategoryEnv('all'); // Reset category selection on group change
+                  setSelectedCategoryEnv('all');
                 }}
                 className="w-full bg-[#1A1715] border border-[#38322E] text-[#F4F1DE] text-xs rounded-2xl px-3 py-2.5 focus:outline-none focus:border-[#E07A5F]"
               >
@@ -375,19 +346,20 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
                   <button
                     key={type}
                     onClick={() => setTypeFilter(type)}
-                    className={`flex-1 py-1.5 px-3 text-[11px] font-bold rounded-xl capitalize transition-all cursor-pointer ${typeFilter === type
+                    className={`flex-1 py-1.5 px-3 text-[11px] font-bold rounded-xl capitalize transition-all cursor-pointer ${
+                      typeFilter === type
                         ? 'bg-[#38322E] text-[#F4F1DE] shadow-sm'
                         : 'text-[#A89F95] hover:text-[#F4F1DE]'
-                      }`}
+                    }`}
                   >
-                    {type === 'debit' ? 'Expense' : type === 'credit' ? 'Income' : 'All'}
+                    {type}
                   </button>
                 ))}
               </div>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Active Filter Chips Preview */}
       {activeFiltersCount > 0 && !isFilterPanelOpen && (
@@ -414,8 +386,10 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
         </div>
       )}
 
-      {/* Transactions List Grouped Date-Wise */}
-      {groupedTransactions.length === 0 ? (
+      {/* Transactions List Grouped Date-Wise Box */}
+      {isLoadingTransactions ? (
+        <TransactionListSkeleton count={5} />
+      ) : groupedTransactions.length === 0 ? (
         <Card className="text-center py-12 space-y-3 w-full">
           <div className="w-12 h-12 rounded-2xl bg-[#2E2A27] text-[#A89F95] flex items-center justify-center mx-auto">
             <CreditCard className="w-6 h-6" />

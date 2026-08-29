@@ -18,7 +18,7 @@ import {
   Building2,
   Flame
 } from 'lucide-react';
-import { HomePageSkeleton } from './Skeleton';
+import { StatCardsSkeleton, PaymentLimitsSkeleton, TransactionListSkeleton } from './Skeleton';
 import { getPaymentLimitStatus } from './AccountView';
 
 interface HomePageProps {
@@ -33,7 +33,8 @@ interface HomePageProps {
   onOpenNewCategoryModal?: () => void;
   onSelectTxnForEdit?: (txn: Transaction) => void;
   onNavigateToTransactions?: () => void;
-  isLoadingData?: boolean;
+  isLoadingTransactions?: boolean;
+  isLoadingEnvelopes?: boolean;
 }
 
 export function formatTransactionDateTime(isoString?: string): { dateStr: string; timeStr: string } {
@@ -67,7 +68,8 @@ export const HomePage: React.FC<HomePageProps> = ({
   onOpenNewCategoryModal,
   onSelectTxnForEdit,
   onNavigateToTransactions,
-  isLoadingData
+  isLoadingTransactions,
+  isLoadingEnvelopes
 }) => {
   const envelopeMap = useMemo(() => {
     const map = new Map<string, Envelope>();
@@ -94,10 +96,6 @@ export const HomePage: React.FC<HomePageProps> = ({
     const saved = localStorage.getItem('penne_limit_bank_account');
     return saved ? Number(saved) : 50000;
   }, []);
-
-  if (isLoadingData) {
-    return <HomePageSkeleton />;
-  }
 
   const safeTxns = Array.isArray(transactions) ? transactions : [];
 
@@ -136,9 +134,6 @@ export const HomePage: React.FC<HomePageProps> = ({
   const totalRemainingFormatted = `₹${e5ToAmount(totalRemainingE5).toLocaleString('en-IN')}`;
   const totalIncomeFormatted = `₹${e5ToAmount(totalIncomeE5).toLocaleString('en-IN')}`;
 
-  const cardPercent = totalSpentE5 > 0 ? Math.round((cardSpentE5 / totalSpentE5) * 100) : 0;
-  const bankPercent = totalSpentE5 > 0 ? 100 - cardPercent : 0;
-
   const cardSpentAmount = e5ToAmount(cardSpentE5);
   const bankAccountSpentAmount = e5ToAmount(bankAccountSpentE5);
 
@@ -173,97 +168,101 @@ export const HomePage: React.FC<HomePageProps> = ({
         </div>
       )}
 
-      {/* Overview Stat Cards: Total Spend & Total Remaining */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 w-full max-w-full overflow-x-hidden items-start">
-        {/* Total Spend Card */}
-        <StatCard
-          title="Total Spend"
-          value={totalSpentFormatted}
-          subtitle="Total recorded expenses"
-          variant="rose"
-          icon={<TrendingDown className="w-5 h-5 text-[#E8A598]" />}
-          className="w-full min-w-0"
-        />
+      {/* Overview Stat Cards: Total Spend & Total Remaining Box */}
+      {isLoadingTransactions ? (
+        <StatCardsSkeleton />
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 w-full max-w-full overflow-x-hidden items-start">
+          <StatCard
+            title="Total Spend"
+            value={totalSpentFormatted}
+            subtitle="Total recorded expenses"
+            variant="rose"
+            icon={<TrendingDown className="w-5 h-5 text-[#E8A598]" />}
+            className="w-full min-w-0"
+          />
 
-        {/* Total Remaining Card */}
-        <StatCard
-          title="Total Remaining"
-          value={totalRemainingFormatted}
-          subtitle={`Out of ${totalIncomeFormatted} income`}
-          variant="sage"
-          icon={<TrendingUp className="w-5 h-5 text-[#81B29A]" />}
-          className="w-full min-w-0"
-        />
-      </div>
-
-      {/* Payment Method Spending Limits & Heatmap Status Card */}
-      <div className="bg-[#24201D] border border-[#38322E] rounded-3xl p-4 space-y-3.5 shadow-lg shadow-black/20 w-full max-w-full overflow-x-hidden">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Flame className="w-4 h-4 text-[#E07A5F]" />
-            <h3 className="text-xs font-extrabold text-[#F4F1DE] uppercase tracking-wider">Payment Method Usage & Limits</h3>
-          </div>
-          <span className="text-[10px] text-[#A89F95] font-mono">Monthly Ceilings</span>
+          <StatCard
+            title="Total Remaining"
+            value={totalRemainingFormatted}
+            subtitle={`Out of ${totalIncomeFormatted} income`}
+            variant="sage"
+            icon={<TrendingUp className="w-5 h-5 text-[#81B29A]" />}
+            className="w-full min-w-0"
+          />
         </div>
+      )}
 
-        {/* Bank Card Limit Usage */}
-        <div className={`p-3 rounded-2xl border ${cardLimitStatus.cardBorder} ${cardLimitStatus.bgGlow} transition-all space-y-2`}>
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 min-w-0">
-              <div className="p-1.5 rounded-lg bg-[#818CF8]/15 text-[#818CF8] shrink-0">
-                <CreditCard className="w-3.5 h-3.5" />
+      {/* Payment Method Spending Limits & Heatmap Status Card Box */}
+      {isLoadingTransactions ? (
+        <PaymentLimitsSkeleton />
+      ) : (
+        <div className="bg-[#24201D] border border-[#38322E] rounded-3xl p-4 space-y-3.5 shadow-lg shadow-black/20 w-full max-w-full overflow-x-hidden">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Flame className="w-4 h-4 text-[#E07A5F]" />
+              <h3 className="text-xs font-extrabold text-[#F4F1DE] uppercase tracking-wider">Payment Method Usage & Limits</h3>
+            </div>
+            <span className="text-[10px] text-[#A89F95] font-mono">Monthly Ceilings</span>
+          </div>
+
+          {/* Bank Card Limit Usage */}
+          <div className={`p-3 rounded-2xl border ${cardLimitStatus.cardBorder} ${cardLimitStatus.bgGlow} transition-all space-y-2`}>
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="p-1.5 rounded-lg bg-[#818CF8]/15 text-[#818CF8] shrink-0">
+                  <CreditCard className="w-3.5 h-3.5" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-extrabold text-[#F4F1DE] truncate">Bank Card</p>
+                  <p className="text-[11px] text-[#A89F95] font-mono">
+                    Spent: <span className="font-bold text-[#F4F1DE]">{cardSpentFormatted}</span> / ₹{cardLimit.toLocaleString('en-IN')}
+                  </p>
+                </div>
               </div>
-              <div className="min-w-0">
-                <p className="text-xs font-extrabold text-[#F4F1DE] truncate">Bank Card</p>
-                <p className="text-[11px] text-[#A89F95] font-mono">
-                  Spent: <span className="font-bold text-[#F4F1DE]">{cardSpentFormatted}</span> / ₹{cardLimit.toLocaleString('en-IN')}
-                </p>
-              </div>
+
+              <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-md border shrink-0 ${cardLimitStatus.badgeBg}`}>
+                {cardLimitStatus.pct}% • {cardLimitStatus.label}
+              </span>
             </div>
 
-            <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-md border shrink-0 ${cardLimitStatus.badgeBg}`}>
-              {cardLimitStatus.pct}% • {cardLimitStatus.label}
-            </span>
+            <div className="w-full h-2 bg-[#1A1715] rounded-full overflow-hidden border border-[#38322E]/60">
+              <div
+                className={`h-full transition-all duration-500 rounded-full ${cardLimitStatus.barColor}`}
+                style={{ width: `${Math.min(cardLimitStatus.pct, 100)}%` }}
+              />
+            </div>
           </div>
 
-          {/* Progress Bar with dynamic heatmap color */}
-          <div className="w-full h-2 bg-[#1A1715] rounded-full overflow-hidden border border-[#38322E]/60">
-            <div
-              className={`h-full transition-all duration-500 rounded-full ${cardLimitStatus.barColor}`}
-              style={{ width: `${Math.min(cardLimitStatus.pct, 100)}%` }}
-            />
-          </div>
-        </div>
+          {/* Bank Account Limit Usage */}
+          <div className={`p-3 rounded-2xl border ${bankLimitStatus.cardBorder} ${bankLimitStatus.bgGlow} transition-all space-y-2`}>
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="p-1.5 rounded-lg bg-[#2DD4BF]/15 text-[#2DD4BF] shrink-0">
+                  <Building2 className="w-3.5 h-3.5" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-extrabold text-[#F4F1DE] truncate">Bank Account</p>
+                  <p className="text-[11px] text-[#A89F95] font-mono">
+                    Spent: <span className="font-bold text-[#F4F1DE]">{bankAccountSpentFormatted}</span> / ₹{bankLimit.toLocaleString('en-IN')}
+                  </p>
+                </div>
+              </div>
 
-        {/* Bank Account Limit Usage */}
-        <div className={`p-3 rounded-2xl border ${bankLimitStatus.cardBorder} ${bankLimitStatus.bgGlow} transition-all space-y-2`}>
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 min-w-0">
-              <div className="p-1.5 rounded-lg bg-[#2DD4BF]/15 text-[#2DD4BF] shrink-0">
-                <Building2 className="w-3.5 h-3.5" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs font-extrabold text-[#F4F1DE] truncate">Bank Account</p>
-                <p className="text-[11px] text-[#A89F95] font-mono">
-                  Spent: <span className="font-bold text-[#F4F1DE]">{bankAccountSpentFormatted}</span> / ₹{bankLimit.toLocaleString('en-IN')}
-                </p>
-              </div>
+              <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-md border shrink-0 ${bankLimitStatus.badgeBg}`}>
+                {bankLimitStatus.pct}% • {bankLimitStatus.label}
+              </span>
             </div>
 
-            <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-md border shrink-0 ${bankLimitStatus.badgeBg}`}>
-              {bankLimitStatus.pct}% • {bankLimitStatus.label}
-            </span>
-          </div>
-
-          {/* Progress Bar with dynamic heatmap color */}
-          <div className="w-full h-2 bg-[#1A1715] rounded-full overflow-hidden border border-[#38322E]/60">
-            <div
-              className={`h-full transition-all duration-500 rounded-full ${bankLimitStatus.barColor}`}
-              style={{ width: `${Math.min(bankLimitStatus.pct, 100)}%` }}
-            />
+            <div className="w-full h-2 bg-[#1A1715] rounded-full overflow-hidden border border-[#38322E]/60">
+              <div
+                className={`h-full transition-all duration-500 rounded-full ${bankLimitStatus.barColor}`}
+                style={{ width: `${Math.min(bankLimitStatus.pct, 100)}%` }}
+              />
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Action Banner: Add Transaction & Add Category */}
       <div className="flex items-center justify-between bg-[#24201D] border border-[#38322E] rounded-3xl p-4 shadow-lg shadow-black/20 w-full max-w-full overflow-x-hidden gap-2">
@@ -297,7 +296,7 @@ export const HomePage: React.FC<HomePageProps> = ({
         </div>
       </div>
 
-      {/* Recent Transactions Preview Section (Only Top 5-6 Txns, No Filters) */}
+      {/* Recent Transactions Preview Section Box */}
       <div className="space-y-3 w-full max-w-full overflow-x-hidden">
         <div className="flex items-center justify-between px-1">
           <h3 className="text-sm font-extrabold text-[#F4F1DE]">Recent Transactions</h3>
@@ -312,7 +311,9 @@ export const HomePage: React.FC<HomePageProps> = ({
           )}
         </div>
 
-        {recentTxns.length === 0 ? (
+        {isLoadingTransactions || isLoadingEnvelopes ? (
+          <TransactionListSkeleton count={4} />
+        ) : recentTxns.length === 0 ? (
           <Card className="text-center py-10 space-y-3 w-full max-w-full">
             <div className="w-12 h-12 rounded-2xl bg-[#2E2A27] text-[#A89F95] flex items-center justify-center mx-auto">
               <Wallet className="w-6 h-6" />
@@ -333,8 +334,6 @@ export const HomePage: React.FC<HomePageProps> = ({
             {recentTxns.map((txn) => {
               const isDebit = txn.txn_type === 'debit';
               const formattedAmt = `₹${e5ToAmount(txn.amount_e5).toLocaleString('en-IN')}`;
-
-              // Format ISO-8601 date & time
               const { dateStr, timeStr } = formatTransactionDateTime(txn.created_at);
 
               const assignedEnv = txn.envelope_id ? envelopeMap.get(txn.envelope_id) : null;
@@ -352,7 +351,6 @@ export const HomePage: React.FC<HomePageProps> = ({
                   className="bg-[#24201D] border border-[#342F2C] hover:border-[#E07A5F]/60 hover:bg-[#2B2623] cursor-pointer rounded-2xl p-3.5 transition-all flex items-center justify-between gap-2.5 shadow-md w-full max-w-full overflow-x-hidden min-w-0 group"
                   title="Click to edit transaction details"
                 >
-                  {/* Left: Icon & Details */}
                   <div className="flex items-center gap-2.5 min-w-0 flex-1 overflow-x-hidden">
                     <div
                       className={`w-9 h-9 rounded-2xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-105 ${isDebit
@@ -374,7 +372,6 @@ export const HomePage: React.FC<HomePageProps> = ({
                         </p>
                       </div>
 
-                      {/* Tags & Time */}
                       <div className="flex items-center gap-2 text-[11px] text-[#A89F95] flex-wrap">
                         {dateStr && (
                           <span className="flex items-center gap-1 font-mono text-[10px] text-[#C4BBB1]">
@@ -409,7 +406,6 @@ export const HomePage: React.FC<HomePageProps> = ({
                     </div>
                   </div>
 
-                  {/* Right: Amount */}
                   <div className="text-right shrink-0 pl-1">
                     <span
                       className={`text-sm sm:text-base font-black tracking-tight ${isDebit ? 'text-[#E8A598]' : 'text-[#81B29A]'
@@ -427,4 +423,5 @@ export const HomePage: React.FC<HomePageProps> = ({
     </div>
   );
 };
+
 

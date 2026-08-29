@@ -708,10 +708,17 @@ export class PenneApiClient {
       method: 'POST',
       body: JSON.stringify(payload)
     });
-    if (created && (!created.created_at || created.created_at.startsWith('0001-01-01'))) {
-      created.created_at = nowIso;
-    }
-    return created;
+    const result: Transaction = {
+      id: (created && created.id) ? created.id : `txn-${Date.now()}`,
+      user_id: (created && created.user_id) ? created.user_id : this.userUUID,
+      amount_e5: (created && typeof created.amount_e5 === 'number') ? created.amount_e5 : Math.round(amountE5),
+      txn_type: (created && created.txn_type) ? created.txn_type : txnType,
+      payment_method: (created && created.payment_method) ? created.payment_method : paymentMethod,
+      envelope_id: (created && created.envelope_id) ? created.envelope_id : targetEnvId,
+      country_iso2: (created && created.country_iso2) ? created.country_iso2 : 'IN',
+      created_at: (created && created.created_at && !created.created_at.startsWith('0001-01-01')) ? created.created_at : nowIso
+    };
+    return result;
   }
 
   async updateTransaction(
@@ -765,10 +772,17 @@ export class PenneApiClient {
       })
     });
     this.clearEnvelopeCache();
-    if (updated && (!updated.created_at || updated.created_at.startsWith('0001-01-01'))) {
-      updated.created_at = new Date().toISOString();
-    }
-    return updated;
+    const result: Transaction = {
+      id: (updated && updated.id) ? updated.id : id,
+      user_id: (updated && updated.user_id) ? updated.user_id : this.userUUID,
+      amount_e5: (updated && typeof updated.amount_e5 === 'number') ? updated.amount_e5 : roundedAmount,
+      txn_type: (updated && updated.txn_type) ? updated.txn_type : txnType,
+      payment_method: (updated && updated.payment_method) ? updated.payment_method : paymentMethod,
+      envelope_id: (updated && updated.envelope_id) ? updated.envelope_id : targetEnvelopeId,
+      country_iso2: (updated && updated.country_iso2) ? updated.country_iso2 : 'IN',
+      created_at: (updated && updated.created_at && !updated.created_at.startsWith('0001-01-01')) ? updated.created_at : new Date().toISOString()
+    };
+    return result;
   }
 
   async deleteTransaction(id: string): Promise<void> {

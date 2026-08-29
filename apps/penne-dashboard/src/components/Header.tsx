@@ -1,6 +1,7 @@
 import React from 'react';
 import { User } from '@packages/types';
 import { Wallet, Server, RefreshCw } from 'lucide-react';
+import { UserHeaderSkeleton } from './Skeleton';
 
 interface HeaderProps {
   user: User | null;
@@ -10,7 +11,8 @@ interface HeaderProps {
   onRefresh?: () => void;
   onLogout: () => void;
   onOpenNewTxn?: () => void;
-  isLoadingData?: boolean;
+  isLoadingUser?: boolean;
+  isLoadingAny?: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -18,7 +20,8 @@ export const Header: React.FC<HeaderProps> = ({
   isMockMode,
   onToggleMock,
   onRefresh,
-  isLoadingData
+  isLoadingUser,
+  isLoadingAny
 }) => {
   return (
     // Mobile-First Top App Bar: Extra safe-area status bar padding, compact, 100% overflow-free
@@ -58,18 +61,18 @@ export const Header: React.FC<HeaderProps> = ({
           {onRefresh && (
             <button
               onClick={onRefresh}
-              disabled={isLoadingData}
+              disabled={isLoadingAny}
               className="flex items-center justify-center p-1.5 rounded-full border border-[#342F2C] bg-[#2A2624] text-[#F4F1DE]/80 hover:text-[#F4F1DE] hover:bg-[#342F2C] hover:border-[#E07A5F]/40 active:scale-95 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               title="Rehydrate / Refresh Data"
               aria-label="Refresh Data"
             >
-              <RefreshCw className={`w-3 h-3 ${isLoadingData ? 'animate-spin text-[#E07A5F]' : ''}`} />
+              <RefreshCw className={`w-3 h-3 ${isLoadingAny ? 'animate-spin text-[#E07A5F]' : ''}`} />
             </button>
           )}
 
           {/* User Avatar Circle or Loading Skeleton */}
-          {isLoadingData ? (
-            <div className="w-7 h-7 rounded-full bg-[#2E2A27] animate-pulse shrink-0" />
+          {isLoadingUser ? (
+            <UserHeaderSkeleton />
           ) : user ? (
             <div
               className="w-7 h-7 rounded-full bg-[#E07A5F]/20 text-[#E07A5F] border border-[#E07A5F]/40 flex items-center justify-center font-black text-xs shrink-0"
@@ -83,3 +86,4 @@ export const Header: React.FC<HeaderProps> = ({
     </header>
   );
 };
+

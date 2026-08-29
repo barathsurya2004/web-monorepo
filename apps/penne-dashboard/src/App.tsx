@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { api, ApiEventListenerPayload } from './services/api';
 import { User, Transaction, AuthSession, ActiveCategory, EnvelopeGroup, Envelope } from '@packages/types';
 
@@ -13,12 +13,26 @@ import { BottomTabBar, NavTab } from './components/BottomTabBar';
 import { NewTxnModal, NewCategoryModal, EditTxnModal } from './components/Modals';
 import { ToastProvider, useToast } from './components/AlertBanner';
 
+export interface ResourceLoadingStates {
+  user: boolean;
+  transactions: boolean;
+  categories: boolean;
+  envelopeGroups: boolean;
+  envelopes: boolean;
+}
+
 const AppInner: React.FC = () => {
   const { addToast } = useToast();
 
   const [user, setUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => !!api.getToken());
-  const [isLoadingData, setIsLoadingData] = useState<boolean>(() => !!api.getToken());
+  const [loadingState, setLoadingState] = useState<ResourceLoadingStates>(() => ({
+    user: !!api.getToken(),
+    transactions: !!api.getToken(),
+    categories: !!api.getToken(),
+    envelopeGroups: !!api.getToken(),
+    envelopes: !!api.getToken()
+  }));
   const [authView, setAuthView] = useState<'login' | 'signup'>('signup');
   const [activeTab, setActiveTab] = useState<NavTab>('home');
   const [recentSessions, setRecentSessions] = useState<AuthSession[]>([]);
@@ -35,6 +49,12 @@ const AppInner: React.FC = () => {
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [selectedTxnForEdit, setSelectedTxnForEdit] = useState<Transaction | null>(null);
   const [isEditTxnModalOpen, setIsEditTxnModalOpen] = useState(false);
+
+  const setResourceLoading = (resource: keyof ResourceLoadingStates, loading: boolean) => {
+    setLoadingState((prev) => ({ ...prev, [resource]: loading }));
+  };
+
+  const isLoadingAny = useMemo(() => Object.values(loadingState).some(Boolean), [loadingState]);
 
   // Subscribe to API Request & Status Events globally
   useEffect(() => {
@@ -56,60 +76,20 @@ const AppInner: React.FC = () => {
   }, [addToast]);
 
   const loadData = async () => {
-    setIsLoadingData(true);
-    if (api.isUsingMock()) {
-      setIsServerOffline(false);
-      try {
-        const u = await api.getUser();
-        setUser(u);
-        setTransactions(await api.getTransactions());
-        setCategories(await api.getActiveCategories());
-        setEnvelopeGroups(await api.getEnvelopeGroups());
-        setEnvelopes(await api.getEnvelopes());
-      } catch (e) {
-        console.error('Error loading mock data', e);
-      } finally {
-        setIsLoadingData(false);
-      }
-      return;
-    }
+    setIsServerOffline(false);
+    setLoadingState({
+      user: true,
+      transactions: true,
+      categories: true,
+      envelopeGroups: true,
+      envelopes: true
+    });
 
-    try {
-      const u = await api.getUser();
-      setUser(u);
-
-      const [t, c, g, envs] = await Promise.all([
-        api.getTransactions().catch((err) => {
-          if (api.isUnauthorizedError(err)) throw err;
-          return [];
-        }),
-        api.getActiveCategories().catch((err) => {
-          if (api.isUnauthorizedError(err)) throw err;
-          return [];
-        }),
-        api.getEnvelopeGroups().catch((err) => {
-          if (api.isUnauthorizedError(err)) throw err;
-          return [];
-        }),
-        api.getEnvelopes().catch((err) => {
-          if (api.isUnauthorizedError(err)) throw err;
-          return [];
-        })
-      ]);
-
-      setTransactions(Array.isArray(t) ? t : []);
-      setCategories(Array.isArray(c) ? c : []);
-      setEnvelopeGroups(Array.isArray(g) ? g : []);
-      setEnvelopes(Array.isArray(envs) ? envs : []);
-      setIsServerOffline(false);
-      setIsLoadingData(false);
-    } catch (err: any) {
-      console.warn('[Penne App] Live server connection or auth check failed', err);
+    const isUnauthorized = (err: any) => {
       if (api.isUnauthorizedError(err)) {
         api.logout();
         setUser(null);
         setIsAuthenticated(false);
-        setIsLoadingData(false);
         setAuthView('signup');
         addToast({
           type: 'warning',
@@ -117,11 +97,64 @@ const AppInner: React.FC = () => {
           title: 'Session Expired',
           message: 'Your session has expired. Redirecting to Signup.'
         });
-      } else {
-        setIsServerOffline(true);
-        setIsLoadingData(false);
+        return true;
       }
-    }
+      return false;
+    };
+
+    // 1. Fetch User Profile independently
+    const fetchUser = api
+      .getUser()
+      .then((u) => setUser(u))
+      .catch((err) => {
+        if (!isUnauthorized(err)) console.warn('Failed to load user', err);
+      })
+      .finally(() => setResourceLoading('user', false));
+
+    // 2. Fetch Transactions independently
+    const fetchTransactions = api
+      .getTransactions()
+      .then((t) => {
+        setTransactions(Array.isArray(t) ? t : []);
+        setIsServerOffline(false);
+      })
+      .catch((err) => {
+        if (!isUnauthorized(err)) {
+          console.warn('Failed to load transactions', err);
+          setIsServerOffline(true);
+        }
+      })
+      .finally(() => setResourceLoading('transactions', false));
+
+    // 3. Fetch Active Categories independently
+    const fetchCategories = api
+      .getActiveCategories()
+      .then((c) => setCategories(Array.isArray(c) ? c : []))
+      .catch((err) => {
+        if (!isUnauthorized(err)) console.warn('Failed to load categories', err);
+      })
+      .finally(() => setResourceLoading('categories', false));
+
+    // 4. Fetch Envelope Groups independently
+    const fetchGroups = api
+      .getEnvelopeGroups()
+      .then((g) => setEnvelopeGroups(Array.isArray(g) ? g : []))
+      .catch((err) => {
+        if (!isUnauthorized(err)) console.warn('Failed to load envelope groups', err);
+      })
+      .finally(() => setResourceLoading('envelopeGroups', false));
+
+    // 5. Fetch Envelopes independently
+    const fetchEnvelopes = api
+      .getEnvelopes()
+      .then((envs) => setEnvelopes(Array.isArray(envs) ? envs : []))
+      .catch((err) => {
+        if (!isUnauthorized(err)) console.warn('Failed to load envelopes', err);
+      })
+      .finally(() => setResourceLoading('envelopes', false));
+
+    // Execute all resource fetches concurrently without blocking each other
+    await Promise.allSettled([fetchUser, fetchTransactions, fetchCategories, fetchGroups, fetchEnvelopes]);
   };
 
   // Initial Auth Verification on Mount
@@ -135,7 +168,13 @@ const AppInner: React.FC = () => {
       loadData();
     } else {
       setIsAuthenticated(false);
-      setIsLoadingData(false);
+      setLoadingState({
+        user: false,
+        transactions: false,
+        categories: false,
+        envelopeGroups: false,
+        envelopes: false
+      });
       setAuthView('signup');
     }
   }, [isMockMode]);
@@ -157,7 +196,13 @@ const AppInner: React.FC = () => {
     api.logout();
     setUser(null);
     setIsAuthenticated(false);
-    setIsLoadingData(false);
+    setLoadingState({
+      user: false,
+      transactions: false,
+      categories: false,
+      envelopeGroups: false,
+      envelopes: false
+    });
     setAuthView('signup');
     setActiveTab('home');
     setIsServerOffline(false);
@@ -195,6 +240,28 @@ const AppInner: React.FC = () => {
     }
   };
 
+  const refreshTransactionsSilent = async () => {
+    try {
+      const t = await api.getTransactions();
+      if (Array.isArray(t)) setTransactions(t);
+    } catch (err) {
+      console.warn('[Penne App] Silent transactions refresh failed', err);
+    }
+  };
+
+  const refreshCategoriesSilent = async () => {
+    try {
+      const c = await api.getActiveCategories();
+      if (Array.isArray(c)) setCategories(c);
+      const envs = await api.getEnvelopes();
+      if (Array.isArray(envs)) setEnvelopes(envs);
+      const groups = await api.getEnvelopeGroups();
+      if (Array.isArray(groups)) setEnvelopeGroups(groups);
+    } catch (err) {
+      console.warn('[Penne App] Silent categories refresh failed', err);
+    }
+  };
+
   const handleCreateTxn = async (
     amountE5: number,
     txnType: string,
@@ -203,8 +270,10 @@ const AppInner: React.FC = () => {
     createdAt?: string
   ) => {
     try {
-      await api.createTransaction(amountE5, txnType, bankName, envelopeId, createdAt);
-      await loadData();
+      const createdTxn = await api.createTransaction(amountE5, txnType, bankName, envelopeId, createdAt);
+      setTransactions((prev) => [createdTxn, ...prev]);
+      refreshTransactionsSilent();
+      refreshCategoriesSilent();
     } catch (err: any) {
       addToast({
         type: 'error',
@@ -228,8 +297,10 @@ const AppInner: React.FC = () => {
     envelopeId?: string | null
   ) => {
     try {
-      await api.updateTransaction(txnId, amountE5, txnType, bankName, envelopeId);
-      await loadData();
+      const updatedTxn = await api.updateTransaction(txnId, amountE5, txnType, bankName, envelopeId);
+      setTransactions((prev) => prev.map((t) => (t.id === txnId ? updatedTxn : t)));
+      refreshTransactionsSilent();
+      refreshCategoriesSilent();
     } catch (err: any) {
       addToast({
         type: 'error',
@@ -243,7 +314,8 @@ const AppInner: React.FC = () => {
   const handleDeleteTxn = async (txnId: string) => {
     try {
       await api.deleteTransaction(txnId);
-      await loadData();
+      setTransactions((prev) => prev.filter((t) => t.id !== txnId));
+      refreshCategoriesSilent();
     } catch (err: any) {
       addToast({
         type: 'error',
@@ -266,6 +338,7 @@ const AppInner: React.FC = () => {
       if (!targetGroupId && newGroupName) {
         const createdGroup = await api.createEnvelopeGroup(newGroupName);
         targetGroupId = createdGroup.id;
+        setEnvelopeGroups((prev) => [...prev, createdGroup]);
       }
 
       if (!targetGroupId) {
@@ -278,7 +351,7 @@ const AppInner: React.FC = () => {
       }
 
       await api.createCategory(targetGroupId, categoryName, targetAmountE5, cadence);
-      await loadData();
+      refreshCategoriesSilent();
     } catch (err: any) {
       addToast({
         type: 'error',
@@ -324,7 +397,8 @@ const AppInner: React.FC = () => {
         onRefresh={handleRefreshData}
         onLogout={handleLogout}
         onOpenNewTxn={() => setIsTxnModalOpen(true)}
-        isLoadingData={isLoadingData}
+        isLoadingUser={loadingState.user}
+        isLoadingAny={isLoadingAny}
       />
 
       {/* Dynamic Tab Contents: Home, Budget & Account */}
@@ -342,7 +416,8 @@ const AppInner: React.FC = () => {
             onOpenNewCategoryModal={() => setIsCategoryModalOpen(true)}
             onSelectTxnForEdit={handleSelectTxnForEdit}
             onNavigateToTransactions={() => setActiveTab('transactions')}
-            isLoadingData={isLoadingData}
+            isLoadingTransactions={loadingState.transactions}
+            isLoadingEnvelopes={loadingState.envelopes}
           />
         )}
 
@@ -357,7 +432,7 @@ const AppInner: React.FC = () => {
             onToggleMock={toggleMockMode}
             onOpenNewTxnModal={() => setIsTxnModalOpen(true)}
             onSelectTxnForEdit={handleSelectTxnForEdit}
-            isLoadingData={isLoadingData}
+            isLoadingTransactions={loadingState.transactions}
           />
         )}
 
@@ -374,7 +449,9 @@ const AppInner: React.FC = () => {
             onOpenNewTxnModal={() => setIsTxnModalOpen(true)}
             onOpenNewCategoryModal={() => setIsCategoryModalOpen(true)}
             onSelectTxnForEdit={handleSelectTxnForEdit}
-            isLoadingData={isLoadingData}
+            isLoadingCategories={loadingState.categories}
+            isLoadingTransactions={loadingState.transactions}
+            isLoadingEnvelopes={loadingState.envelopes}
           />
         )}
 
@@ -387,7 +464,8 @@ const AppInner: React.FC = () => {
             recentSessions={recentSessions}
             onToggleMock={toggleMockMode}
             onLogout={handleLogout}
-            isLoadingData={isLoadingData}
+            isLoadingUser={loadingState.user}
+            isLoadingTransactions={loadingState.transactions}
           />
         )}
       </main>

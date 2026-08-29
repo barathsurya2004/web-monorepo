@@ -15,7 +15,7 @@ import {
   AlertTriangle,
   Flame
 } from 'lucide-react';
-import { AccountSkeleton } from './Skeleton';
+import { UserProfileSkeleton, PaymentLimitsSkeleton } from './Skeleton';
 
 interface AccountViewProps {
   user: User | null;
@@ -25,7 +25,8 @@ interface AccountViewProps {
   recentSessions: AuthSession[];
   onToggleMock: () => void;
   onLogout: () => void;
-  isLoadingData?: boolean;
+  isLoadingUser?: boolean;
+  isLoadingTransactions?: boolean;
 }
 
 export function getPaymentLimitStatus(spentAmount: number, limitAmount: number) {
@@ -58,23 +59,23 @@ export function getPaymentLimitStatus(spentAmount: number, limitAmount: number) 
   } else if (pct >= 90) {
     return {
       pct,
-      label: 'Critical (Near Limit)',
-      barColor: 'bg-[#F87171]',
-      textColor: 'text-[#F87171]',
-      badgeBg: 'bg-[#F87171]/20 text-[#F87171] border-[#F87171]/40',
-      cardBorder: 'border-[#F87171]/50 shadow-md shadow-rose-950/20',
-      bgGlow: 'bg-gradient-to-br from-[#2A1E1E] to-[#201818]',
+      label: 'Critical Heat Limit (90%+)',
+      barColor: 'bg-[#E07A5F]',
+      textColor: 'text-[#E07A5F]',
+      badgeBg: 'bg-[#E07A5F]/20 text-[#E07A5F] border-[#E07A5F]/40',
+      cardBorder: 'border-[#E07A5F]/40',
+      bgGlow: 'bg-gradient-to-br from-[#2A1E1A] to-[#1F1714]',
       isOver: false
     };
   } else if (pct >= 75) {
     return {
       pct,
-      label: 'High Caution',
-      barColor: 'bg-[#E07A5F]',
-      textColor: 'text-[#E07A5F]',
-      badgeBg: 'bg-[#E07A5F]/20 text-[#E07A5F] border-[#E07A5F]/40',
-      cardBorder: 'border-[#E07A5F]/50',
-      bgGlow: 'bg-gradient-to-br from-[#29221F] to-[#211C19]',
+      label: 'Approaching Ceiling',
+      barColor: 'bg-[#E8A598]',
+      textColor: 'text-[#E8A598]',
+      badgeBg: 'bg-[#E8A598]/20 text-[#E8A598] border-[#E8A598]/40',
+      cardBorder: 'border-[#E8A598]/30',
+      bgGlow: 'bg-[#1A1715]',
       isOver: false
     };
   } else if (pct >= 50) {
@@ -110,7 +111,8 @@ export const AccountView: React.FC<AccountViewProps> = ({
   recentSessions,
   onToggleMock,
   onLogout,
-  isLoadingData
+  isLoadingUser,
+  isLoadingTransactions
 }) => {
   const [copied, setCopied] = useState(false);
 
@@ -124,10 +126,6 @@ export const AccountView: React.FC<AccountViewProps> = ({
     const saved = localStorage.getItem('penne_limit_bank_account');
     return saved ? Number(saved) : 50000;
   });
-
-  if (isLoadingData) {
-    return <AccountSkeleton />;
-  }
 
   const handleCardLimitChange = (val: string) => {
     const num = Math.max(0, parseInt(val, 10) || 0);
@@ -168,32 +166,39 @@ export const AccountView: React.FC<AccountViewProps> = ({
 
   return (
     <div className="max-w-md mx-auto px-4 py-6 space-y-6 animate-fadeIn pb-28 w-full max-w-full overflow-x-hidden">
-      {/* Account Profile Header */}
-      <Card className="text-center py-6 space-y-3">
-        <div className="w-16 h-16 rounded-full bg-[#E07A5F]/20 text-[#E07A5F] border-2 border-[#E07A5F]/40 flex items-center justify-center font-black text-2xl mx-auto shadow-md">
-          {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
-        </div>
-        <div>
-          <h2 className="text-xl font-black text-[#F4F1DE]">{user?.name || 'Penne User'}</h2>
-          <p className="text-xs text-[#A89F95] font-mono mt-0.5">{user?.uuid || 'No UUID'}</p>
-        </div>
-        <div className="pt-2">
-          <Badge variant="terracotta" className="text-xs">
-            Active Auth Session
-          </Badge>
-        </div>
-      </Card>
+      {/* Account Profile Header Box */}
+      {isLoadingUser ? (
+        <UserProfileSkeleton />
+      ) : (
+        <Card className="text-center py-6 space-y-3">
+          <div className="w-16 h-16 rounded-full bg-[#E07A5F]/20 text-[#E07A5F] border-2 border-[#E07A5F]/40 flex items-center justify-center font-black text-2xl mx-auto shadow-md">
+            {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
+          </div>
+          <div>
+            <h2 className="text-xl font-black text-[#F4F1DE]">{user?.name || 'Penne User'}</h2>
+            <p className="text-xs text-[#A89F95] font-mono mt-0.5">{user?.uuid || 'No UUID'}</p>
+          </div>
+          <div className="pt-2">
+            <Badge variant="terracotta" className="text-xs">
+              Active Auth Session
+            </Badge>
+          </div>
+        </Card>
+      )}
 
-      {/* Payment Method Spending Limits Setup */}
-      <Card className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-extrabold text-[#F4F1DE] flex items-center gap-2">
-            <SlidersHorizontal className="w-4 h-4 text-[#E07A5F]" /> Payment Method Limits Setup
-          </h3>
-          <span className="text-[10px] font-bold text-[#81B29A] bg-[#81B29A]/15 border border-[#81B29A]/30 px-2 py-0.5 rounded-md">
-            Tracked on Home Page
-          </span>
-        </div>
+      {/* Payment Method Spending Limits Setup Box */}
+      {isLoadingTransactions ? (
+        <PaymentLimitsSkeleton />
+      ) : (
+        <Card className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-extrabold text-[#F4F1DE] flex items-center gap-2">
+              <SlidersHorizontal className="w-4 h-4 text-[#E07A5F]" /> Payment Method Limits Setup
+            </h3>
+            <span className="text-[10px] font-bold text-[#81B29A] bg-[#81B29A]/15 border border-[#81B29A]/30 px-2 py-0.5 rounded-md">
+              Tracked on Home Page
+            </span>
+          </div>
 
         <p className="text-xs text-[#A89F95] leading-relaxed">
           Configure monthly spending ceilings for each payment method. Your live progress and heatmap warning indicators will be displayed on the Home Page.
@@ -249,6 +254,7 @@ export const AccountView: React.FC<AccountViewProps> = ({
           </div>
         </div>
       </Card>
+      )}
 
       {/* Backend & API Server Settings */}
       <Card className="space-y-4">
