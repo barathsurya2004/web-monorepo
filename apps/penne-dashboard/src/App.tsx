@@ -53,6 +53,33 @@ const AppInner: React.FC = () => {
   const [selectedTxnForEdit, setSelectedTxnForEdit] = useState<Transaction | null>(null);
   const [isEditTxnModalOpen, setIsEditTxnModalOpen] = useState(false);
 
+  const [isLoadingMoreTxns, setIsLoadingMoreTxns] = useState(false);
+  const [hasMoreTxns, setHasMoreTxns] = useState(true);
+
+  const handleLoadMoreTransactions = async () => {
+    if (isLoadingMoreTxns || transactions.length === 0) return;
+    setIsLoadingMoreTxns(true);
+    try {
+      const lastTxn = transactions[transactions.length - 1];
+      const more = await api.getTransactions(
+        undefined,
+        20,
+        lastTxn.created_at,
+        lastTxn.id
+      );
+      if (Array.isArray(more) && more.length > 0) {
+        setTransactions((prev) => [...prev, ...more]);
+        if (more.length < 20) setHasMoreTxns(false);
+      } else {
+        setHasMoreTxns(false);
+      }
+    } catch (err) {
+      console.warn('[Penne App] Load more transactions failed', err);
+    } finally {
+      setIsLoadingMoreTxns(false);
+    }
+  };
+
   const setResourceLoading = (resource: keyof ResourceLoadingStates, loading: boolean) => {
     setLoadingState((prev) => ({ ...prev, [resource]: loading }));
   };
@@ -461,6 +488,9 @@ const AppInner: React.FC = () => {
             onToggleMock={toggleMockMode}
             onOpenNewTxnModal={() => setIsTxnModalOpen(true)}
             onSelectTxnForEdit={handleSelectTxnForEdit}
+            onLoadMore={handleLoadMoreTransactions}
+            hasMore={hasMoreTxns}
+            isLoadingMore={isLoadingMoreTxns}
             isLoadingTransactions={loadingState.transactions}
           />
         )}

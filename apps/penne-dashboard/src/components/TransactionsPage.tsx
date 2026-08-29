@@ -31,6 +31,9 @@ interface TransactionsPageProps {
   onToggleMock?: () => void;
   onOpenNewTxnModal: () => void;
   onSelectTxnForEdit?: (txn: Transaction) => void;
+  onLoadMore?: () => void;
+  hasMore?: boolean;
+  isLoadingMore?: boolean;
   isLoadingTransactions?: boolean;
 }
 
@@ -70,6 +73,9 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
   onToggleMock,
   onOpenNewTxnModal,
   onSelectTxnForEdit,
+  onLoadMore,
+  hasMore,
+  isLoadingMore,
   isLoadingTransactions
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -539,6 +545,26 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
             </div>
           );
         })}
+        </div>
+      )}
+
+      {onLoadMore && hasMore !== false && (
+        <div className="pt-2 text-center">
+          <Button
+            variant="secondary"
+            onClick={onLoadMore}
+            disabled={isLoadingMore}
+            className="w-full gap-2 font-bold py-2.5 text-xs text-[#F4F1DE] bg-[#24201D] hover:bg-[#2A2623] border border-[#38322E] rounded-2xl shadow-md transition-all active:scale-[0.99]"
+          >
+            {isLoadingMore ? (
+              <>
+                <RefreshCw className="w-4 h-4 animate-spin text-[#E07A5F]" />
+                <span>Loading More Transactions...</span>
+              </>
+            ) : (
+              <span>Load More Transactions</span>
+            )}
+          </Button>
         </div>
       )}
     </div>

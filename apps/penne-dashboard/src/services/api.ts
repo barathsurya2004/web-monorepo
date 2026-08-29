@@ -635,10 +635,42 @@ export class PenneApiClient {
     return { envelope, allocation };
   }
 
-  async getTransactions(userUuid?: string): Promise<Transaction[]> {
-    if (this.useMock) return this.mockTransactions;
+  async getTransactions(
+    userUuid?: string,
+    limit?: number,
+    lastTransactionCreatedAt?: string,
+    lastTransactionID?: string
+  ): Promise<Transaction[]> {
+    if (this.useMock) {
+      let filtered = [...this.mockTransactions];
+      if (lastTransactionCreatedAt && lastTransactionID) {
+        const cursorTime = new Date(lastTransactionCreatedAt).getTime();
+        filtered = filtered.filter((t) => {
+          const tTime = t.created_at ? new Date(t.created_at).getTime() : 0;
+          if (tTime < cursorTime) return true;
+          if (tTime === cursorTime && t.id < lastTransactionID) return true;
+          return false;
+        });
+      }
+      if (limit && limit > 0) {
+        return filtered.slice(0, limit);
+      }
+      return filtered;
+    }
+
     const targetUuid = userUuid || this.userUUID;
-    const res = await this.request<Transaction[]>(`/transactions?user_uuid=${targetUuid}`, { method: 'GET' });
+    let url = `/transactions?user_uuid=${targetUuid}`;
+    if (limit && limit > 0) {
+      url += `&limit=${limit}`;
+    }
+    if (lastTransactionCreatedAt) {
+      url += `&lastTransactionCreatedAt=${encodeURIComponent(lastTransactionCreatedAt)}`;
+    }
+    if (lastTransactionID) {
+      url += `&lastTransactionID=${encodeURIComponent(lastTransactionID)}`;
+    }
+
+    const res = await this.request<Transaction[]>(url, { method: 'GET' });
     const list = Array.isArray(res) ? res : [];
     return list.map((t) => {
       if (!t.created_at || t.created_at.startsWith('0001-01-01')) {
