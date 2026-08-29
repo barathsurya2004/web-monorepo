@@ -7,6 +7,7 @@ import {
   AuthResponse,
   AuthSession,
   ActiveCategory,
+  DashboardSummary,
   amountToE5
 } from '@packages/types';
 
@@ -885,6 +886,80 @@ export class PenneApiClient {
       return [];
     }
   }
+
+  async getDashboardSummary(): Promise<DashboardSummary> {
+    if (this.useMock) {
+      const cardLimit = Number(localStorage.getItem('penne_limit_bank_card') || 25000);
+      const bankLimit = Number(localStorage.getItem('penne_limit_bank_account') || 50000);
+
+      const totalIncomeE5 = this.mockTransactions
+        .filter((t) => t.txn_type === 'credit')
+        .reduce((sum, t) => sum + (t.amount_e5 || 0), 0);
+
+      const debitTxns = this.mockTransactions.filter((t) => t.txn_type === 'debit');
+
+      const cardSpentE5 = debitTxns
+        .filter((t) => t.payment_method === 'bank_card')
+        .reduce((sum, t) => sum + (t.amount_e5 || 0), 0);
+
+      const bankSpentE5 = debitTxns
+        .filter((t) => t.payment_method !== 'bank_card')
+        .reduce((sum, t) => sum + (t.amount_e5 || 0), 0);
+
+      const totalExpenseE5 = cardSpentE5 + bankSpentE5;
+      const totalRemainingE5 = totalIncomeE5 - totalExpenseE5;
+
+      return {
+        total_income_e5: totalIncomeE5,
+        total_expense_e5: totalExpenseE5,
+        total_remaining_e5: totalRemainingE5,
+        card_spent_e5: cardSpentE5,
+        card_limit_e5: amountToE5(cardLimit),
+        bank_spent_e5: bankSpentE5,
+        bank_limit_e5: amountToE5(bankLimit)
+      };
+    }
+
+    try {
+      const res = await this.request<DashboardSummary>(`/api/dashboard-summary?user_uuid=${this.userUUID}`, { method: 'GET' });
+      if (res && typeof res.total_expense_e5 === 'number') {
+        return res;
+      }
+      throw new Error('Invalid summary response');
+    } catch (err) {
+      console.warn('[Penne API] GET /api/dashboard-summary failed, calculating fallback summary', err);
+      const cardLimit = Number(localStorage.getItem('penne_limit_bank_card') || 25000);
+      const bankLimit = Number(localStorage.getItem('penne_limit_bank_account') || 50000);
+
+      const txns = await this.getTransactions();
+      const totalIncomeE5 = txns
+        .filter((t) => t.txn_type === 'credit')
+        .reduce((sum, t) => sum + (t.amount_e5 || 0), 0);
+
+      const debitTxns = txns.filter((t) => t.txn_type === 'debit');
+
+      const cardSpentE5 = debitTxns
+        .filter((t) => t.payment_method === 'bank_card')
+        .reduce((sum, t) => sum + (t.amount_e5 || 0), 0);
+
+      const bankSpentE5 = debitTxns
+        .filter((t) => t.payment_method !== 'bank_card')
+        .reduce((sum, t) => sum + (t.amount_e5 || 0), 0);
+
+      const totalExpenseE5 = cardSpentE5 + bankSpentE5;
+
+      return {
+        total_income_e5: totalIncomeE5,
+        total_expense_e5: totalExpenseE5,
+        total_remaining_e5: totalIncomeE5 - totalExpenseE5,
+        card_spent_e5: cardSpentE5,
+        card_limit_e5: amountToE5(cardLimit),
+        bank_spent_e5: bankSpentE5,
+        bank_limit_e5: amountToE5(bankLimit)
+      };
+    }
+  }
 }
 
 export const api = new PenneApiClient();
+

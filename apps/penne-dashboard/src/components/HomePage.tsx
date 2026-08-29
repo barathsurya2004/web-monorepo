@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Transaction, Envelope, EnvelopeGroup, e5ToAmount, parseUtcDate } from '@packages/types';
+import { Transaction, Envelope, EnvelopeGroup, DashboardSummary, e5ToAmount, parseUtcDate } from '@packages/types';
 import { Button, Card, Badge, StatCard } from '@packages/ui';
 import {
   TrendingDown,
@@ -25,6 +25,7 @@ interface HomePageProps {
   transactions: Transaction[];
   envelopes?: Envelope[];
   envelopeGroups?: EnvelopeGroup[];
+  dashboardSummary?: DashboardSummary | null;
   isServerOffline?: boolean;
   isMockMode?: boolean;
   onRetryConnection?: () => void;
@@ -35,6 +36,7 @@ interface HomePageProps {
   onNavigateToTransactions?: () => void;
   isLoadingTransactions?: boolean;
   isLoadingEnvelopes?: boolean;
+  isLoadingSummary?: boolean;
 }
 
 export function formatTransactionDateTime(isoString?: string): { dateStr: string; timeStr: string } {
@@ -60,6 +62,7 @@ export const HomePage: React.FC<HomePageProps> = ({
   transactions,
   envelopes = [],
   envelopeGroups = [],
+  dashboardSummary,
   isServerOffline,
   isMockMode,
   onRetryConnection,
@@ -69,7 +72,8 @@ export const HomePage: React.FC<HomePageProps> = ({
   onSelectTxnForEdit,
   onNavigateToTransactions,
   isLoadingTransactions,
-  isLoadingEnvelopes
+  isLoadingEnvelopes,
+  isLoadingSummary
 }) => {
   const envelopeMap = useMemo(() => {
     const map = new Map<string, Envelope>();
@@ -87,15 +91,23 @@ export const HomePage: React.FC<HomePageProps> = ({
     return map;
   }, [envelopeGroups]);
 
-  const cardLimit = useMemo(() => {
+  const fallbackCardLimit = useMemo(() => {
     const saved = localStorage.getItem('penne_limit_bank_card');
     return saved ? Number(saved) : 25000;
   }, []);
 
-  const bankLimit = useMemo(() => {
+  const fallbackBankLimit = useMemo(() => {
     const saved = localStorage.getItem('penne_limit_bank_account');
     return saved ? Number(saved) : 50000;
   }, []);
+
+  const cardLimit = (dashboardSummary && dashboardSummary.card_limit_e5 > 0)
+    ? e5ToAmount(dashboardSummary.card_limit_e5)
+    : fallbackCardLimit;
+
+  const bankLimit = (dashboardSummary && dashboardSummary.bank_limit_e5 > 0)
+    ? e5ToAmount(dashboardSummary.bank_limit_e5)
+    : fallbackBankLimit;
 
   const safeTxns = Array.isArray(transactions) ? transactions : [];
 
@@ -109,24 +121,37 @@ export const HomePage: React.FC<HomePageProps> = ({
   // Display only the top 5-6 recent transactions (both credit & debit)
   const recentTxns = sortedTxns.slice(0, 6);
 
-  // Calculate Total Income & Total Spend
-  const totalIncomeE5 = sortedTxns
-    .filter((t) => t && t.txn_type === 'credit')
-    .reduce((acc, t) => acc + (t.amount_e5 || 0), 0);
+  // Compute metrics from server-provided DashboardSummary if available, else local fallback
+  let totalIncomeE5 = 0;
+  let totalSpentE5 = 0;
+  let totalRemainingE5 = 0;
+  let cardSpentE5 = 0;
+  let bankAccountSpentE5 = 0;
 
-  const debitTxns = sortedTxns.filter((t) => t && t.txn_type === 'debit');
+  if (dashboardSummary) {
+    totalIncomeE5 = dashboardSummary.total_income_e5;
+    totalSpentE5 = dashboardSummary.total_expense_e5;
+    totalRemainingE5 = dashboardSummary.total_remaining_e5;
+    cardSpentE5 = dashboardSummary.card_spent_e5;
+    bankAccountSpentE5 = dashboardSummary.bank_spent_e5;
+  } else {
+    totalIncomeE5 = sortedTxns
+      .filter((t) => t && t.txn_type === 'credit')
+      .reduce((acc, t) => acc + (t.amount_e5 || 0), 0);
 
-  const cardSpentE5 = debitTxns
-    .filter((t) => t.payment_method === 'bank_card')
-    .reduce((acc, t) => acc + (t.amount_e5 || 0), 0);
+    const debitTxns = sortedTxns.filter((t) => t && t.txn_type === 'debit');
 
-  const bankAccountSpentE5 = debitTxns
-    .filter((t) => t.payment_method !== 'bank_card')
-    .reduce((acc, t) => acc + (t.amount_e5 || 0), 0);
+    cardSpentE5 = debitTxns
+      .filter((t) => t.payment_method === 'bank_card')
+      .reduce((acc, t) => acc + (t.amount_e5 || 0), 0);
 
-  const totalSpentE5 = cardSpentE5 + bankAccountSpentE5;
+    bankAccountSpentE5 = debitTxns
+      .filter((t) => t.payment_method !== 'bank_card')
+      .reduce((acc, t) => acc + (t.amount_e5 || 0), 0);
 
-  const totalRemainingE5 = totalIncomeE5 - totalSpentE5;
+    totalSpentE5 = cardSpentE5 + bankAccountSpentE5;
+    totalRemainingE5 = totalIncomeE5 - totalSpentE5;
+  }
 
   const totalSpentFormatted = `₹${e5ToAmount(totalSpentE5).toLocaleString('en-IN')}`;
   const cardSpentFormatted = `₹${e5ToAmount(cardSpentE5).toLocaleString('en-IN')}`;
@@ -142,7 +167,7 @@ export const HomePage: React.FC<HomePageProps> = ({
 
   return (
     <div className="w-full max-w-md mx-auto px-4 py-6 space-y-5 animate-fadeIn pb-28 overflow-x-hidden">
-      {/* Explicit Server Offline Banner (No false mock data fallback) */}
+      {/* Explicit Server Offline Banner */}
       {isServerOffline && !isMockMode && (
         <div className="bg-[#E8A598]/15 border border-[#E8A598]/40 rounded-3xl p-4 space-y-3 text-left animate-fadeIn">
           <div className="flex items-center gap-2 text-[#E8A598]">
@@ -169,7 +194,7 @@ export const HomePage: React.FC<HomePageProps> = ({
       )}
 
       {/* Overview Stat Cards: Total Spend & Total Remaining Box */}
-      {isLoadingTransactions ? (
+      {isLoadingSummary ? (
         <StatCardsSkeleton />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 w-full max-w-full overflow-x-hidden items-start">
@@ -194,7 +219,7 @@ export const HomePage: React.FC<HomePageProps> = ({
       )}
 
       {/* Payment Method Spending Limits & Heatmap Status Card Box */}
-      {isLoadingTransactions ? (
+      {isLoadingSummary ? (
         <PaymentLimitsSkeleton />
       ) : (
         <div className="bg-[#24201D] border border-[#38322E] rounded-3xl p-4 space-y-3.5 shadow-lg shadow-black/20 w-full max-w-full overflow-x-hidden">

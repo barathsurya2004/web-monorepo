@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { api, ApiEventListenerPayload } from './services/api';
-import { User, Transaction, AuthSession, ActiveCategory, EnvelopeGroup, Envelope } from '@packages/types';
+import { User, Transaction, AuthSession, ActiveCategory, EnvelopeGroup, Envelope, DashboardSummary } from '@packages/types';
 
 import { Header } from './components/Header';
 import { SignupPage } from './components/SignupPage';
@@ -19,6 +19,7 @@ export interface ResourceLoadingStates {
   categories: boolean;
   envelopeGroups: boolean;
   envelopes: boolean;
+  summary: boolean;
 }
 
 const AppInner: React.FC = () => {
@@ -31,12 +32,14 @@ const AppInner: React.FC = () => {
     transactions: !!api.getToken(),
     categories: !!api.getToken(),
     envelopeGroups: !!api.getToken(),
-    envelopes: !!api.getToken()
+    envelopes: !!api.getToken(),
+    summary: !!api.getToken()
   }));
   const [authView, setAuthView] = useState<'login' | 'signup'>('signup');
   const [activeTab, setActiveTab] = useState<NavTab>('home');
   const [recentSessions, setRecentSessions] = useState<AuthSession[]>([]);
 
+  const [dashboardSummary, setDashboardSummary] = useState<DashboardSummary | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [categories, setCategories] = useState<ActiveCategory[]>([]);
   const [envelopeGroups, setEnvelopeGroups] = useState<EnvelopeGroup[]>([]);
@@ -82,7 +85,8 @@ const AppInner: React.FC = () => {
       transactions: true,
       categories: true,
       envelopeGroups: true,
-      envelopes: true
+      envelopes: true,
+      summary: true
     });
 
     const isUnauthorized = (err: any) => {
@@ -153,8 +157,17 @@ const AppInner: React.FC = () => {
       })
       .finally(() => setResourceLoading('envelopes', false));
 
+    // 6. Fetch Dashboard Summary independently
+    const fetchSummary = api
+      .getDashboardSummary()
+      .then((s) => setDashboardSummary(s))
+      .catch((err) => {
+        if (!isUnauthorized(err)) console.warn('Failed to load dashboard summary', err);
+      })
+      .finally(() => setResourceLoading('summary', false));
+
     // Execute all resource fetches concurrently without blocking each other
-    await Promise.allSettled([fetchUser, fetchTransactions, fetchCategories, fetchGroups, fetchEnvelopes]);
+    await Promise.allSettled([fetchUser, fetchTransactions, fetchCategories, fetchGroups, fetchEnvelopes, fetchSummary]);
   };
 
   // Initial Auth Verification on Mount
@@ -173,7 +186,8 @@ const AppInner: React.FC = () => {
         transactions: false,
         categories: false,
         envelopeGroups: false,
-        envelopes: false
+        envelopes: false,
+        summary: false
       });
       setAuthView('signup');
     }
@@ -201,7 +215,8 @@ const AppInner: React.FC = () => {
       transactions: false,
       categories: false,
       envelopeGroups: false,
-      envelopes: false
+      envelopes: false,
+      summary: false
     });
     setAuthView('signup');
     setActiveTab('home');
@@ -240,6 +255,15 @@ const AppInner: React.FC = () => {
     }
   };
 
+  const refreshSummarySilent = async () => {
+    try {
+      const s = await api.getDashboardSummary();
+      if (s) setDashboardSummary(s);
+    } catch (err) {
+      console.warn('[Penne App] Silent summary refresh failed', err);
+    }
+  };
+
   const refreshTransactionsSilent = async () => {
     try {
       const t = await api.getTransactions();
@@ -272,6 +296,7 @@ const AppInner: React.FC = () => {
     try {
       const createdTxn = await api.createTransaction(amountE5, txnType, bankName, envelopeId, createdAt);
       setTransactions((prev) => [createdTxn, ...prev]);
+      refreshSummarySilent();
       refreshTransactionsSilent();
       refreshCategoriesSilent();
     } catch (err: any) {
@@ -299,6 +324,7 @@ const AppInner: React.FC = () => {
     try {
       const updatedTxn = await api.updateTransaction(txnId, amountE5, txnType, bankName, envelopeId);
       setTransactions((prev) => prev.map((t) => (t.id === txnId ? updatedTxn : t)));
+      refreshSummarySilent();
       refreshTransactionsSilent();
       refreshCategoriesSilent();
     } catch (err: any) {
@@ -315,6 +341,7 @@ const AppInner: React.FC = () => {
     try {
       await api.deleteTransaction(txnId);
       setTransactions((prev) => prev.filter((t) => t.id !== txnId));
+      refreshSummarySilent();
       refreshCategoriesSilent();
     } catch (err: any) {
       addToast({
@@ -408,6 +435,7 @@ const AppInner: React.FC = () => {
             transactions={transactions}
             envelopes={envelopes}
             envelopeGroups={envelopeGroups}
+            dashboardSummary={dashboardSummary}
             isServerOffline={isServerOffline}
             isMockMode={isMockMode}
             onRetryConnection={loadData}
@@ -418,6 +446,7 @@ const AppInner: React.FC = () => {
             onNavigateToTransactions={() => setActiveTab('transactions')}
             isLoadingTransactions={loadingState.transactions}
             isLoadingEnvelopes={loadingState.envelopes}
+            isLoadingSummary={loadingState.summary}
           />
         )}
 

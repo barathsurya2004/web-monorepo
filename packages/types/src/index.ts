@@ -81,6 +81,17 @@ export interface ActiveCategory {
   envelope_id: string;
 }
 
+export interface DashboardSummary {
+  total_income_e5: number;
+  total_expense_e5: number;
+  total_remaining_e5: number;
+  card_spent_e5: number;
+  card_limit_e5: number;
+  bank_spent_e5: number;
+  bank_limit_e5: number;
+}
+
+
 // E5 Helpers (penne-server uses E5 format where 1 unit = 100,000 E5)
 export const E5_FACTOR = 100000;
 
