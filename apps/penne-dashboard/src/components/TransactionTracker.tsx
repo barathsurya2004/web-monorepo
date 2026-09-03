@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Transaction, Envelope, formatCurrency, formatDate } from '@packages/types';
 import { Card, Badge, Input, Select, Button } from '@packages/ui';
-import { ArrowDownLeft, ArrowUpRight, Search, Filter, CreditCard, Building2, Tag } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, ArrowLeftRight, Search, Filter, CreditCard, Building2, Tag } from 'lucide-react';
 
 interface TransactionTrackerProps {
   transactions: Transaction[];
@@ -81,6 +81,7 @@ export const TransactionTracker: React.FC<TransactionTrackerProps> = ({
             <option value="all">All Types</option>
             <option value="credit">Income (Credit)</option>
             <option value="debit">Expense (Debit)</option>
+            <option value="transfer">Transfer</option>
           </select>
         </div>
       </div>
@@ -110,6 +111,9 @@ export const TransactionTracker: React.FC<TransactionTrackerProps> = ({
                 const dayCreditE5 = txns
                   .filter((t) => t.txn_type === 'credit')
                   .reduce((acc, t) => acc + (t.amount_e5 || 0), 0);
+                const dayTransferE5 = txns
+                  .filter((t) => t.txn_type === 'transfer')
+                  .reduce((acc, t) => acc + (t.amount_e5 || 0), 0);
 
                 return (
                   <React.Fragment key={dateHeader}>
@@ -132,6 +136,11 @@ export const TransactionTracker: React.FC<TransactionTrackerProps> = ({
                                 Income: +{formatCurrency(dayCreditE5)}
                               </span>
                             )}
+                            {dayTransferE5 > 0 && (
+                              <span className="text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 rounded">
+                                Transfer: {formatCurrency(dayTransferE5)}
+                              </span>
+                            )}
                           </div>
                         </div>
                       </td>
@@ -140,6 +149,8 @@ export const TransactionTracker: React.FC<TransactionTrackerProps> = ({
                     {/* Day's Transactions */}
                     {txns.map((t, idx) => {
                       const isCredit = t.txn_type === 'credit';
+                      const isTransfer = t.txn_type === 'transfer';
+                      const isDebit = t.txn_type === 'debit';
                       const assignedEnv = safeEnvelopes.find((e) => e && e.id === t.envelope_id);
                       const dateStr = formatDate(t.created_at || t.CreatedAt);
 
@@ -152,8 +163,20 @@ export const TransactionTracker: React.FC<TransactionTrackerProps> = ({
                         >
                           <td className="py-3 px-4">
                             <div className="flex items-center gap-2">
-                              <div className={`p-1.5 rounded-lg ${isCredit ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>
-                                {isCredit ? <ArrowDownLeft className="w-3.5 h-3.5" /> : <ArrowUpRight className="w-3.5 h-3.5" />}
+                              <div className={`p-1.5 rounded-lg ${
+                                isCredit
+                                  ? 'bg-emerald-500/10 text-emerald-400'
+                                  : isTransfer
+                                  ? 'bg-indigo-500/10 text-indigo-400'
+                                  : 'bg-rose-500/10 text-rose-400'
+                              }`}>
+                                {isCredit ? (
+                                  <ArrowDownLeft className="w-3.5 h-3.5" />
+                                ) : isTransfer ? (
+                                  <ArrowLeftRight className="w-3.5 h-3.5" />
+                                ) : (
+                                  <ArrowUpRight className="w-3.5 h-3.5" />
+                                )}
                               </div>
                               <span className="font-semibold capitalize text-slate-200 group-hover:text-emerald-400 transition-colors">{t.txn_type || 'debit'}</span>
                             </div>
@@ -188,8 +211,10 @@ export const TransactionTracker: React.FC<TransactionTrackerProps> = ({
                             {dateStr}
                           </td>
 
-                          <td className={`py-3 px-4 text-right font-bold text-sm ${isCredit ? 'text-emerald-400' : 'text-slate-100'}`}>
-                            {isCredit ? '+' : '-'}{formatCurrency(t.amount_e5 || 0)}
+                          <td className={`py-3 px-4 text-right font-bold text-sm ${
+                            isCredit ? 'text-emerald-400' : isTransfer ? 'text-indigo-400' : 'text-slate-100'
+                          }`}>
+                            {isCredit ? '+' : isDebit ? '-' : ''}{formatCurrency(t.amount_e5 || 0)}
                           </td>
                         </tr>
                       );

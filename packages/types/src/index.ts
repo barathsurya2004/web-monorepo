@@ -11,12 +11,14 @@ export interface User {
 
 export type PaymentMethod = 'bank_card' | 'bank_account' | 'back_account';
 
+export type TxnType = 'credit' | 'debit' | 'transfer' | string;
+
 export interface Transaction {
   id: string;
   user_id: string;
   envelope_id?: string | null; // Nullable if uncategorized yet
   amount_e5: number;
-  txn_type: 'credit' | 'debit' | string;
+  txn_type: 'credit' | 'debit' | 'transfer' | string;
   payment_method: PaymentMethod | string;
   country_iso2: string;
   created_at?: string;

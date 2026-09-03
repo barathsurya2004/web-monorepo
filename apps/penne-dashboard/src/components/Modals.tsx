@@ -100,7 +100,8 @@ export const NewTxnModal: React.FC<NewTxnModalProps> = ({
           onChange={(e) => setTxnType(e.target.value)}
           options={[
             { value: 'debit', label: 'Expense (Debit Outflow)' },
-            { value: 'credit', label: 'Income (Credit Inflow)' }
+            { value: 'credit', label: 'Income (Credit Inflow)' },
+            { value: 'transfer', label: 'Transfer (Account Transfer)' }
           ]}
         />
 
@@ -259,7 +260,8 @@ export const EditTxnModal: React.FC<EditTxnModalProps> = ({
             onChange={(e) => setTxnType(e.target.value)}
             options={[
               { value: 'debit', label: 'Expense (Debit Outflow)' },
-              { value: 'credit', label: 'Income (Credit Inflow)' }
+              { value: 'credit', label: 'Income (Credit Inflow)' },
+              { value: 'transfer', label: 'Transfer (Account Transfer)' }
             ]}
           />
 

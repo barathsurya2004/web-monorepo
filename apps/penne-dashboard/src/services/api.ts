@@ -171,6 +171,16 @@ const INITIAL_TRANSACTIONS: Transaction[] = [
     txn_type: 'debit',
     payment_method: 'bank_card',
     country_iso2: 'IN',
+    created_at: new Date(Date.now() - 3600000 * 2).toISOString()
+  },
+  {
+    id: 'txn-04',
+    user_id: TEST_USER_UUID,
+    envelope_id: 'env-sys-01',
+    amount_e5: amountToE5(10000),
+    txn_type: 'transfer',
+    payment_method: 'bank_account',
+    country_iso2: 'IN',
     created_at: new Date().toISOString()
   }
 ];

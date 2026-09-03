@@ -9,6 +9,7 @@ import {
   Search,
   ArrowUpRight,
   ArrowDownLeft,
+  ArrowLeftRight,
   Calendar,
   Clock,
   WifiOff,
@@ -357,6 +358,8 @@ export const HomePage: React.FC<HomePageProps> = ({
         ) : (
           <div className="space-y-2.5 w-full max-w-full overflow-x-hidden">
             {recentTxns.map((txn) => {
+              const isCredit = txn.txn_type === 'credit';
+              const isTransfer = txn.txn_type === 'transfer';
               const isDebit = txn.txn_type === 'debit';
               const formattedAmt = `₹${e5ToAmount(txn.amount_e5).toLocaleString('en-IN')}`;
               const { dateStr, timeStr } = formatTransactionDateTime(txn.created_at);
@@ -378,15 +381,19 @@ export const HomePage: React.FC<HomePageProps> = ({
                 >
                   <div className="flex items-center gap-2.5 min-w-0 flex-1 overflow-x-hidden">
                     <div
-                      className={`w-9 h-9 rounded-2xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-105 ${isDebit
-                          ? 'bg-[#E8A598]/15 text-[#E8A598] border border-[#E8A598]/20'
-                          : 'bg-[#81B29A]/15 text-[#81B29A] border border-[#81B29A]/20'
+                      className={`w-9 h-9 rounded-2xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-105 ${isCredit
+                          ? 'bg-[#81B29A]/15 text-[#81B29A] border border-[#81B29A]/20'
+                          : isTransfer
+                          ? 'bg-[#818CF8]/15 text-[#818CF8] border border-[#818CF8]/20'
+                          : 'bg-[#E8A598]/15 text-[#E8A598] border border-[#E8A598]/20'
                         }`}
                     >
-                      {isDebit ? (
-                        <ArrowUpRight className="w-4 h-4" />
-                      ) : (
+                      {isCredit ? (
                         <ArrowDownLeft className="w-4 h-4" />
+                      ) : isTransfer ? (
+                        <ArrowLeftRight className="w-4 h-4" />
+                      ) : (
+                        <ArrowUpRight className="w-4 h-4" />
                       )}
                     </div>
 
@@ -433,10 +440,14 @@ export const HomePage: React.FC<HomePageProps> = ({
 
                   <div className="text-right shrink-0 pl-1">
                     <span
-                      className={`text-sm sm:text-base font-black tracking-tight ${isDebit ? 'text-[#E8A598]' : 'text-[#81B29A]'
+                      className={`text-sm sm:text-base font-black tracking-tight ${isCredit
+                          ? 'text-[#81B29A]'
+                          : isTransfer
+                          ? 'text-[#818CF8]'
+                          : 'text-[#E8A598]'
                         }`}
                     >
-                      {isDebit ? '-' : '+'}{formattedAmt}
+                      {isCredit ? '+' : isDebit ? '-' : ''}{formattedAmt}
                     </span>
                   </div>
                 </div>

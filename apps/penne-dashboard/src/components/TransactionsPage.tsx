@@ -4,6 +4,7 @@ import { Button, Card, Badge } from '@packages/ui';
 import {
   ArrowUpRight,
   ArrowDownLeft,
+  ArrowLeftRight,
   Search,
   Filter,
   SlidersHorizontal,
@@ -81,7 +82,7 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedGroupTag, setSelectedGroupTag] = useState<string>('all');
   const [selectedCategoryEnv, setSelectedCategoryEnv] = useState<string>('all');
-  const [typeFilter, setTypeFilter] = useState<'all' | 'debit' | 'credit'>('all');
+  const [typeFilter, setTypeFilter] = useState<'all' | 'debit' | 'credit' | 'transfer'>('all');
   const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
 
   const safeTxns = Array.isArray(transactions) ? transactions : [];
@@ -348,7 +349,7 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
             <div className="space-y-1.5">
               <label className="text-[11px] font-bold text-[#A89F95]">Transaction Type</label>
               <div className="flex items-center gap-1.5 bg-[#1A1715] p-1 rounded-2xl border border-[#38322E]">
-                {(['all', 'debit', 'credit'] as const).map((type) => (
+                {(['all', 'debit', 'credit', 'transfer'] as const).map((type) => (
                   <button
                     key={type}
                     onClick={() => setTypeFilter(type)}
@@ -425,8 +426,13 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
               .filter((t) => t && t.txn_type === 'credit')
               .reduce((acc, t) => acc + (t.amount_e5 || 0), 0);
 
+            const dayTransferE5 = txns
+              .filter((t) => t && t.txn_type === 'transfer')
+              .reduce((acc, t) => acc + (t.amount_e5 || 0), 0);
+
             const daySpentFormatted = `₹${e5ToAmount(daySpentE5).toLocaleString('en-IN')}`;
             const dayIncomeFormatted = `₹${e5ToAmount(dayIncomeE5).toLocaleString('en-IN')}`;
+            const dayTransferFormatted = `₹${e5ToAmount(dayTransferE5).toLocaleString('en-IN')}`;
 
             return (
               <div key={dateHeader} className="space-y-2.5">
@@ -455,12 +461,20 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
                         <span>+{dayIncomeFormatted}</span>
                       </span>
                     )}
+                    {dayTransferE5 > 0 && (
+                      <span className="inline-flex items-center gap-1 text-[#818CF8] bg-[#818CF8]/10 border border-[#818CF8]/25 px-2 py-0.5 rounded-lg shadow-sm">
+                        <span className="text-[9px] text-[#A89F95] font-semibold uppercase">Transfer</span>
+                        <span>{dayTransferFormatted}</span>
+                      </span>
+                    )}
                   </div>
                 </div>
 
               {/* Transactions in Date Group (Ordered Timewise) */}
               <div className="space-y-2.5">
                 {txns.map((txn) => {
+                  const isCredit = txn.txn_type === 'credit';
+                  const isTransfer = txn.txn_type === 'transfer';
                   const isDebit = txn.txn_type === 'debit';
                   const formattedAmt = `₹${e5ToAmount(txn.amount_e5).toLocaleString('en-IN')}`;
                   const { timeStr } = formatTransactionDateTime(txn.created_at);
@@ -485,12 +499,20 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
                       {/* Left: Icon & Details */}
                       <div className="flex items-center gap-2.5 min-w-0 flex-1 overflow-x-hidden">
                         <div
-                          className={`w-9 h-9 rounded-2xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-105 ${isDebit
-                              ? 'bg-[#E8A598]/15 text-[#E8A598] border border-[#E8A598]/20'
-                              : 'bg-[#81B29A]/15 text-[#81B29A] border border-[#81B29A]/20'
+                          className={`w-9 h-9 rounded-2xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-105 ${isCredit
+                              ? 'bg-[#81B29A]/15 text-[#81B29A] border border-[#81B29A]/20'
+                              : isTransfer
+                              ? 'bg-[#818CF8]/15 text-[#818CF8] border border-[#818CF8]/20'
+                              : 'bg-[#E8A598]/15 text-[#E8A598] border border-[#E8A598]/20'
                             }`}
                         >
-                          {isDebit ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownLeft className="w-4 h-4" />}
+                          {isCredit ? (
+                            <ArrowDownLeft className="w-4 h-4" />
+                          ) : isTransfer ? (
+                            <ArrowLeftRight className="w-4 h-4" />
+                          ) : (
+                            <ArrowUpRight className="w-4 h-4" />
+                          )}
                         </div>
 
                         <div className="min-w-0 flex-1 space-y-1">
@@ -532,10 +554,14 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
                       {/* Right: Amount */}
                       <div className="text-right shrink-0 pl-1">
                         <span
-                          className={`text-sm sm:text-base font-black tracking-tight ${isDebit ? 'text-[#E8A598]' : 'text-[#81B29A]'
+                          className={`text-sm sm:text-base font-black tracking-tight ${isCredit
+                              ? 'text-[#81B29A]'
+                              : isTransfer
+                              ? 'text-[#818CF8]'
+                              : 'text-[#E8A598]'
                             }`}
                         >
-                          {isDebit ? '-' : '+'}{formattedAmt}
+                          {isCredit ? '+' : isDebit ? '-' : ''}{formattedAmt}
                         </span>
                       </div>
                     </div>
