@@ -1,26 +1,19 @@
-import React, { useState, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { Transaction, Envelope, EnvelopeGroup, DashboardSummary, e5ToAmount, parseUtcDate } from '@packages/types';
-import { Button, Card, Badge, StatCard } from '@packages/ui';
+import { Button } from '@packages/ui';
 import {
-  TrendingDown,
-  TrendingUp,
-  Wallet,
-  Plus,
-  Search,
   ArrowUpRight,
   ArrowDownLeft,
   ArrowLeftRight,
-  Calendar,
-  Clock,
+  CreditCard,
+  Landmark,
+  Search,
   WifiOff,
   RefreshCw,
-  Tag,
-  CreditCard,
-  Building2,
-  Flame
+  ChevronRight
 } from 'lucide-react';
+import { EnvelopeMonogramBadge } from '../utils/envelopeVisuals';
 import { StatCardsSkeleton, PaymentLimitsSkeleton, TransactionListSkeleton } from './Skeleton';
-import { getPaymentLimitStatus } from './AccountView';
 
 interface HomePageProps {
   transactions: Transaction[];
@@ -43,11 +36,9 @@ interface HomePageProps {
 export function formatTransactionDateTime(isoString?: string): { dateStr: string; timeStr: string } {
   const d = parseUtcDate(isoString) || new Date();
 
-  // Format in user's local timezone for date & time
   const dateStr = d.toLocaleDateString('en-IN', {
     day: 'numeric',
-    month: 'short',
-    year: 'numeric'
+    month: 'short'
   });
 
   const timeStr = d.toLocaleTimeString('en-IN', {
@@ -59,10 +50,13 @@ export function formatTransactionDateTime(isoString?: string): { dateStr: string
   return { dateStr, timeStr };
 }
 
+const formatINR = (val: number) => {
+  return `₹${Math.round(val).toLocaleString('en-IN')}`;
+};
+
 export const HomePage: React.FC<HomePageProps> = ({
   transactions,
   envelopes = [],
-  envelopeGroups = [],
   dashboardSummary,
   isServerOffline,
   isMockMode,
@@ -84,22 +78,16 @@ export const HomePage: React.FC<HomePageProps> = ({
     return map;
   }, [envelopes]);
 
-  const groupMap = useMemo(() => {
-    const map = new Map<string, EnvelopeGroup>();
-    (envelopeGroups || []).forEach((g) => {
-      if (g && g.id) map.set(g.id, g);
-    });
-    return map;
-  }, [envelopeGroups]);
-
   const fallbackCardLimit = useMemo(() => {
     const saved = localStorage.getItem('penne_limit_bank_card');
-    return saved ? Number(saved) : 25000;
+    const val = saved ? Number(saved) : 25000;
+    return Math.min(50000, Math.max(0, isNaN(val) ? 25000 : val));
   }, []);
 
   const fallbackBankLimit = useMemo(() => {
     const saved = localStorage.getItem('penne_limit_bank_account');
-    return saved ? Number(saved) : 50000;
+    const val = saved ? Number(saved) : 10000;
+    return Math.min(10000, Math.max(0, isNaN(val) ? 10000 : val));
   }, []);
 
   const cardLimit = (dashboardSummary && dashboardSummary.card_limit_e5 > 0)
@@ -112,29 +100,27 @@ export const HomePage: React.FC<HomePageProps> = ({
 
   const safeTxns = Array.isArray(transactions) ? transactions : [];
 
-  // Sort newest transactions first by created_at timestamp
+  // Sort newest transactions first
   const sortedTxns = [...safeTxns].sort((a, b) => {
-    const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
-    const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
+    const timeA = parseUtcDate(a.created_at || a.CreatedAt)?.getTime() || 0;
+    const timeB = parseUtcDate(b.created_at || b.CreatedAt)?.getTime() || 0;
     return timeB - timeA;
   });
 
-  // Display only the top 5-6 recent transactions (both credit & debit)
-  const recentTxns = sortedTxns.slice(0, 6);
+  const recentTxns = sortedTxns.slice(0, 5);
 
-  // Compute metrics from server-provided DashboardSummary if available, else local fallback
   let totalIncomeE5 = 0;
   let totalSpentE5 = 0;
   let totalRemainingE5 = 0;
   let cardSpentE5 = 0;
-  let bankAccountSpentE5 = 0;
+  let bankSpentE5 = 0;
 
   if (dashboardSummary) {
     totalIncomeE5 = dashboardSummary.total_income_e5;
     totalSpentE5 = dashboardSummary.total_expense_e5;
     totalRemainingE5 = dashboardSummary.total_remaining_e5;
     cardSpentE5 = dashboardSummary.card_spent_e5;
-    bankAccountSpentE5 = dashboardSummary.bank_spent_e5;
+    bankSpentE5 = dashboardSummary.bank_spent_e5;
   } else {
     totalIncomeE5 = sortedTxns
       .filter((t) => t && t.txn_type === 'credit')
@@ -146,37 +132,34 @@ export const HomePage: React.FC<HomePageProps> = ({
       .filter((t) => t.payment_method === 'bank_card')
       .reduce((acc, t) => acc + (t.amount_e5 || 0), 0);
 
-    bankAccountSpentE5 = debitTxns
+    bankSpentE5 = debitTxns
       .filter((t) => t.payment_method !== 'bank_card')
       .reduce((acc, t) => acc + (t.amount_e5 || 0), 0);
 
-    totalSpentE5 = cardSpentE5 + bankAccountSpentE5;
+    totalSpentE5 = cardSpentE5 + bankSpentE5;
     totalRemainingE5 = totalIncomeE5 - totalSpentE5;
   }
 
-  const totalSpentFormatted = `₹${e5ToAmount(totalSpentE5).toLocaleString('en-IN')}`;
-  const cardSpentFormatted = `₹${e5ToAmount(cardSpentE5).toLocaleString('en-IN')}`;
-  const bankAccountSpentFormatted = `₹${e5ToAmount(bankAccountSpentE5).toLocaleString('en-IN')}`;
-  const totalRemainingFormatted = `₹${e5ToAmount(totalRemainingE5).toLocaleString('en-IN')}`;
-  const totalIncomeFormatted = `₹${e5ToAmount(totalIncomeE5).toLocaleString('en-IN')}`;
-
   const cardSpentAmount = e5ToAmount(cardSpentE5);
-  const bankAccountSpentAmount = e5ToAmount(bankAccountSpentE5);
+  const bankSpentAmount = e5ToAmount(bankSpentE5);
+  const totalRemainingAmount = e5ToAmount(totalRemainingE5);
+  const totalIncomeAmount = e5ToAmount(totalIncomeE5);
+  const totalSpentAmount = e5ToAmount(totalSpentE5);
 
-  const cardLimitStatus = getPaymentLimitStatus(cardSpentAmount, cardLimit);
-  const bankLimitStatus = getPaymentLimitStatus(bankAccountSpentAmount, bankLimit);
+  const cardPct = cardLimit > 0 ? Math.min(Math.round((cardSpentAmount / cardLimit) * 100), 100) : 0;
+  const bankPct = bankLimit > 0 ? Math.min(Math.round((bankSpentAmount / bankLimit) * 100), 100) : 0;
 
   return (
-    <div className="w-full max-w-md mx-auto px-4 py-6 space-y-5 animate-fadeIn pb-28 overflow-x-hidden">
+    <div className="w-full max-w-md mx-auto px-4 py-3 space-y-4 animate-fadeIn pb-28 overflow-x-hidden">
       {/* Explicit Server Offline Banner */}
       {isServerOffline && !isMockMode && (
-        <div className="bg-[#E8A598]/15 border border-[#E8A598]/40 rounded-3xl p-4 space-y-3 text-left animate-fadeIn">
-          <div className="flex items-center gap-2 text-[#E8A598]">
+        <div className="velvet-card p-4 space-y-3 text-left border-rose-500/30 bg-rose-950/30">
+          <div className="flex items-center gap-2 text-rose-300">
             <WifiOff className="w-5 h-5 shrink-0" />
-            <h3 className="font-extrabold text-sm text-[#F4F1DE]">Backend Server Offline</h3>
+            <h3 className="font-extrabold text-sm text-white">Backend Server Offline</h3>
           </div>
-          <p className="text-xs text-[#A89F95] leading-relaxed">
-            Cannot reach backend server. Please verify <code className="text-[#F2CC8F] font-mono">penne-server</code> is running on port 8080 or CORS is enabled.
+          <p className="text-xs text-slate-300 leading-relaxed">
+            Cannot reach backend server. Please verify <code className="text-[#FBD8B3] font-mono">penne-server</code> is running on port 8080.
           </p>
           <div className="flex items-center gap-2 pt-1">
             {onRetryConnection && (
@@ -194,260 +177,309 @@ export const HomePage: React.FC<HomePageProps> = ({
         </div>
       )}
 
-      {/* Overview Stat Cards: Total Spend & Total Remaining Box */}
+      {/* SIGNATURE APRICOT HERO CARD */}
       {isLoadingSummary ? (
         <StatCardsSkeleton />
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 w-full max-w-full overflow-x-hidden items-start">
-          <StatCard
-            title="Total Spend"
-            value={totalSpentFormatted}
-            subtitle="Total recorded expenses"
-            variant="rose"
-            icon={<TrendingDown className="w-5 h-5 text-[#E8A598]" />}
-            className="w-full min-w-0"
-          />
-
-          <StatCard
-            title="Total Remaining"
-            value={totalRemainingFormatted}
-            subtitle={`Out of ${totalIncomeFormatted} income`}
-            variant="sage"
-            icon={<TrendingUp className="w-5 h-5 text-[#81B29A]" />}
-            className="w-full min-w-0"
-          />
-        </div>
-      )}
-
-      {/* Payment Method Spending Limits & Heatmap Status Card Box */}
-      {isLoadingSummary ? (
-        <PaymentLimitsSkeleton />
-      ) : (
-        <div className="bg-[#24201D] border border-[#38322E] rounded-3xl p-4 space-y-3.5 shadow-lg shadow-black/20 w-full max-w-full overflow-x-hidden">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Flame className="w-4 h-4 text-[#E07A5F]" />
-              <h3 className="text-xs font-extrabold text-[#F4F1DE] uppercase tracking-wider">Payment Method Usage & Limits</h3>
+        <div className="hero-apricot-card p-5 relative overflow-hidden group">
+          {/* Split With Capsule (Right Tab from reference) */}
+          <div className="absolute right-4 top-4 bg-white/95 backdrop-blur-md rounded-2xl py-2 px-1.5 flex flex-col items-center gap-1.5 shadow-[0_4px_16px_rgba(0,0,0,0.12)] z-10 transition-transform duration-200 group-hover:scale-105">
+            <span className="text-[8px] font-mono font-bold text-indigo-950 uppercase tracking-tighter block">
+              Pool
+            </span>
+            <div className="w-6 h-6 rounded-full bg-[#A7D7F9]/50 text-indigo-900 border border-indigo-950/20 flex items-center justify-center text-[10px] shadow-sm">
+              🍽️
             </div>
-            <span className="text-[10px] text-[#A89F95] font-mono">Monthly Ceilings</span>
+            <div className="w-6 h-6 rounded-full bg-[#C8B6FF]/50 text-indigo-900 border border-indigo-950/20 flex items-center justify-center text-[10px] shadow-sm">
+              ☕
+            </div>
+            <div className="w-6 h-6 rounded-full bg-[#FFB5A7]/50 text-indigo-900 border border-indigo-950/20 flex items-center justify-center text-[10px] shadow-sm">
+              🛒
+            </div>
+            {onOpenNewCategoryModal && (
+              <div
+                className="w-6 h-6 rounded-full bg-[#FFD5B8] hover:bg-[#FBD8B3] text-indigo-950 flex items-center justify-center text-[11px] font-black cursor-pointer hover:scale-110 active:scale-95 transition-all shadow-sm"
+                onClick={onOpenNewCategoryModal}
+                title="Add Envelope"
+              >
+                +
+              </div>
+            )}
           </div>
 
-          {/* Bank Card Limit Usage */}
-          <div className={`p-3 rounded-2xl border ${cardLimitStatus.cardBorder} ${cardLimitStatus.bgGlow} transition-all space-y-2`}>
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2 min-w-0">
-                <div className="p-1.5 rounded-lg bg-[#818CF8]/15 text-[#818CF8] shrink-0">
-                  <CreditCard className="w-3.5 h-3.5" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-xs font-extrabold text-[#F4F1DE] truncate">Bank Card</p>
-                  <p className="text-[11px] text-[#A89F95] font-mono">
-                    Spent: <span className="font-bold text-[#F4F1DE]">{cardSpentFormatted}</span> / ₹{cardLimit.toLocaleString('en-IN')}
-                  </p>
-                </div>
-              </div>
-
-              <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-md border shrink-0 ${cardLimitStatus.badgeBg}`}>
-                {cardLimitStatus.pct}% • {cardLimitStatus.label}
-              </span>
+          {/* Left Content Column */}
+          <div className="pr-16 space-y-1">
+            <span className="text-[10px] font-mono font-bold tracking-wider uppercase text-indigo-950/70 block">
+              Net Remaining Headroom
+            </span>
+            <div className="text-3xl sm:text-4xl font-black tracking-tight text-indigo-950 font-mono">
+              {formatINR(totalRemainingAmount)}
             </div>
 
-            <div className="w-full h-2 bg-[#1A1715] rounded-full overflow-hidden border border-[#38322E]/60">
-              <div
-                className={`h-full transition-all duration-500 rounded-full ${cardLimitStatus.barColor}`}
-                style={{ width: `${Math.min(cardLimitStatus.pct, 100)}%` }}
-              />
+            {/* Quick Split / Record Action Button */}
+            <div className="pt-3 flex items-center gap-2.5 flex-wrap">
+              <button
+                onClick={onOpenNewTxnModal}
+                className="px-4 py-2 rounded-xl bg-[#232044] hover:bg-[#2C2856] text-white font-bold text-xs shadow-md active:scale-95 transition-all duration-200 flex items-center gap-1.5 cursor-pointer hover:shadow-lg"
+              >
+                <span>Split / Record</span>
+                <ArrowUpRight className="w-3.5 h-3.5 text-[#FBD8B3]" />
+              </button>
+              <div className="px-2.5 py-1 rounded-lg bg-indigo-950/10 text-[10px] font-mono text-indigo-950 font-semibold">
+                ~{formatINR(Math.round(totalRemainingAmount / 22))}/day safe
+              </div>
             </div>
           </div>
 
-          {/* Bank Account Limit Usage */}
-          <div className={`p-3 rounded-2xl border ${bankLimitStatus.cardBorder} ${bankLimitStatus.bgGlow} transition-all space-y-2`}>
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2 min-w-0">
-                <div className="p-1.5 rounded-lg bg-[#2DD4BF]/15 text-[#2DD4BF] shrink-0">
-                  <Building2 className="w-3.5 h-3.5" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-xs font-extrabold text-[#F4F1DE] truncate">Bank Account</p>
-                  <p className="text-[11px] text-[#A89F95] font-mono">
-                    Spent: <span className="font-bold text-[#F4F1DE]">{bankAccountSpentFormatted}</span> / ₹{bankLimit.toLocaleString('en-IN')}
-                  </p>
-                </div>
-              </div>
-
-              <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-md border shrink-0 ${bankLimitStatus.badgeBg}`}>
-                {bankLimitStatus.pct}% • {bankLimitStatus.label}
+          {/* Inflow vs Outflow Mini Split at bottom of card */}
+          <div className="mt-5 pt-3.5 border-t border-indigo-950/10 grid grid-cols-2 gap-3 pr-14 text-indigo-950">
+            <div>
+              <span className="text-[9px] font-mono uppercase text-indigo-950/60 block font-bold">Monthly Inflow</span>
+              <span className="text-xs sm:text-sm font-bold font-mono text-emerald-900 flex items-center gap-1">
+                <ArrowDownLeft className="w-3.5 h-3.5 text-emerald-700" />
+                {formatINR(totalIncomeAmount)}
               </span>
             </div>
-
-            <div className="w-full h-2 bg-[#1A1715] rounded-full overflow-hidden border border-[#38322E]/60">
-              <div
-                className={`h-full transition-all duration-500 rounded-full ${bankLimitStatus.barColor}`}
-                style={{ width: `${Math.min(bankLimitStatus.pct, 100)}%` }}
-              />
+            <div>
+              <span className="text-[9px] font-mono uppercase text-indigo-950/60 block font-bold">Monthly Outflow</span>
+              <span className="text-xs sm:text-sm font-bold font-mono text-rose-900 flex items-center gap-1">
+                <ArrowUpRight className="w-3.5 h-3.5 text-rose-700" />
+                {formatINR(totalSpentAmount)}
+              </span>
             </div>
           </div>
         </div>
       )}
 
-      {/* Action Banner: Add Transaction & Add Category */}
-      <div className="flex items-center justify-between bg-[#24201D] border border-[#38322E] rounded-3xl p-4 shadow-lg shadow-black/20 w-full max-w-full overflow-x-hidden gap-2">
-        <div className="space-y-0.5 min-w-0 pr-1 flex-1">
-          <h2 className="text-sm font-extrabold text-[#F4F1DE] truncate">Quick Actions</h2>
-          <p className="text-xs text-[#A89F95] truncate">Record expenses & manage budget</p>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
+      {/* Quick Context Strip (Active Envelopes Pills Row with Emojis) */}
+      <div className="velvet-card p-4 space-y-2.5">
+        <div className="flex justify-between items-center text-xs">
+          <span className="font-bold text-slate-100 flex items-center gap-1.5 font-mono">
+            <span className="w-2 h-2 rounded-full bg-[#FBD8B3] animate-pulse"></span>
+            Active Envelopes
+          </span>
           {onOpenNewCategoryModal && (
-            <Button
-              variant="secondary"
-              size="md"
-              onClick={onOpenNewCategoryModal}
-              className="gap-1.5 font-bold shrink-0 text-xs px-3"
-              disabled={isServerOffline && !isMockMode}
-            >
-              <Plus className="w-4 h-4" />
-              <span>Category</span>
-            </Button>
-          )}
-          <Button
-            variant="primary"
-            size="md"
-            onClick={onOpenNewTxnModal}
-            className="gap-1.5 shadow-lg font-bold shrink-0 text-xs px-3.5"
-            disabled={isServerOffline && !isMockMode}
-          >
-            <Plus className="w-4 h-4" />
-            <span>New Expense</span>
-          </Button>
-        </div>
-      </div>
-
-      {/* Recent Transactions Preview Section Box */}
-      <div className="space-y-3 w-full max-w-full overflow-x-hidden">
-        <div className="flex items-center justify-between px-1">
-          <h3 className="text-sm font-extrabold text-[#F4F1DE]">Recent Transactions</h3>
-          {onNavigateToTransactions && (
             <button
-              onClick={onNavigateToTransactions}
-              className="text-xs font-bold text-[#E07A5F] hover:underline flex items-center gap-1 cursor-pointer"
+              onClick={onOpenNewCategoryModal}
+              className="text-[11px] font-mono text-[#FBD8B3] hover:underline cursor-pointer transition-colors"
             >
-              <span>View All</span>
-              <ArrowUpRight className="w-3.5 h-3.5" />
+              + Add Category
             </button>
           )}
         </div>
 
-        {isLoadingTransactions || isLoadingEnvelopes ? (
+        {/* Avatar Pill Strip */}
+        <div className="flex items-center gap-3 overflow-x-auto no-scrollbar py-1">
+          {/* Peach Search Trigger */}
+          {onNavigateToTransactions && (
+            <div
+              onClick={onNavigateToTransactions}
+              className="w-12 h-12 rounded-2xl bg-[#FBD8B3] hover:bg-[#f7c495] text-[#1A1835] flex items-center justify-center shrink-0 cursor-pointer shadow-sm hover:scale-105 active:scale-95 transition-all duration-200"
+              title="Search Ledger"
+            >
+              <Search className="w-4 h-4 text-[#1A1835]" />
+            </div>
+          )}
+
+          {/* Category Pills */}
+          {isLoadingEnvelopes ? (
+            <div className="text-xs font-mono text-slate-400 py-2">Loading envelopes...</div>
+          ) : (envelopes || []).filter((e) => !e.is_system).length === 0 ? (
+            <div className="text-xs font-mono text-slate-400 py-2">No custom envelopes yet</div>
+          ) : (
+            (envelopes || [])
+              .filter((e) => !e.is_system)
+              .map((env) => (
+                <div key={env.id} className="flex flex-col items-center gap-1 shrink-0 group cursor-pointer">
+                  <EnvelopeMonogramBadge name={env.name} size="lg" />
+                  <span className="text-[10px] font-medium text-slate-300 group-hover:text-white truncate max-w-[60px] text-center font-mono transition-colors">
+                    {(env.name || 'Category').split(' ')[0]}
+                  </span>
+                </div>
+              ))
+          )}
+        </div>
+      </div>
+
+      {/* PAYMENT RAILS VELOCITY WITH DOTTED SLIDERS & CREAM KNOBS */}
+      {isLoadingSummary ? (
+        <PaymentLimitsSkeleton />
+      ) : (
+        <div className="velvet-card p-4 space-y-4">
+          <div className="flex justify-between items-center text-xs">
+            <span className="font-bold text-white uppercase tracking-wider flex items-center gap-1.5 font-mono">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#FBD8B3]"></span>
+              Payment Rails Velocity
+            </span>
+            <span className="text-[10px] font-mono text-slate-400">Monthly Burn</span>
+          </div>
+
+          {/* Rail 1: Bank Card */}
+          <div className="velvet-card-subtle p-3 space-y-2">
+            <div className="flex justify-between items-center text-xs">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-xl bg-[#C8B6FF]/25 text-[#C8B6FF] flex items-center justify-center text-xs font-mono font-bold shadow-sm">
+                  CC
+                </div>
+                <div>
+                  <span className="font-bold text-slate-100 block text-xs">Obsidian Credit Rail</span>
+                  <span className="text-[10px] font-mono text-slate-400">Card Limit</span>
+                </div>
+              </div>
+              <div className="text-right font-mono">
+                <span className="text-slate-100 font-bold text-xs">{formatINR(cardSpentAmount)}</span>
+                <span className="text-slate-400 text-[10px]"> / {formatINR(cardLimit)}</span>
+              </div>
+            </div>
+
+            {/* Slider Track with Dotted Snap Markers */}
+            <div className="relative h-4 w-full bg-[#1A1835]/90 rounded-full p-0.5 flex items-center overflow-hidden border border-white/5 track-dots">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-[#C8B6FF] to-[#A7D7F9] transition-all duration-500 shadow-sm"
+                style={{ width: `${cardPct}%` }}
+              />
+              <div
+                className="absolute w-4 h-4 rounded-full bg-[#FDE2B8] border-2 border-[#2C2856] shadow-md -ml-2 pointer-events-none transition-all duration-300"
+                style={{ left: `${Math.max(4, Math.min(96, cardPct))}%` }}
+              />
+            </div>
+
+            <div className="flex justify-between text-[10px] font-mono text-slate-400">
+              <span>{cardPct}% consumed</span>
+              <span className="text-[#FBD8B3] font-medium">{formatINR(Math.max(0, cardLimit - cardSpentAmount))} headroom</span>
+            </div>
+          </div>
+
+          {/* Rail 2: Bank Account Liquid Vault */}
+          <div className="velvet-card-subtle p-3 space-y-2">
+            <div className="flex justify-between items-center text-xs">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-xl bg-[#A7D7F9]/25 text-[#A7D7F9] flex items-center justify-center text-xs font-mono font-bold shadow-sm">
+                  ACH
+                </div>
+                <div>
+                  <span className="font-bold text-slate-100 block text-xs">Primary Liquid Vault</span>
+                  <span className="text-[10px] font-mono text-slate-400">Direct Debit Rail</span>
+                </div>
+              </div>
+              <div className="text-right font-mono">
+                <span className="text-slate-100 font-bold text-xs">{formatINR(bankSpentAmount)}</span>
+                <span className="text-slate-400 text-[10px]"> / {formatINR(bankLimit)}</span>
+              </div>
+            </div>
+
+            {/* Slider Track */}
+            <div className="relative h-4 w-full bg-[#1A1835]/90 rounded-full p-0.5 flex items-center overflow-hidden border border-white/5 track-dots">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-[#A7D7F9] to-[#A8E6CF] transition-all duration-500 shadow-sm"
+                style={{ width: `${bankPct}%` }}
+              />
+              <div
+                className="absolute w-4 h-4 rounded-full bg-[#FDE2B8] border-2 border-[#2C2856] shadow-md -ml-2 pointer-events-none transition-all duration-300"
+                style={{ left: `${Math.max(4, Math.min(96, bankPct))}%` }}
+              />
+            </div>
+
+            <div className="flex justify-between text-[10px] font-mono text-slate-400">
+              <span>{bankPct}% consumed</span>
+              <span className="text-[#FBD8B3] font-medium">{formatINR(Math.max(0, bankLimit - bankSpentAmount))} headroom</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* RECENT TRANSACTIONS FEED */}
+      <div className="velvet-card p-4 space-y-3">
+        <div className="flex justify-between items-center">
+          <span className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5 font-mono">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#FBD8B3]"></span>
+            Recently Recorded
+          </span>
+          {onNavigateToTransactions && (
+            <button
+              onClick={onNavigateToTransactions}
+              className="text-xs font-mono text-[#FBD8B3] hover:underline flex items-center gap-0.5 cursor-pointer transition-colors"
+            >
+              <span>View All ({safeTxns.length})</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+
+        {isLoadingTransactions ? (
           <TransactionListSkeleton count={4} />
         ) : recentTxns.length === 0 ? (
-          <Card className="text-center py-10 space-y-3 w-full max-w-full">
-            <div className="w-12 h-12 rounded-2xl bg-[#2E2A27] text-[#A89F95] flex items-center justify-center mx-auto">
-              <Wallet className="w-6 h-6" />
-            </div>
-            <div className="space-y-1">
-              <h3 className="text-sm font-bold text-[#F4F1DE]">
-                {isServerOffline && !isMockMode ? 'Server Offline' : 'No transactions yet'}
-              </h3>
-              <p className="text-xs text-[#8C837A] max-w-xs mx-auto">
-                {isServerOffline && !isMockMode
-                  ? 'Connect your backend server to view your live transactions.'
-                  : "You haven't recorded any transactions yet. Tap '+ New Expense' to get started!"}
-              </p>
-            </div>
-          </Card>
+          <div className="py-8 text-center text-slate-400 text-xs font-mono">
+            No transactions recorded yet. Tap '+ New Expense' to get started!
+          </div>
         ) : (
-          <div className="space-y-2.5 w-full max-w-full overflow-x-hidden">
-            {recentTxns.map((txn) => {
-              const isCredit = txn.txn_type === 'credit';
-              const isTransfer = txn.txn_type === 'transfer';
-              const isDebit = txn.txn_type === 'debit';
-              const formattedAmt = `₹${e5ToAmount(txn.amount_e5).toLocaleString('en-IN')}`;
-              const { dateStr, timeStr } = formatTransactionDateTime(txn.created_at);
-
-              const assignedEnv = txn.envelope_id ? envelopeMap.get(txn.envelope_id) : null;
-              const cardHeading = (!assignedEnv || assignedEnv.is_system || assignedEnv.name === 'Unallocated Budget')
-                ? 'General'
-                : (assignedEnv.name || 'General');
-
-              const groupName = assignedEnv?.envelope_group_id ? groupMap.get(assignedEnv.envelope_group_id)?.name : null;
-              const isBankCard = txn.payment_method === 'bank_card';
+          <div className="divide-y divide-white/[0.05]">
+            {recentTxns.map((tx) => {
+              const isCredit = tx.txn_type === 'credit';
+              const isTransfer = tx.txn_type === 'transfer';
+              const { dateStr, timeStr } = formatTransactionDateTime(tx.created_at || tx.CreatedAt);
+              const assignedEnv = tx.envelope_id ? envelopeMap.get(tx.envelope_id) : null;
+              const heading = assignedEnv?.name || (isCredit
+                ? 'Income Inflow'
+                : isTransfer
+                ? 'Account Transfer'
+                : tx.payment_method === 'bank_card'
+                ? 'Obsidian Card Expense'
+                : 'Primary Bank Debit');
 
               return (
                 <div
-                  key={txn.id}
-                  onClick={() => onSelectTxnForEdit?.(txn)}
-                  className="bg-[#24201D] border border-[#342F2C] hover:border-[#E07A5F]/60 hover:bg-[#2B2623] cursor-pointer rounded-2xl p-3.5 transition-all flex items-center justify-between gap-2.5 shadow-md w-full max-w-full overflow-x-hidden min-w-0 group"
-                  title="Click to edit transaction details"
+                  key={tx.id}
+                  onClick={() => onSelectTxnForEdit?.(tx)}
+                  className="py-2.5 flex items-center justify-between cursor-pointer hover:bg-white/[0.04] hover:translate-x-1 -mx-2 px-2 rounded-xl transition-all duration-200 group"
                 >
-                  <div className="flex items-center gap-2.5 min-w-0 flex-1 overflow-x-hidden">
+                  <div className="flex items-center gap-2.5 min-w-0">
                     <div
-                      className={`w-9 h-9 rounded-2xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-105 ${isCredit
-                          ? 'bg-[#81B29A]/15 text-[#81B29A] border border-[#81B29A]/20'
+                      className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center shrink-0 transition-transform duration-200 group-hover:scale-105 ${
+                        isCredit
+                          ? 'bg-[#A8E6CF]/20 text-[#A8E6CF] border border-[#A8E6CF]/30'
                           : isTransfer
-                          ? 'bg-[#818CF8]/15 text-[#818CF8] border border-[#818CF8]/20'
-                          : 'bg-[#E8A598]/15 text-[#E8A598] border border-[#E8A598]/20'
-                        }`}
+                          ? 'bg-[#C8B6FF]/20 text-[#C8B6FF] border border-[#C8B6FF]/30'
+                          : tx.payment_method === 'bank_card'
+                          ? 'bg-[#FBD8B3]/20 text-[#FBD8B3] border border-[#FBD8B3]/30'
+                          : 'bg-[#A7D7F9]/20 text-[#A7D7F9] border border-[#A7D7F9]/30'
+                      }`}
                     >
                       {isCredit ? (
-                        <ArrowDownLeft className="w-4 h-4" />
+                        <ArrowDownLeft className="w-4 h-4 text-[#A8E6CF]" />
                       ) : isTransfer ? (
-                        <ArrowLeftRight className="w-4 h-4" />
+                        <ArrowLeftRight className="w-4 h-4 text-[#C8B6FF]" />
+                      ) : tx.payment_method === 'bank_card' ? (
+                        <CreditCard className="w-4 h-4 text-[#FBD8B3]" />
                       ) : (
-                        <ArrowUpRight className="w-4 h-4" />
+                        <Landmark className="w-4 h-4 text-[#A7D7F9]" />
                       )}
                     </div>
-
-                    <div className="min-w-0 flex-1 space-y-1 overflow-x-hidden">
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <p className="text-xs font-extrabold text-[#F4F1DE] group-hover:text-[#E07A5F] transition-colors truncate">
-                          {cardHeading}
-                        </p>
-                      </div>
-
-                      <div className="flex items-center gap-2 text-[11px] text-[#A89F95] flex-wrap">
-                        {dateStr && (
-                          <span className="flex items-center gap-1 font-mono text-[10px] text-[#C4BBB1]">
-                            <Calendar className="w-3 h-3 text-[#8C837A]" />
-                            {dateStr}
-                          </span>
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold text-slate-100 truncate group-hover:text-[#FBD8B3] transition-colors">
+                        {heading}
+                      </p>
+                      <div className="flex items-center gap-1.5 text-[10px] font-mono text-slate-400 mt-0.5">
+                        <span className="capitalize">{tx.payment_method.replace('_', ' ')}</span>
+                        {assignedEnv && (
+                          <>
+                            <span>•</span>
+                            <span className="text-[#FBD8B3] font-medium">{assignedEnv.name}</span>
+                          </>
                         )}
-                        {timeStr && (
-                          <span className="flex items-center gap-1 font-mono text-[10px] text-[#A89F95]">
-                            <Clock className="w-3 h-3 text-[#8C837A]" />
-                            {timeStr}
-                          </span>
-                        )}
-
-                        {groupName && (
-                          <span className="inline-flex items-center gap-1 text-[10px] bg-[#E07A5F]/15 text-[#E07A5F] border border-[#E07A5F]/30 px-1.5 py-0.5 rounded-md font-extrabold truncate max-w-[110px]">
-                            <Tag className="w-2.5 h-2.5 shrink-0" />
-                            <span className="truncate">{groupName}</span>
-                          </span>
-                        )}
-
-                        <span
-                          className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-md font-extrabold border ${isBankCard
-                              ? 'bg-[#818CF8]/15 text-[#818CF8] border-[#818CF8]/30'
-                              : 'bg-[#2DD4BF]/15 text-[#2DD4BF] border-[#2DD4BF]/30'
-                            }`}
-                        >
-                          {isBankCard ? <CreditCard className="w-2.5 h-2.5 shrink-0" /> : <Building2 className="w-2.5 h-2.5 shrink-0" />}
-                          <span>{isBankCard ? 'Bank Card' : 'Bank Account'}</span>
-                        </span>
+                        <span>•</span>
+                        <span>{dateStr} {timeStr}</span>
                       </div>
                     </div>
                   </div>
 
-                  <div className="text-right shrink-0 pl-1">
+                  <div className="text-right shrink-0 pl-2 font-mono">
                     <span
-                      className={`text-sm sm:text-base font-black tracking-tight ${isCredit
-                          ? 'text-[#81B29A]'
-                          : isTransfer
-                          ? 'text-[#818CF8]'
-                          : 'text-[#E8A598]'
-                        }`}
+                      className={`text-xs font-bold ${
+                        isCredit ? 'text-[#A8E6CF]' : 'text-slate-100'
+                      }`}
                     >
-                      {isCredit ? '+' : isDebit ? '-' : ''}{formattedAmt}
+                      {isCredit ? '+' : '-'}{formatINR(e5ToAmount(tx.amount_e5))}
                     </span>
                   </div>
                 </div>
@@ -459,5 +491,3 @@ export const HomePage: React.FC<HomePageProps> = ({
     </div>
   );
 };
-
-

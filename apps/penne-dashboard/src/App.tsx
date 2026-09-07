@@ -548,7 +548,7 @@ const AppInner: React.FC = () => {
 
   // Authenticated Views
   return (
-    <div className="min-h-screen min-h-[100dvh] flex flex-col bg-[#171513] text-[#F4F1DE] w-full max-w-full overflow-x-hidden">
+    <div className="min-h-screen min-h-[100dvh] flex flex-col bg-[#1A1735] text-[#F5F3FF] w-full max-w-full overflow-x-hidden">
       {/* Top Header */}
       <Header
         user={user}

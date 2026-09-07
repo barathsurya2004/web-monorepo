@@ -1,23 +1,18 @@
 import React, { useState, useMemo } from 'react';
 import { Transaction, EnvelopeGroup, Envelope, e5ToAmount, parseUtcDate } from '@packages/types';
-import { Button, Card, Badge } from '@packages/ui';
+import { Button } from '@packages/ui';
 import {
   ArrowUpRight,
   ArrowDownLeft,
   ArrowLeftRight,
+  CreditCard,
+  Landmark,
   Search,
   Filter,
-  SlidersHorizontal,
   X,
-  Calendar,
-  Clock,
-  Tag,
-  Folder,
-  CreditCard,
-  Building2,
-  WifiOff,
+  Plus,
   RefreshCw,
-  Plus
+  WifiOff
 } from 'lucide-react';
 import { formatTransactionDateTime } from './HomePage';
 import { TransactionListSkeleton } from './Skeleton';
@@ -38,35 +33,12 @@ interface TransactionsPageProps {
   isLoadingTransactions?: boolean;
 }
 
-export function getDateGroupHeader(isoString?: string): string {
-  const d = parseUtcDate(isoString);
-  if (!d) return 'Other Transactions';
-
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const yesterday = new Date(today);
-  yesterday.setDate(yesterday.getDate() - 1);
-
-  const targetDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-
-  if (targetDate.getTime() === today.getTime()) {
-    return 'Today';
-  }
-  if (targetDate.getTime() === yesterday.getTime()) {
-    return 'Yesterday';
-  }
-
-  return d.toLocaleDateString('en-IN', {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric'
-  });
-}
+const formatINR = (val: number) => {
+  return `₹${Math.round(val).toLocaleString('en-IN')}`;
+};
 
 export const TransactionsPage: React.FC<TransactionsPageProps> = ({
   transactions,
-  envelopeGroups = [],
   envelopes = [],
   isServerOffline,
   isMockMode,
@@ -79,33 +51,14 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
   isLoadingMore,
   isLoadingTransactions
 }) => {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedGroupTag, setSelectedGroupTag] = useState<string>('all');
-  const [selectedCategoryEnv, setSelectedCategoryEnv] = useState<string>('all');
-  const [typeFilter, setTypeFilter] = useState<'all' | 'debit' | 'credit' | 'transfer'>('all');
-  const [paymentMethodFilter, setPaymentMethodFilter] = useState<'all' | 'bank_card' | 'bank_account'>('all');
-  const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const [filterMethod, setFilterMethod] = useState<'all' | 'bank_card' | 'bank_account'>('all');
+  const [filterType, setFilterType] = useState<'all' | 'debit' | 'credit' | 'transfer'>('all');
+  const [isFilterExpanded, setIsFilterExpanded] = useState(false);
 
   const safeTxns = Array.isArray(transactions) ? transactions : [];
-  const safeGroups = Array.isArray(envelopeGroups) ? envelopeGroups : [];
   const safeEnvelopes = Array.isArray(envelopes) ? envelopes : [];
 
-  // Count totals for account types
-  const { cardCount, bankCount } = useMemo(() => {
-    let cards = 0;
-    let bank = 0;
-    safeTxns.forEach((t) => {
-      if (!t) return;
-      if (t.payment_method === 'bank_card') {
-        cards++;
-      } else {
-        bank++;
-      }
-    });
-    return { cardCount: cards, bankCount: bank };
-  }, [safeTxns]);
-
-  // Lookup maps for fast lookup of group & category details
   const envelopeMap = useMemo(() => {
     const map = new Map<string, Envelope>();
     safeEnvelopes.forEach((e) => {
@@ -114,120 +67,45 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
     return map;
   }, [safeEnvelopes]);
 
-  const groupMap = useMemo(() => {
-    const map = new Map<string, EnvelopeGroup>();
-    safeGroups.forEach((g) => {
-      if (g && g.id) map.set(g.id, g);
+  const { cardCount, bankCount } = useMemo(() => {
+    let cards = 0;
+    let bank = 0;
+    safeTxns.forEach((t) => {
+      if (!t) return;
+      if (t.payment_method === 'bank_card') cards++;
+      else bank++;
     });
-    return map;
-  }, [safeGroups]);
+    return { cardCount: cards, bankCount: bank };
+  }, [safeTxns]);
 
-  // Categories filtered by selected group (if group filter active)
-  const availableEnvelopes = useMemo(() => {
-    if (selectedGroupTag === 'all') return safeEnvelopes;
-    return safeEnvelopes.filter((e) => e.envelope_group_id === selectedGroupTag);
-  }, [safeEnvelopes, selectedGroupTag]);
-
-  // Filter transactions
   const filteredTxns = useMemo(() => {
     return safeTxns.filter((t) => {
       if (!t) return false;
-
-      // Type filter
-      if (typeFilter !== 'all' && t.txn_type !== typeFilter) {
-        return false;
+      if (filterMethod !== 'all' && t.payment_method !== filterMethod) return false;
+      if (filterType !== 'all' && t.txn_type !== filterType) return false;
+      if (search.trim()) {
+        const q = search.toLowerCase().trim();
+        const env = t.envelope_id ? envelopeMap.get(t.envelope_id) : null;
+        const envName = (env?.name || '').toLowerCase();
+        const method = (t.payment_method || '').toLowerCase();
+        const type = (t.txn_type || '').toLowerCase();
+        return envName.includes(q) || method.includes(q) || type.includes(q);
       }
-
-      // Payment Method / Account filter
-      if (paymentMethodFilter === 'bank_card' && t.payment_method !== 'bank_card') {
-        return false;
-      }
-      if (paymentMethodFilter === 'bank_account' && t.payment_method === 'bank_card') {
-        return false;
-      }
-
-      const assignedEnv = t.envelope_id ? envelopeMap.get(t.envelope_id) : null;
-      const assignedGroupId = assignedEnv?.envelope_group_id;
-
-      // Group Tag filter
-      if (selectedGroupTag !== 'all') {
-        if (!assignedGroupId || assignedGroupId !== selectedGroupTag) {
-          return false;
-        }
-      }
-
-      // Category Envelope filter
-      if (selectedCategoryEnv !== 'all') {
-        if (t.envelope_id !== selectedCategoryEnv) {
-          return false;
-        }
-      }
-
-      // Search term
-      if (searchTerm.trim()) {
-        const query = searchTerm.toLowerCase().trim();
-        const paymentMethodMatch = (t.payment_method || '').toLowerCase().includes(query);
-        const categoryMatch = (assignedEnv?.name || '').toLowerCase().includes(query);
-        const groupMatch = assignedGroupId
-          ? (groupMap.get(assignedGroupId)?.name || '').toLowerCase().includes(query)
-          : false;
-
-        if (!paymentMethodMatch && !categoryMatch && !groupMatch) {
-          return false;
-        }
-      }
-
       return true;
     });
-  }, [safeTxns, typeFilter, paymentMethodFilter, selectedGroupTag, selectedCategoryEnv, searchTerm, envelopeMap, groupMap]);
-
-  // Group transactions by date & sort timewise (newest first) within each group
-  const groupedTransactions = useMemo(() => {
-    // Sort transactions timewise descending (newest first)
-    const sorted = [...filteredTxns].sort((a, b) => {
-      const timeA = parseUtcDate(a.created_at || a.CreatedAt)?.getTime() ?? 0;
-      const timeB = parseUtcDate(b.created_at || b.CreatedAt)?.getTime() ?? 0;
-      return timeB - timeA;
-    });
-
-    const map = new Map<string, Transaction[]>();
-    sorted.forEach((t) => {
-      const dateHeader = getDateGroupHeader(t.created_at);
-      if (!map.has(dateHeader)) {
-        map.set(dateHeader, []);
-      }
-      map.get(dateHeader)!.push(t);
-    });
-
-    return Array.from(map.entries());
-  }, [filteredTxns]);
-
-  // Active filter count calculation
-  const activeFiltersCount =
-    (selectedGroupTag !== 'all' ? 1 : 0) +
-    (selectedCategoryEnv !== 'all' ? 1 : 0) +
-    (typeFilter !== 'all' ? 1 : 0) +
-    (paymentMethodFilter !== 'all' ? 1 : 0);
-
-  const resetFilters = () => {
-    setSelectedGroupTag('all');
-    setSelectedCategoryEnv('all');
-    setTypeFilter('all');
-    setPaymentMethodFilter('all');
-    setSearchTerm('');
-  };
+  }, [safeTxns, filterMethod, filterType, search, envelopeMap]);
 
   return (
-    <div className="w-full max-w-md mx-auto px-4 py-6 space-y-5 animate-fadeIn pb-28 overflow-x-hidden">
+    <div className="w-full max-w-md mx-auto px-4 py-3 space-y-4 animate-fadeIn pb-28 overflow-x-hidden">
       {/* Offline Banner */}
       {isServerOffline && !isMockMode && (
-        <div className="bg-[#E8A598]/15 border border-[#E8A598]/40 rounded-3xl p-4 space-y-3 text-left animate-fadeIn">
-          <div className="flex items-center gap-2 text-[#E8A598]">
+        <div className="velvet-card p-4 space-y-3 text-left border-rose-500/30 bg-rose-950/30">
+          <div className="flex items-center gap-2 text-rose-300">
             <WifiOff className="w-5 h-5 shrink-0" />
-            <h3 className="font-extrabold text-sm text-[#F4F1DE]">Backend Server Offline</h3>
+            <h3 className="font-extrabold text-sm text-white">Backend Server Offline</h3>
           </div>
-          <p className="text-xs text-[#A89F95] leading-relaxed">
-            Cannot reach backend server. Please verify <code className="text-[#F2CC8F] font-mono">penne-server</code> is running.
+          <p className="text-xs text-slate-300 leading-relaxed font-mono">
+            Cannot reach backend server. Please verify <code className="text-[#FBD8B3] font-mono">penne-server</code> is running.
           </p>
           <div className="flex items-center gap-2 pt-1">
             {onRetryConnection && (
@@ -245,503 +123,218 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
         </div>
       )}
 
-      {/* Page Header */}
-      <div className="flex items-center justify-between bg-[#24201D] border border-[#38322E] rounded-3xl p-4 shadow-lg shadow-black/20 gap-2">
-        <div className="space-y-0.5 min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <CreditCard className="w-5 h-5 text-[#E07A5F]" />
-            <h2 className="text-base font-extrabold text-[#F4F1DE] truncate">All Transactions</h2>
-          </div>
-          <p className="text-xs text-[#A89F95] truncate">Filter & search transaction records</p>
+      {/* Header & New Button */}
+      <div className="flex justify-between items-center">
+        <div>
+          <h2 className="text-lg font-black text-white leading-tight">Ledger Records</h2>
+          <p className="text-xs font-mono text-slate-400">{filteredTxns.length} entries filtered</p>
         </div>
-        <Button
-          variant="primary"
-          size="sm"
+        <button
           onClick={onOpenNewTxnModal}
-          className="gap-1.5 font-bold text-xs shrink-0 px-3"
-          disabled={isServerOffline && !isMockMode}
+          className="px-3.5 py-1.5 rounded-xl bg-[#FBD8B3] hover:bg-[#f7c495] text-[#1A1835] font-black text-xs flex items-center gap-1.5 shadow-[0_2px_12px_rgba(251,216,179,0.35)] active:scale-95 transition-all duration-200 cursor-pointer"
         >
-          <Plus className="w-4 h-4" />
-          <span>New</span>
-        </Button>
+          <Plus className="w-3.5 h-3.5 stroke-[3] text-[#1A1835]" />
+          <span>New Entry</span>
+        </button>
       </div>
 
-      {/* Search & Filter Controls */}
+      {/* Search Bar & Segment Pills */}
       <div className="space-y-2.5">
-        <div className="flex items-center gap-2">
-          {/* Search Input Box */}
-          <div className="relative flex-1">
-            <Search className="w-4 h-4 text-[#8C837A] absolute left-3.5 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              placeholder="Search category, payment, tag..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-[#1A1715] border border-[#38322E] text-[#F4F1DE] placeholder-[#8C837A] text-xs rounded-2xl pl-9 pr-8 py-2.5 focus:outline-none focus:border-[#E07A5F] transition-all"
-            />
-            {searchTerm && (
-              <button
-                onClick={() => setSearchTerm('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8C837A] hover:text-[#F4F1DE]"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            )}
+        <div className="relative flex items-center">
+          <span className="absolute left-3.5 text-[#FBD8B3]">
+            <Search className="w-4 h-4" />
+          </span>
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search memo, envelope or rail..."
+            className="w-full pl-10 pr-9 py-2.5 bg-[#232044] border border-white/10 rounded-2xl text-xs text-white placeholder:text-slate-400 focus:outline-none focus:border-[#FBD8B3] focus:ring-1 focus:ring-[#FBD8B3]/30 font-mono shadow-inner transition-all"
+          />
+          {search && (
+            <button onClick={() => setSearch('')} className="absolute right-3.5 text-slate-400 hover:text-white cursor-pointer p-0.5">
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+
+        {/* Quick Rail Segments */}
+        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5">
+          <button
+            type="button"
+            onClick={() => setFilterMethod('all')}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-mono transition-all duration-200 cursor-pointer active:scale-95 ${
+              filterMethod === 'all'
+                ? 'bg-[#FBD8B3] text-[#1A1835] font-black shadow-sm'
+                : 'bg-[#232044] text-slate-300 border border-white/5 hover:text-white hover:bg-[#2C2856]'
+            }`}
+          >
+            All Rails ({safeTxns.length})
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setFilterMethod('bank_card')}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-mono transition-all duration-200 cursor-pointer active:scale-95 ${
+              filterMethod === 'bank_card'
+                ? 'bg-[#FBD8B3] text-[#1A1835] font-black shadow-sm'
+                : 'bg-[#232044] text-slate-300 border border-white/5 hover:text-white hover:bg-[#2C2856]'
+            }`}
+          >
+            Cards ({cardCount})
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setFilterMethod('bank_account')}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-mono transition-all duration-200 cursor-pointer active:scale-95 ${
+              filterMethod === 'bank_account'
+                ? 'bg-[#FBD8B3] text-[#1A1835] font-black shadow-sm'
+                : 'bg-[#232044] text-slate-300 border border-white/5 hover:text-white hover:bg-[#2C2856]'
+            }`}
+          >
+            Bank Vaults ({bankCount})
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setIsFilterExpanded(!isFilterExpanded)}
+            className={`ml-auto p-2 rounded-xl border text-xs flex items-center gap-1 transition-all duration-200 cursor-pointer active:scale-95 ${
+              filterType !== 'all' || isFilterExpanded
+                ? 'bg-[#FBD8B3] text-[#1A1835] border-[#FBD8B3] font-black'
+                : 'border-white/10 text-slate-300 bg-[#232044] hover:bg-[#2C2856]'
+            }`}
+            title="Filter by Transaction Type"
+          >
+            <Filter className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        {/* Expandable Advanced Filter Drawer */}
+        {isFilterExpanded && (
+          <div className="p-3.5 bg-[#232044] rounded-2xl border border-white/10 space-y-2 text-xs animate-slide-down">
+            <span className="font-mono text-[10px] text-slate-400 uppercase tracking-wider block font-bold">Filter By Type</span>
+            <div className="flex gap-1.5">
+              {(['all', 'debit', 'credit', 'transfer'] as const).map((type) => (
+                <button
+                  key={type}
+                  type="button"
+                  onClick={() => setFilterType(type)}
+                  className={`px-3 py-1.5 rounded-lg capitalize font-mono text-[11px] transition-all duration-200 cursor-pointer ${
+                    filterType === type
+                      ? 'bg-[#FBD8B3] text-[#1A1835] font-black shadow-sm'
+                      : 'bg-white/5 text-slate-300 hover:text-white hover:bg-white/10'
+                  }`}
+                >
+                  {type}
+                </button>
+              ))}
+            </div>
           </div>
-
-          {/* Filter Toggle Button */}
-          <button
-            onClick={() => setIsFilterPanelOpen(!isFilterPanelOpen)}
-            className={`flex items-center gap-1.5 px-3 py-2.5 rounded-2xl border text-xs font-bold transition-all cursor-pointer ${
-              isFilterPanelOpen || activeFiltersCount > 0
-                ? 'bg-[#E07A5F]/20 text-[#E07A5F] border-[#E07A5F]/40'
-                : 'bg-[#1A1715] text-[#A89F95] border-[#38322E] hover:text-[#F4F1DE]'
-            }`}
-          >
-            <SlidersHorizontal className="w-3.5 h-3.5" />
-            <span>Filters</span>
-            {activeFiltersCount > 0 && (
-              <span className="w-4 h-4 rounded-full bg-[#E07A5F] text-[#171513] text-[10px] font-black flex items-center justify-center">
-                {activeFiltersCount}
-              </span>
-            )}
-          </button>
-        </div>
-
-        {/* Quick CC / Bank Account Filter Pills */}
-        <div className="flex items-center gap-1.5 p-1 bg-[#1A1715] border border-[#38322E] rounded-2xl shadow-inner">
-          <button
-            type="button"
-            onClick={() => setPaymentMethodFilter('all')}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
-              paymentMethodFilter === 'all'
-                ? 'bg-[#2E2A27] text-[#F4F1DE] shadow-sm border border-[#453F3A]'
-                : 'text-[#8C837A] hover:text-[#F4F1DE] hover:bg-[#25211E]'
-            }`}
-          >
-            <span>All</span>
-            <span
-              className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono font-bold ${
-                paymentMethodFilter === 'all'
-                  ? 'bg-[#E07A5F]/20 text-[#E07A5F]'
-                  : 'bg-[#26221F] text-[#8C837A]'
-              }`}
-            >
-              {safeTxns.length}
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setPaymentMethodFilter('bank_card')}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
-              paymentMethodFilter === 'bank_card'
-                ? 'bg-[#818CF8]/20 text-[#818CF8] border border-[#818CF8]/40 shadow-sm'
-                : 'text-[#8C837A] hover:text-[#F4F1DE] hover:bg-[#25211E]'
-            }`}
-          >
-            <CreditCard className="w-3.5 h-3.5 shrink-0" />
-            <span className="truncate">Cards / CC</span>
-            <span
-              className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono font-bold ${
-                paymentMethodFilter === 'bank_card'
-                  ? 'bg-[#818CF8]/30 text-[#818CF8]'
-                  : 'bg-[#26221F] text-[#8C837A]'
-              }`}
-            >
-              {cardCount}
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setPaymentMethodFilter('bank_account')}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
-              paymentMethodFilter === 'bank_account'
-                ? 'bg-[#2DD4BF]/20 text-[#2DD4BF] border border-[#2DD4BF]/40 shadow-sm'
-                : 'text-[#8C837A] hover:text-[#F4F1DE] hover:bg-[#25211E]'
-            }`}
-          >
-            <Building2 className="w-3.5 h-3.5 shrink-0" />
-            <span className="truncate">Bank Accts</span>
-            <span
-              className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono font-bold ${
-                paymentMethodFilter === 'bank_account'
-                  ? 'bg-[#2DD4BF]/30 text-[#2DD4BF]'
-                  : 'bg-[#26221F] text-[#8C837A]'
-              }`}
-            >
-              {bankCount}
-            </span>
-          </button>
-        </div>
+        )}
       </div>
 
-      {/* Expandable Filter Panel */}
-      {isFilterPanelOpen && (
-        <div className="bg-[#24201D] border border-[#38322E] rounded-3xl p-4 space-y-3.5 animate-fadeIn">
-          <div className="flex items-center justify-between border-b border-[#342F2C] pb-2">
-            <h3 className="text-xs font-bold text-[#F4F1DE] flex items-center gap-1.5">
-              <Filter className="w-3.5 h-3.5 text-[#E07A5F]" />
-              <span>Filter Transactions</span>
-            </h3>
-            {activeFiltersCount > 0 && (
-              <button
-                onClick={resetFilters}
-                className="text-[11px] font-bold text-[#E8A598] hover:underline cursor-pointer"
-              >
-                Reset
-              </button>
-            )}
+      {/* Ledger Records List */}
+      <div className="velvet-card p-3 divide-y divide-white/[0.04] shadow-xl">
+        {isLoadingTransactions ? (
+          <TransactionListSkeleton count={5} />
+        ) : filteredTxns.length === 0 ? (
+          <div className="py-12 text-center text-slate-400 text-xs font-mono">
+            No ledger transactions match this filter.
           </div>
-
-          <div className="space-y-3">
-            {/* Filter 1: Account / Payment Method */}
-            <div className="space-y-1.5">
-              <label className="text-[11px] font-bold text-[#A89F95] flex items-center gap-1">
-                <CreditCard className="w-3 h-3 text-[#818CF8]" />
-                <span>Account / Payment Method</span>
-              </label>
-              <div className="grid grid-cols-3 gap-1.5 bg-[#1A1715] p-1 rounded-2xl border border-[#38322E]">
-                <button
-                  type="button"
-                  onClick={() => setPaymentMethodFilter('all')}
-                  className={`py-1.5 px-2 text-[11px] font-bold rounded-xl transition-all cursor-pointer ${
-                    paymentMethodFilter === 'all'
-                      ? 'bg-[#38322E] text-[#F4F1DE] shadow-sm'
-                      : 'text-[#A89F95] hover:text-[#F4F1DE]'
-                  }`}
-                >
-                  All Accounts
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPaymentMethodFilter('bank_card')}
-                  className={`py-1.5 px-2 text-[11px] font-bold rounded-xl flex items-center justify-center gap-1 transition-all cursor-pointer ${
-                    paymentMethodFilter === 'bank_card'
-                      ? 'bg-[#818CF8]/25 text-[#818CF8] border border-[#818CF8]/40 shadow-sm'
-                      : 'text-[#A89F95] hover:text-[#F4F1DE]'
-                  }`}
-                >
-                  <CreditCard className="w-3 h-3 shrink-0" />
-                  <span>Cards / CC</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPaymentMethodFilter('bank_account')}
-                  className={`py-1.5 px-2 text-[11px] font-bold rounded-xl flex items-center justify-center gap-1 transition-all cursor-pointer ${
-                    paymentMethodFilter === 'bank_account'
-                      ? 'bg-[#2DD4BF]/25 text-[#2DD4BF] border border-[#2DD4BF]/40 shadow-sm'
-                      : 'text-[#A89F95] hover:text-[#F4F1DE]'
-                  }`}
-                >
-                  <Building2 className="w-3 h-3 shrink-0" />
-                  <span>Bank Accts</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Filter 2: Tag (Envelope Group) */}
-            <div className="space-y-1.5">
-              <label className="text-[11px] font-bold text-[#A89F95] flex items-center gap-1">
-                <Tag className="w-3 h-3 text-[#E07A5F]" />
-                <span>Tag (Envelope Group)</span>
-              </label>
-              <select
-                value={selectedGroupTag}
-                onChange={(e) => {
-                  setSelectedGroupTag(e.target.value);
-                  setSelectedCategoryEnv('all');
-                }}
-                className="w-full bg-[#1A1715] border border-[#38322E] text-[#F4F1DE] text-xs rounded-2xl px-3 py-2.5 focus:outline-none focus:border-[#E07A5F]"
-              >
-                <option value="all">All Tags / Groups</option>
-                {safeGroups.map((g) => (
-                  <option key={g.id} value={g.id}>
-                    {g.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Filter 3: Category (Envelope) */}
-            <div className="space-y-1.5">
-              <label className="text-[11px] font-bold text-[#A89F95] flex items-center gap-1">
-                <Folder className="w-3 h-3 text-[#81B29A]" />
-                <span>Category (Envelope)</span>
-              </label>
-              <select
-                value={selectedCategoryEnv}
-                onChange={(e) => setSelectedCategoryEnv(e.target.value)}
-                className="w-full bg-[#1A1715] border border-[#38322E] text-[#F4F1DE] text-xs rounded-2xl px-3 py-2.5 focus:outline-none focus:border-[#E07A5F]"
-              >
-                <option value="all">All Categories</option>
-                {availableEnvelopes.map((env) => (
-                  <option key={env.id} value={env.id}>
-                    {env.name || (env.is_system ? 'Unallocated Pool' : `Envelope #${env.id.slice(-4)}`)}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Filter 4: Transaction Type */}
-            <div className="space-y-1.5">
-              <label className="text-[11px] font-bold text-[#A89F95]">Transaction Type</label>
-              <div className="flex items-center gap-1.5 bg-[#1A1715] p-1 rounded-2xl border border-[#38322E]">
-                {(['all', 'debit', 'credit', 'transfer'] as const).map((type) => (
-                  <button
-                    key={type}
-                    onClick={() => setTypeFilter(type)}
-                    className={`flex-1 py-1.5 px-3 text-[11px] font-bold rounded-xl capitalize transition-all cursor-pointer ${
-                      typeFilter === type
-                        ? 'bg-[#38322E] text-[#F4F1DE] shadow-sm'
-                        : 'text-[#A89F95] hover:text-[#F4F1DE]'
-                    }`}
-                  >
-                    {type}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Active Filter Chips Preview */}
-      {activeFiltersCount > 0 && !isFilterPanelOpen && (
-        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5">
-          <span className="text-[10px] font-bold text-[#8C837A] uppercase shrink-0">Filters:</span>
-          {paymentMethodFilter !== 'all' && (
-            <Badge
-              variant={paymentMethodFilter === 'bank_card' ? 'indigo' : 'sage'}
-              className="text-[10px] gap-1 shrink-0"
-            >
-              {paymentMethodFilter === 'bank_card' ? (
-                <CreditCard className="w-2.5 h-2.5" />
-              ) : (
-                <Building2 className="w-2.5 h-2.5" />
-              )}
-              <span>Account: {paymentMethodFilter === 'bank_card' ? 'Cards / CC' : 'Bank Account'}</span>
-              <X className="w-3 h-3 cursor-pointer" onClick={() => setPaymentMethodFilter('all')} />
-            </Badge>
-          )}
-          {selectedGroupTag !== 'all' && (
-            <Badge variant="terracotta" className="text-[10px] gap-1 shrink-0">
-              <span>Tag: {groupMap.get(selectedGroupTag)?.name || 'Group'}</span>
-              <X className="w-3 h-3 cursor-pointer" onClick={() => setSelectedGroupTag('all')} />
-            </Badge>
-          )}
-          {selectedCategoryEnv !== 'all' && (
-            <Badge variant="indigo" className="text-[10px] gap-1 shrink-0">
-              <span>Cat: {envelopeMap.get(selectedCategoryEnv)?.name || 'Envelope'}</span>
-              <X className="w-3 h-3 cursor-pointer" onClick={() => setSelectedCategoryEnv('all')} />
-            </Badge>
-          )}
-          {typeFilter !== 'all' && (
-            <Badge variant="sage" className="text-[10px] gap-1 shrink-0 capitalize">
-              <span>Type: {typeFilter}</span>
-              <X className="w-3 h-3 cursor-pointer" onClick={() => setTypeFilter('all')} />
-            </Badge>
-          )}
-        </div>
-      )}
-
-      {/* Transactions List Grouped Date-Wise Box */}
-      {isLoadingTransactions ? (
-        <TransactionListSkeleton count={5} />
-      ) : groupedTransactions.length === 0 ? (
-        <Card className="text-center py-12 space-y-3 w-full">
-          <div className="w-12 h-12 rounded-2xl bg-[#2E2A27] text-[#A89F95] flex items-center justify-center mx-auto">
-            <CreditCard className="w-6 h-6" />
-          </div>
-          <div className="space-y-1">
-            <h3 className="text-sm font-bold text-[#F4F1DE]">No transactions found</h3>
-            <p className="text-xs text-[#8C837A] max-w-xs mx-auto">
-              {safeTxns.length === 0
-                ? "You haven't recorded any expenses or income yet. Tap '+ New' to create one!"
-                : 'No transactions match your active filters or search keyword.'}
-            </p>
-          </div>
-          {activeFiltersCount > 0 && (
-            <Button size="sm" variant="secondary" onClick={resetFilters} className="text-xs font-bold">
-              Clear All Filters
-            </Button>
-          )}
-        </Card>
-      ) : (
-        <div className="space-y-6 w-full">
-          {groupedTransactions.map(([dateHeader, txns]) => {
-            const daySpentE5 = txns
-              .filter((t) => t && t.txn_type === 'debit')
-              .reduce((acc, t) => acc + (t.amount_e5 || 0), 0);
-
-            const dayIncomeE5 = txns
-              .filter((t) => t && t.txn_type === 'credit')
-              .reduce((acc, t) => acc + (t.amount_e5 || 0), 0);
-
-            const dayTransferE5 = txns
-              .filter((t) => t && t.txn_type === 'transfer')
-              .reduce((acc, t) => acc + (t.amount_e5 || 0), 0);
-
-            const daySpentFormatted = `₹${e5ToAmount(daySpentE5).toLocaleString('en-IN')}`;
-            const dayIncomeFormatted = `₹${e5ToAmount(dayIncomeE5).toLocaleString('en-IN')}`;
-            const dayTransferFormatted = `₹${e5ToAmount(dayTransferE5).toLocaleString('en-IN')}`;
+        ) : (
+          filteredTxns.map((tx) => {
+            const isCredit = tx.txn_type === 'credit';
+            const isTransfer = tx.txn_type === 'transfer';
+            const assignedEnv = tx.envelope_id ? envelopeMap.get(tx.envelope_id) : null;
+            const { dateStr, timeStr } = formatTransactionDateTime(tx.created_at || tx.CreatedAt);
 
             return (
-              <div key={dateHeader} className="space-y-2.5">
-                {/* Date Group Section Header with Daily Totals */}
-                <div className="flex items-center justify-between gap-2 px-1 py-0.5 border-b border-[#342F2C]/60 pb-2">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <Calendar className="w-3.5 h-3.5 text-[#E07A5F] shrink-0" />
-                    <h3 className="text-xs font-extrabold text-[#F4F1DE] uppercase tracking-wider truncate">
-                      {dateHeader}
-                    </h3>
-                    <span className="text-[10px] font-mono text-[#8C837A] bg-[#1E1B19] px-1.5 py-0.5 rounded-md border border-[#342F2C] shrink-0">
-                      {txns.length} {txns.length === 1 ? 'txn' : 'txns'}
-                    </span>
+              <div
+                key={tx.id}
+                onClick={() => onSelectTxnForEdit?.(tx)}
+                className="py-3 flex items-center justify-between cursor-pointer hover:bg-white/[0.04] hover:translate-x-1 px-2 rounded-xl transition-all duration-200 group"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div
+                    className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center shrink-0 transition-transform duration-200 group-hover:scale-105 ${
+                      isCredit
+                        ? 'bg-[#A8E6CF]/20 text-[#A8E6CF] border border-[#A8E6CF]/30'
+                        : isTransfer
+                        ? 'bg-[#C8B6FF]/20 text-[#C8B6FF] border border-[#C8B6FF]/30'
+                        : tx.payment_method === 'bank_card'
+                        ? 'bg-[#FBD8B3]/20 text-[#FBD8B3] border border-[#FBD8B3]/30'
+                        : 'bg-[#A7D7F9]/20 text-[#A7D7F9] border border-[#A7D7F9]/30'
+                    }`}
+                  >
+                    {isCredit ? (
+                      <ArrowDownLeft className="w-4 h-4 text-[#A8E6CF]" />
+                    ) : isTransfer ? (
+                      <ArrowLeftRight className="w-4 h-4 text-[#C8B6FF]" />
+                    ) : tx.payment_method === 'bank_card' ? (
+                      <CreditCard className="w-4 h-4 text-[#FBD8B3]" />
+                    ) : (
+                      <Landmark className="w-4 h-4 text-[#A7D7F9]" />
+                    )}
                   </div>
-
-                  <div className="flex items-center gap-1.5 text-[11px] font-extrabold shrink-0">
-                    {daySpentE5 > 0 && (
-                      <span className="inline-flex items-center gap-1 text-[#E8A598] bg-[#E8A598]/10 border border-[#E8A598]/25 px-2 py-0.5 rounded-lg shadow-sm">
-                        <span className="text-[9px] text-[#A89F95] font-semibold uppercase">Spent</span>
-                        <span>-{daySpentFormatted}</span>
-                      </span>
-                    )}
-                    {dayIncomeE5 > 0 && (
-                      <span className="inline-flex items-center gap-1 text-[#81B29A] bg-[#81B29A]/10 border border-[#81B29A]/25 px-2 py-0.5 rounded-lg shadow-sm">
-                        <span className="text-[9px] text-[#A89F95] font-semibold uppercase">Income</span>
-                        <span>+{dayIncomeFormatted}</span>
-                      </span>
-                    )}
-                    {dayTransferE5 > 0 && (
-                      <span className="inline-flex items-center gap-1 text-[#818CF8] bg-[#818CF8]/10 border border-[#818CF8]/25 px-2 py-0.5 rounded-lg shadow-sm">
-                        <span className="text-[9px] text-[#A89F95] font-semibold uppercase">Transfer</span>
-                        <span>{dayTransferFormatted}</span>
-                      </span>
-                    )}
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-slate-100 truncate group-hover:text-[#FBD8B3] transition-colors">
+                      {assignedEnv?.name || (isCredit
+                        ? 'Direct Inflow'
+                        : isTransfer
+                        ? 'Account Transfer'
+                        : tx.payment_method === 'bank_card'
+                        ? 'Obsidian Card Expense'
+                        : 'Primary Bank Debit')}
+                    </p>
+                    <div className="flex items-center gap-1.5 text-[10px] font-mono text-slate-400 mt-0.5">
+                      <span className="capitalize">{tx.payment_method.replace('_', ' ')}</span>
+                      {assignedEnv && (
+                        <>
+                          <span>•</span>
+                          <span className="text-[#FBD8B3] font-medium">{assignedEnv.name}</span>
+                        </>
+                      )}
+                      <span>•</span>
+                      <span>{dateStr} {timeStr}</span>
+                    </div>
                   </div>
                 </div>
 
-              {/* Transactions in Date Group (Ordered Timewise) */}
-              <div className="space-y-2.5">
-                {txns.map((txn) => {
-                  const isCredit = txn.txn_type === 'credit';
-                  const isTransfer = txn.txn_type === 'transfer';
-                  const isDebit = txn.txn_type === 'debit';
-                  const formattedAmt = `₹${e5ToAmount(txn.amount_e5).toLocaleString('en-IN')}`;
-                  const { timeStr } = formatTransactionDateTime(txn.created_at);
-
-                  const assignedEnv = txn.envelope_id ? envelopeMap.get(txn.envelope_id) : null;
-                  const cardHeading = (!assignedEnv || assignedEnv.is_system || assignedEnv.name === 'Unallocated Budget')
-                    ? 'General'
-                    : (assignedEnv.name || 'General');
-
-                  const groupName = assignedEnv?.envelope_group_id
-                    ? groupMap.get(assignedEnv.envelope_group_id)?.name
-                    : null;
-                  const isBankCard = txn.payment_method === 'bank_card';
-
-                  return (
-                    <div
-                      key={txn.id}
-                      onClick={() => onSelectTxnForEdit?.(txn)}
-                      className="bg-[#24201D] border border-[#342F2C] hover:border-[#E07A5F]/60 hover:bg-[#2B2623] cursor-pointer rounded-2xl p-3.5 transition-all flex items-center justify-between gap-2.5 shadow-md w-full min-w-0 group"
-                      title="Click to edit transaction"
-                    >
-                      {/* Left: Icon & Details */}
-                      <div className="flex items-center gap-2.5 min-w-0 flex-1 overflow-x-hidden">
-                        <div
-                          className={`w-9 h-9 rounded-2xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-105 ${isCredit
-                              ? 'bg-[#81B29A]/15 text-[#81B29A] border border-[#81B29A]/20'
-                              : isTransfer
-                              ? 'bg-[#818CF8]/15 text-[#818CF8] border border-[#818CF8]/20'
-                              : 'bg-[#E8A598]/15 text-[#E8A598] border border-[#E8A598]/20'
-                            }`}
-                        >
-                          {isCredit ? (
-                            <ArrowDownLeft className="w-4 h-4" />
-                          ) : isTransfer ? (
-                            <ArrowLeftRight className="w-4 h-4" />
-                          ) : (
-                            <ArrowUpRight className="w-4 h-4" />
-                          )}
-                        </div>
-
-                        <div className="min-w-0 flex-1 space-y-1">
-                          <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
-                            <p className="text-xs font-extrabold text-[#F4F1DE] group-hover:text-[#E07A5F] transition-colors truncate">
-                              {cardHeading}
-                            </p>
-                          </div>
-
-                          {/* Tags & Time */}
-                          <div className="flex items-center gap-2 text-[11px] text-[#A89F95] flex-wrap">
-                            {timeStr && (
-                              <span className="flex items-center gap-1 font-mono text-[10px] text-[#A89F95]">
-                                <Clock className="w-3 h-3 text-[#8C837A]" />
-                                {timeStr}
-                              </span>
-                            )}
-
-                            {groupName && (
-                              <span className="inline-flex items-center gap-1 text-[10px] bg-[#E07A5F]/15 text-[#E07A5F] border border-[#E07A5F]/30 px-1.5 py-0.5 rounded-md font-extrabold truncate max-w-[110px]">
-                                <Tag className="w-2.5 h-2.5 shrink-0" />
-                                <span className="truncate">{groupName}</span>
-                              </span>
-                            )}
-
-                            <span
-                              className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-md font-extrabold border ${isBankCard
-                                  ? 'bg-[#818CF8]/15 text-[#818CF8] border-[#818CF8]/30'
-                                  : 'bg-[#2DD4BF]/15 text-[#2DD4BF] border-[#2DD4BF]/30'
-                                }`}
-                            >
-                              {isBankCard ? <CreditCard className="w-2.5 h-2.5 shrink-0" /> : <Building2 className="w-2.5 h-2.5 shrink-0" />}
-                              <span>{isBankCard ? 'Bank Card' : 'Bank Account'}</span>
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Right: Amount */}
-                      <div className="text-right shrink-0 pl-1">
-                        <span
-                          className={`text-sm sm:text-base font-black tracking-tight ${isCredit
-                              ? 'text-[#81B29A]'
-                              : isTransfer
-                              ? 'text-[#818CF8]'
-                              : 'text-[#E8A598]'
-                            }`}
-                        >
-                          {isCredit ? '+' : isDebit ? '-' : ''}{formattedAmt}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
+                <div className="text-right shrink-0 pl-3 font-mono">
+                  <span
+                    className={`text-xs font-bold ${
+                      isCredit ? 'text-[#A8E6CF]' : 'text-slate-100'
+                    }`}
+                  >
+                    {isCredit ? '+' : '-'}{formatINR(e5ToAmount(tx.amount_e5))}
+                  </span>
+                  <div className="text-[10px] text-slate-400 capitalize">
+                    {tx.payment_method.replace('_', ' ')}
+                  </div>
+                </div>
               </div>
-            </div>
-          );
-        })}
-        </div>
-      )}
+            );
+          })
+        )}
+      </div>
 
+      {/* Pagination Load More Button */}
       {onLoadMore && hasMore !== false && (
         <div className="pt-2 text-center">
           <Button
             variant="secondary"
             onClick={onLoadMore}
             disabled={isLoadingMore}
-            className="w-full gap-2 font-bold py-2.5 text-xs text-[#F4F1DE] bg-[#24201D] hover:bg-[#2A2623] border border-[#38322E] rounded-2xl shadow-md transition-all active:scale-[0.99]"
+            className="w-full gap-2 font-bold font-mono py-2.5 text-xs text-white bg-[#343060] hover:bg-[#3D3870] border border-white/10 rounded-2xl shadow-md transition-all active:scale-[0.99]"
           >
             {isLoadingMore ? (
               <>
-                <RefreshCw className="w-4 h-4 animate-spin text-[#E07A5F]" />
-                <span>Loading More Transactions...</span>
+                <RefreshCw className="w-4 h-4 animate-spin text-[#FBD8B3]" />
+                <span>Loading More Records...</span>
               </>
             ) : (
-              <span>Load More Transactions</span>
+              <span>Load More Records</span>
             )}
           </Button>
         </div>

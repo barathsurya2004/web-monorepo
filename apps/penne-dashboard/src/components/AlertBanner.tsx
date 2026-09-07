@@ -123,40 +123,40 @@ const AlertBannerItem: React.FC<{
     switch (toast.type) {
       case 'success':
         return {
-          bg: 'bg-[#1C231F]/95 backdrop-blur-xl',
-          border: 'border-[#81B29A]/50 shadow-[0_8px_32px_rgba(129,178,154,0.2)]',
-          badgeBg: 'bg-[#81B29A]/20 text-[#81B29A] border-[#81B29A]/40',
-          progressBg: 'bg-gradient-to-r from-[#81B29A] via-[#4ade80] to-[#22c55e]',
-          icon: <CheckCircle2 className="w-5 h-5 text-[#81B29A] shrink-0 mt-0.5" />,
-          titleColor: 'text-[#F4F1DE]'
+          bg: 'bg-[#232044]/95 backdrop-blur-xl',
+          border: 'border-[#A8E6CF]/40 shadow-[0_8px_32px_rgba(168,230,207,0.15)]',
+          badgeBg: 'bg-[#A8E6CF]/20 text-[#A8E6CF] border-[#A8E6CF]/40 font-mono',
+          progressBg: 'bg-gradient-to-r from-[#A8E6CF] via-[#81B29A] to-[#FBD8B3]',
+          icon: <CheckCircle2 className="w-5 h-5 text-[#A8E6CF] shrink-0 mt-0.5" />,
+          titleColor: 'text-white'
         };
       case 'error':
         return {
-          bg: 'bg-[#2A1D1D]/95 backdrop-blur-xl',
-          border: 'border-[#E8A598]/50 shadow-[0_8px_32px_rgba(232,165,152,0.25)]',
-          badgeBg: 'bg-[#E8A598]/20 text-[#E8A598] border-[#E8A598]/40',
-          progressBg: 'bg-gradient-to-r from-[#E8A598] via-[#f87171] to-[#ef4444]',
-          icon: <XCircle className="w-5 h-5 text-[#E8A598] shrink-0 mt-0.5" />,
-          titleColor: 'text-[#F4F1DE]'
+          bg: 'bg-[#2E2038]/95 backdrop-blur-xl',
+          border: 'border-[#FFB5A7]/40 shadow-[0_8px_32px_rgba(255,181,167,0.2)]',
+          badgeBg: 'bg-[#FFB5A7]/20 text-[#FFB5A7] border-[#FFB5A7]/40 font-mono',
+          progressBg: 'bg-gradient-to-r from-[#FFB5A7] via-[#f87171] to-[#ef4444]',
+          icon: <XCircle className="w-5 h-5 text-[#FFB5A7] shrink-0 mt-0.5" />,
+          titleColor: 'text-white'
         };
       case 'warning':
         return {
-          bg: 'bg-[#29241B]/95 backdrop-blur-xl',
-          border: 'border-[#F2CC8F]/50 shadow-[0_8px_32px_rgba(242,204,143,0.2)]',
-          badgeBg: 'bg-[#F2CC8F]/20 text-[#F2CC8F] border-[#F2CC8F]/40',
-          progressBg: 'bg-gradient-to-r from-[#F2CC8F] via-[#fbbf24] to-[#f59e0b]',
-          icon: <AlertTriangle className="w-5 h-5 text-[#F2CC8F] shrink-0 mt-0.5" />,
-          titleColor: 'text-[#F4F1DE]'
+          bg: 'bg-[#2E2835]/95 backdrop-blur-xl',
+          border: 'border-[#FDE2B8]/40 shadow-[0_8px_32px_rgba(253,226,184,0.15)]',
+          badgeBg: 'bg-[#FDE2B8]/20 text-[#FDE2B8] border-[#FDE2B8]/40 font-mono',
+          progressBg: 'bg-gradient-to-r from-[#FDE2B8] via-[#fbbf24] to-[#FBD8B3]',
+          icon: <AlertTriangle className="w-5 h-5 text-[#FDE2B8] shrink-0 mt-0.5" />,
+          titleColor: 'text-white'
         };
       case 'info':
       default:
         return {
-          bg: 'bg-[#1E222A]/95 backdrop-blur-xl',
-          border: 'border-[#B8C0E0]/50 shadow-[0_8px_32px_rgba(184,192,224,0.2)]',
-          badgeBg: 'bg-[#B8C0E0]/20 text-[#B8C0E0] border-[#B8C0E0]/40',
-          progressBg: 'bg-gradient-to-r from-[#B8C0E0] via-[#60a5fa] to-[#3b82f6]',
-          icon: <Info className="w-5 h-5 text-[#B8C0E0] shrink-0 mt-0.5" />,
-          titleColor: 'text-[#F4F1DE]'
+          bg: 'bg-[#232044]/95 backdrop-blur-xl',
+          border: 'border-[#FBD8B3]/35 shadow-[0_8px_32px_rgba(251,216,179,0.15)]',
+          badgeBg: 'bg-[#FBD8B3]/20 text-[#FBD8B3] border-[#FBD8B3]/40 font-mono',
+          progressBg: 'bg-gradient-to-r from-[#FBD8B3] via-[#C8B6FF] to-[#A7D7F9]',
+          icon: <Info className="w-5 h-5 text-[#FBD8B3] shrink-0 mt-0.5" />,
+          titleColor: 'text-white'
         };
     }
   };

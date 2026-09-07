@@ -1,21 +1,15 @@
 import React, { useState } from 'react';
-import { User, AuthSession, Transaction, e5ToAmount } from '@packages/types';
-import { Button, Card, Badge } from '@packages/ui';
+import { User, AuthSession, Transaction } from '@packages/types';
+import { Button, Badge } from '@packages/ui';
 import {
-  User as UserIcon,
-  Server,
-  LogOut,
   Copy,
   Check,
-  Key,
+  LogOut,
   Clock,
-  CreditCard,
-  Building2,
-  SlidersHorizontal,
-  AlertTriangle,
-  Flame
+  Key,
+  Server
 } from 'lucide-react';
-import { UserProfileSkeleton, PaymentLimitsSkeleton } from './Skeleton';
+import { UserProfileSkeleton } from './Skeleton';
 
 interface AccountViewProps {
   user: User | null;
@@ -29,319 +23,288 @@ interface AccountViewProps {
   isLoadingTransactions?: boolean;
 }
 
-export function getPaymentLimitStatus(spentAmount: number, limitAmount: number) {
-  if (!limitAmount || limitAmount <= 0) {
-    return {
-      pct: 0,
-      label: 'No Limit Set',
-      barColor: 'bg-[#81B29A]',
-      textColor: 'text-[#81B29A]',
-      badgeBg: 'bg-[#81B29A]/15 text-[#81B29A] border-[#81B29A]/30',
-      cardBorder: 'border-[#342F2C]',
-      bgGlow: 'bg-[#1A1715]',
-      isOver: false
-    };
-  }
-
-  const pct = Math.min(Math.round((spentAmount / limitAmount) * 100), 999);
-
-  if (pct >= 100) {
-    return {
-      pct,
-      label: 'Limit Exceeded!',
-      barColor: 'bg-[#EF4444] animate-pulse',
-      textColor: 'text-[#EF4444]',
-      badgeBg: 'bg-rose-500/20 text-rose-400 border-rose-500/40 animate-pulse',
-      cardBorder: 'border-rose-500/60 shadow-lg shadow-rose-950/40',
-      bgGlow: 'bg-gradient-to-br from-[#2E1A1A] to-[#221515]',
-      isOver: true
-    };
-  } else if (pct >= 90) {
-    return {
-      pct,
-      label: 'Critical Heat Limit (90%+)',
-      barColor: 'bg-[#E07A5F]',
-      textColor: 'text-[#E07A5F]',
-      badgeBg: 'bg-[#E07A5F]/20 text-[#E07A5F] border-[#E07A5F]/40',
-      cardBorder: 'border-[#E07A5F]/40',
-      bgGlow: 'bg-gradient-to-br from-[#2A1E1A] to-[#1F1714]',
-      isOver: false
-    };
-  } else if (pct >= 75) {
-    return {
-      pct,
-      label: 'Approaching Ceiling',
-      barColor: 'bg-[#E8A598]',
-      textColor: 'text-[#E8A598]',
-      badgeBg: 'bg-[#E8A598]/20 text-[#E8A598] border-[#E8A598]/40',
-      cardBorder: 'border-[#E8A598]/30',
-      bgGlow: 'bg-[#1A1715]',
-      isOver: false
-    };
-  } else if (pct >= 50) {
-    return {
-      pct,
-      label: 'Moderate Usage',
-      barColor: 'bg-[#F2CC8F]',
-      textColor: 'text-[#F2CC8F]',
-      badgeBg: 'bg-[#F2CC8F]/20 text-[#F2CC8F] border-[#F2CC8F]/40',
-      cardBorder: 'border-[#F2CC8F]/40',
-      bgGlow: 'bg-gradient-to-br from-[#27241F] to-[#1F1D19]',
-      isOver: false
-    };
-  } else {
-    return {
-      pct,
-      label: 'Safe',
-      barColor: 'bg-[#2DD4BF]',
-      textColor: 'text-[#2DD4BF]',
-      badgeBg: 'bg-[#2DD4BF]/15 text-[#2DD4BF] border-[#2DD4BF]/30',
-      cardBorder: 'border-[#342F2C]',
-      bgGlow: 'bg-[#1A1715]',
-      isOver: false
-    };
-  }
-}
+const formatINR = (val: number) => {
+  return `₹${Math.round(val).toLocaleString('en-IN')}`;
+};
 
 export const AccountView: React.FC<AccountViewProps> = ({
   user,
   authToken,
-  transactions = [],
   isMockMode,
   recentSessions,
   onToggleMock,
   onLogout,
-  isLoadingUser,
-  isLoadingTransactions
+  isLoadingUser
 }) => {
   const [copied, setCopied] = useState(false);
 
   // Local storage state for spending limits
   const [cardLimit, setCardLimit] = useState<number>(() => {
     const saved = localStorage.getItem('penne_limit_bank_card');
-    return saved ? Number(saved) : 25000;
+    const val = saved ? Number(saved) : 25000;
+    return Math.min(50000, Math.max(0, isNaN(val) ? 25000 : val));
   });
 
   const [bankLimit, setBankLimit] = useState<number>(() => {
     const saved = localStorage.getItem('penne_limit_bank_account');
-    return saved ? Number(saved) : 50000;
+    const val = saved ? Number(saved) : 10000;
+    return Math.min(10000, Math.max(0, isNaN(val) ? 10000 : val));
   });
 
-  const handleCardLimitChange = (val: string) => {
-    const num = Math.max(0, parseInt(val, 10) || 0);
-    setCardLimit(num);
-    localStorage.setItem('penne_limit_bank_card', String(num));
+  const [cardLimitStr, setCardLimitStr] = useState<string>(() => String(cardLimit));
+  const [bankLimitStr, setBankLimitStr] = useState<string>(() => String(bankLimit));
+
+  const handleCardLimitChange = (val: number) => {
+    const clamped = Math.min(50000, Math.max(0, val));
+    setCardLimit(clamped);
+    setCardLimitStr(String(clamped));
+    localStorage.setItem('penne_limit_bank_card', String(clamped));
   };
 
-  const handleBankLimitChange = (val: string) => {
-    const num = Math.max(0, parseInt(val, 10) || 0);
-    setBankLimit(num);
-    localStorage.setItem('penne_limit_bank_account', String(num));
+  const handleBankLimitChange = (val: number) => {
+    const clamped = Math.min(10000, Math.max(0, val));
+    setBankLimit(clamped);
+    setBankLimitStr(String(clamped));
+    localStorage.setItem('penne_limit_bank_account', String(clamped));
   };
 
-  const copyToken = () => {
+  const handleCardInputBlur = () => {
+    const num = Number(cardLimitStr);
+    const clamped = isNaN(num) ? 0 : Math.min(50000, Math.max(0, num));
+    setCardLimit(clamped);
+    setCardLimitStr(String(clamped));
+    localStorage.setItem('penne_limit_bank_card', String(clamped));
+  };
+
+  const handleBankInputBlur = () => {
+    const num = Number(bankLimitStr);
+    const clamped = isNaN(num) ? 0 : Math.min(10000, Math.max(0, num));
+    setBankLimit(clamped);
+    setBankLimitStr(String(clamped));
+    localStorage.setItem('penne_limit_bank_account', String(clamped));
+  };
+
+  const handleCopyToken = () => {
     if (authToken) {
-      navigator.clipboard.writeText(authToken);
+      navigator.clipboard?.writeText?.(authToken);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
   };
 
-  // Calculate live spent totals per payment method
-  const safeTxns = Array.isArray(transactions) ? transactions : [];
-
-  const cardSpentE5 = safeTxns
-    .filter((t) => t && t.txn_type === 'debit' && t.payment_method === 'bank_card')
-    .reduce((acc, t) => acc + (t.amount_e5 || 0), 0);
-
-  const bankSpentE5 = safeTxns
-    .filter((t) => t && t.txn_type === 'debit' && t.payment_method !== 'bank_card')
-    .reduce((acc, t) => acc + (t.amount_e5 || 0), 0);
-
-  const cardSpent = e5ToAmount(cardSpentE5);
-  const bankSpent = e5ToAmount(bankSpentE5);
-
-  const cardStatus = getPaymentLimitStatus(cardSpent, cardLimit);
-  const bankStatus = getPaymentLimitStatus(bankSpent, bankLimit);
+  const userName = user?.name || 'Barath Surya';
+  const firstLetter = userName.charAt(0).toUpperCase();
 
   return (
-    <div className="max-w-md mx-auto px-4 py-6 space-y-6 animate-fadeIn pb-28 w-full max-w-full overflow-x-hidden">
-      {/* Account Profile Header Box */}
+    <div className="w-full max-w-md mx-auto px-4 py-3 space-y-4 animate-fadeIn pb-28 overflow-x-hidden">
+      {/* Profile Card */}
       {isLoadingUser ? (
         <UserProfileSkeleton />
       ) : (
-        <Card className="text-center py-6 space-y-3">
-          <div className="w-16 h-16 rounded-full bg-[#E07A5F]/20 text-[#E07A5F] border-2 border-[#E07A5F]/40 flex items-center justify-center font-black text-2xl mx-auto shadow-md">
-            {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
+        <div className="velvet-card p-4 sm:p-5 flex items-center gap-4 shadow-xl">
+          <div className="w-14 h-14 rounded-2xl bg-[#232044] border-2 border-[#FBD8B3] flex items-center justify-center text-[#FBD8B3] text-xl font-black shadow-md shrink-0 aspect-square font-mono">
+            {firstLetter}
           </div>
-          <div>
-            <h2 className="text-xl font-black text-[#F4F1DE]">{user?.name || 'Penne User'}</h2>
-            <p className="text-xs text-[#A89F95] font-mono mt-0.5">{user?.uuid || 'No UUID'}</p>
-          </div>
-          <div className="pt-2">
-            <Badge variant="terracotta" className="text-xs">
-              Active Auth Session
-            </Badge>
-          </div>
-        </Card>
-      )}
-
-      {/* Payment Method Spending Limits Setup Box */}
-      {isLoadingTransactions ? (
-        <PaymentLimitsSkeleton />
-      ) : (
-        <Card className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-extrabold text-[#F4F1DE] flex items-center gap-2">
-              <SlidersHorizontal className="w-4 h-4 text-[#E07A5F]" /> Payment Method Limits Setup
-            </h3>
-            <span className="text-[10px] font-bold text-[#81B29A] bg-[#81B29A]/15 border border-[#81B29A]/30 px-2 py-0.5 rounded-md">
-              Tracked on Home Page
+          <div className="min-w-0 flex-1">
+            <h2 className="text-sm sm:text-base font-extrabold text-white truncate tracking-tight">
+              {userName} <span className="text-slate-400 font-normal text-xs">• Principal User</span>
+            </h2>
+            <p className="text-[11px] sm:text-xs font-mono text-slate-400 truncate mt-0.5">
+              UUID: {user?.uuid || '88a62c21-penne-core'}
+            </p>
+            <span className="inline-flex items-center mt-2 px-2.5 py-0.5 rounded-full bg-[#FBD8B3]/15 text-[#FBD8B3] text-[9px] font-mono font-bold border border-[#FBD8B3]/30 tracking-wider">
+              ACTIVE AUTH SESSION
             </span>
           </div>
-
-        <p className="text-xs text-[#A89F95] leading-relaxed">
-          Configure monthly spending ceilings for each payment method. Your live progress and heatmap warning indicators will be displayed on the Home Page.
-        </p>
-
-        {/* Bank Card Limit Setup */}
-        <div className="p-3.5 rounded-2xl border border-[#342F2C] bg-[#1A1715] flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="p-2 rounded-xl bg-[#818CF8]/15 text-[#818CF8] shrink-0">
-              <CreditCard className="w-4 h-4" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-xs font-bold text-[#F4F1DE] truncate">Bank Card Limit</p>
-              <p className="text-[11px] text-[#A89F95] truncate">Current: ₹{cardLimit.toLocaleString('en-IN')}</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-1 shrink-0">
-            <span className="text-xs font-mono text-[#8C837A]">₹</span>
-            <input
-              type="number"
-              min="0"
-              step="1000"
-              value={cardLimit}
-              onChange={(e) => handleCardLimitChange(e.target.value)}
-              className="w-28 bg-[#24201D] border border-[#38322E] text-[#F4F1DE] text-xs rounded-xl px-2.5 py-1.5 text-right font-mono focus:outline-none focus:border-[#E07A5F]"
-            />
-          </div>
         </div>
-
-        {/* Bank Account Limit Setup */}
-        <div className="p-3.5 rounded-2xl border border-[#342F2C] bg-[#1A1715] flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="p-2 rounded-xl bg-[#2DD4BF]/15 text-[#2DD4BF] shrink-0">
-              <Building2 className="w-4 h-4" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-xs font-bold text-[#F4F1DE] truncate">Bank Account Limit</p>
-              <p className="text-[11px] text-[#A89F95] truncate">Current: ₹{bankLimit.toLocaleString('en-IN')}</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-1 shrink-0">
-            <span className="text-xs font-mono text-[#8C837A]">₹</span>
-            <input
-              type="number"
-              min="0"
-              step="1000"
-              value={bankLimit}
-              onChange={(e) => handleBankLimitChange(e.target.value)}
-              className="w-28 bg-[#24201D] border border-[#38322E] text-[#F4F1DE] text-xs rounded-xl px-2.5 py-1.5 text-right font-mono focus:outline-none focus:border-[#E07A5F]"
-            />
-          </div>
-        </div>
-      </Card>
       )}
 
-      {/* Backend & API Server Settings */}
-      <Card className="space-y-4">
-        <h3 className="text-sm font-extrabold text-[#F4F1DE] flex items-center gap-2">
-          <Server className="w-4 h-4 text-[#E07A5F]" /> Server Connection
-        </h3>
+      {/* Payment Method Spending Limits Settings (Interactive Sliders + Type-in) */}
+      <div className="velvet-card p-4 space-y-4 shadow-xl">
+        <div className="flex justify-between items-center">
+          <span className="text-xs font-bold text-white uppercase tracking-wider font-mono">
+            Rail Burn Limits (Monthly)
+          </span>
+          <span className="text-[10px] font-mono text-[#FBD8B3] font-bold">Instant Reactive</span>
+        </div>
 
-        <div className="bg-[#1A1715] p-3.5 rounded-2xl border border-[#342F2C] flex items-center justify-between gap-3">
-          <div className="space-y-0.5 min-w-0">
-            <p className="text-xs font-bold text-[#F4F1DE]">Current Backend Mode</p>
-            <p className="text-[11px] text-[#A89F95] truncate">
-              {isMockMode ? 'Demo Mode (Offline Local State)' : 'Live Go Server'}
+        {/* Card Limit Slider & Type-in (0 - 50k) */}
+        <div className="space-y-2">
+          <div className="flex justify-between items-center text-xs font-mono">
+            <span className="text-slate-300">Obsidian CC Limit</span>
+            <div className="flex items-center gap-1 bg-[#1A1835] border border-white/10 focus-within:border-[#FBD8B3] rounded-lg px-2 py-0.5 transition-colors">
+              <span className="text-[11px] font-mono text-slate-400">₹</span>
+              <input
+                type="number"
+                min="0"
+                max="50000"
+                step="500"
+                value={cardLimitStr}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  setCardLimitStr(raw);
+                  const num = Number(raw);
+                  if (!isNaN(num) && num >= 0 && num <= 50000) {
+                    setCardLimit(num);
+                    localStorage.setItem('penne_limit_bank_card', String(num));
+                  }
+                }}
+                onBlur={handleCardInputBlur}
+                className="w-16 bg-transparent text-right font-mono font-bold text-xs text-[#FBD8B3] focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                placeholder="0"
+                aria-label="Obsidian CC Limit input"
+              />
+            </div>
+          </div>
+          <input
+            type="range"
+            min="0"
+            max="50000"
+            step="1000"
+            value={cardLimit}
+            onChange={(e) => handleCardLimitChange(Number(e.target.value))}
+            className="w-full custom-slider cursor-pointer"
+          />
+          <div className="flex justify-between text-[10px] font-mono text-slate-400">
+            <span>₹0</span>
+            <span>₹25,000</span>
+            <span>₹50,000</span>
+          </div>
+        </div>
+
+        {/* Bank Limit Slider & Type-in (0 - 10k) */}
+        <div className="space-y-2 pt-2 border-t border-white/5">
+          <div className="flex justify-between items-center text-xs font-mono">
+            <span className="text-slate-300">Primary Bank Vault Limit</span>
+            <div className="flex items-center gap-1 bg-[#1A1835] border border-white/10 focus-within:border-[#A7D7F9] rounded-lg px-2 py-0.5 transition-colors">
+              <span className="text-[11px] font-mono text-slate-400">₹</span>
+              <input
+                type="number"
+                min="0"
+                max="10000"
+                step="250"
+                value={bankLimitStr}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  setBankLimitStr(raw);
+                  const num = Number(raw);
+                  if (!isNaN(num) && num >= 0 && num <= 10000) {
+                    setBankLimit(num);
+                    localStorage.setItem('penne_limit_bank_account', String(num));
+                  }
+                }}
+                onBlur={handleBankInputBlur}
+                className="w-16 bg-transparent text-right font-mono font-bold text-xs text-[#A7D7F9] focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                placeholder="0"
+                aria-label="Primary Bank Vault Limit input"
+              />
+            </div>
+          </div>
+          <input
+            type="range"
+            min="0"
+            max="10000"
+            step="500"
+            value={bankLimit}
+            onChange={(e) => handleBankLimitChange(Number(e.target.value))}
+            className="w-full custom-slider cursor-pointer"
+          />
+          <div className="flex justify-between text-[10px] font-mono text-slate-400">
+            <span>₹0</span>
+            <span>₹5,000</span>
+            <span>₹10,000</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Connection & Backend Dispatch Rail */}
+      <div className="velvet-card p-4 space-y-3 shadow-xl">
+        <div className="flex items-center gap-2 text-xs font-bold text-white uppercase tracking-wider font-mono">
+          <Server className="w-3.5 h-3.5 text-[#FBD8B3]" />
+          <span>Backend Connection Rail</span>
+        </div>
+        <div className="p-3 bg-[#232044] rounded-2xl border border-white/5 flex items-center justify-between text-xs">
+          <div className="min-w-0 pr-2">
+            <p className="font-semibold text-slate-200 truncate">
+              {!isMockMode ? 'Live Go Server' : 'In-Memory Demo Mode'}
+            </p>
+            <p className="text-[10px] font-mono text-slate-400 truncate">
+              {!isMockMode ? 'http://localhost:8080/api' : 'Local browser simulated store'}
             </p>
           </div>
-
           <button
             onClick={onToggleMock}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
-              isMockMode
-                ? 'bg-[#F2CC8F]/15 text-[#F2CC8F] border border-[#F2CC8F]/30'
-                : 'bg-[#81B29A]/15 text-[#81B29A] border border-[#81B29A]/30'
-            }`}
+            className="px-3.5 py-1.5 rounded-xl bg-[#FBD8B3] hover:bg-[#f7c495] text-[#1A1835] font-black font-mono text-[11px] shadow-sm hover:scale-105 active:scale-95 transition-all cursor-pointer shrink-0"
           >
-            {isMockMode ? 'Switch to Live' : 'Switch to Demo'}
+            {!isMockMode ? 'Use Demo' : 'Go Live'}
           </button>
         </div>
-      </Card>
+      </div>
 
-      {/* Auth Token Card */}
+      {/* Session Token Drawer */}
       {authToken && (
-        <Card className="space-y-3">
-          <h3 className="text-sm font-extrabold text-[#F4F1DE] flex items-center gap-2">
-            <Key className="w-4 h-4 text-[#81B29A]" /> Active Bearer Token
-          </h3>
-
-          <div className="bg-[#1A1715] p-3 rounded-2xl border border-[#342F2C] flex items-center justify-between gap-2">
-            <p className="font-mono text-xs text-[#A89F95] truncate max-w-[220px]">
-              {authToken}
-            </p>
+        <div className="velvet-card p-4 space-y-2 shadow-xl">
+          <div className="flex items-center gap-2 text-xs font-bold text-white uppercase tracking-wider font-mono">
+            <Key className="w-3.5 h-3.5 text-[#FBD8B3]" />
+            <span>Bearer Authorization Token</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              readOnly
+              value={authToken}
+              className="flex-1 px-3 py-2 bg-[#232044] border border-white/10 rounded-xl text-xs font-mono text-slate-300 overflow-hidden text-ellipsis select-all"
+            />
             <button
-              onClick={copyToken}
-              className="px-3 py-1.5 rounded-xl bg-[#2E2A27] hover:bg-[#3E3835] text-[#F4F1DE] text-xs font-bold flex items-center gap-1 transition-all shrink-0"
+              onClick={handleCopyToken}
+              className="px-3.5 py-2 rounded-xl bg-[#FBD8B3] hover:bg-[#f7c495] text-[#1A1835] font-mono text-xs font-bold flex items-center gap-1 active:scale-95 transition-all cursor-pointer shrink-0"
             >
-              {copied ? <Check className="w-3.5 h-3.5 text-[#81B29A]" /> : <Copy className="w-3.5 h-3.5" />}
+              {copied ? <Check className="w-3.5 h-3.5 text-[#1A1835]" /> : <Copy className="w-3.5 h-3.5" />}
               <span>{copied ? 'Copied' : 'Copy'}</span>
             </button>
           </div>
-        </Card>
+        </div>
       )}
 
-      {/* Recent Cached Sessions */}
+      {/* Cached Local Sessions */}
       {recentSessions.length > 0 && (
-        <Card className="space-y-3">
-          <h3 className="text-sm font-extrabold text-[#F4F1DE] flex items-center gap-2">
-            <Clock className="w-4 h-4 text-[#F2CC8F]" /> Local Sessions ({recentSessions.length})
+        <div className="velvet-card p-4 space-y-3 shadow-xl">
+          <h3 className="text-xs font-bold text-white flex items-center gap-2 uppercase tracking-wider font-mono">
+            <Clock className="w-3.5 h-3.5 text-[#FBD8B3]" /> Cached Local Sessions ({recentSessions.length})
           </h3>
-          <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+          <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
             {recentSessions.map((session) => (
               <div
                 key={session.token}
-                className="bg-[#1A1715] border border-[#342F2C] rounded-2xl p-2.5 flex items-center justify-between text-xs"
+                className="bg-[#232044] border border-white/5 rounded-2xl p-2.5 flex items-center justify-between text-xs"
               >
                 <div className="min-w-0">
-                  <p className="font-semibold text-[#F4F1DE] truncate">{session.name}</p>
-                  <p className="font-mono text-[10px] text-[#8C837A] truncate max-w-[180px]">
+                  <p className="font-semibold text-white truncate">{session.name}</p>
+                  <p className="font-mono text-[10px] text-slate-400 truncate max-w-[180px]">
                     {session.token}
                   </p>
                 </div>
                 <Badge variant="sage" className="text-[10px]">
-                  Active
+                  Cached
                 </Badge>
               </div>
             ))}
           </div>
-        </Card>
+        </div>
       )}
 
       {/* Sign Out Button */}
-      <Button
-        variant="danger"
-        size="lg"
-        onClick={onLogout}
-        className="w-full gap-2 font-bold shadow-lg"
-      >
-        <LogOut className="w-4 h-4" />
-        <span>Sign Out of Account</span>
-      </Button>
+      <div className="pt-2">
+        <Button
+          variant="danger"
+          size="lg"
+          onClick={onLogout}
+          className="w-full gap-2 font-black shadow-lg font-mono text-xs cursor-pointer py-3 hover:scale-[1.01] active:scale-98 transition-all"
+        >
+          <LogOut className="w-4 h-4" />
+          <span>Sign Out of Account</span>
+        </Button>
+      </div>
     </div>
   );
 };

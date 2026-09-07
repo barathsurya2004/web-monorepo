@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Button, Input, Badge } from '@packages/ui';
 import { User, AuthSession } from '@packages/types';
-import { Wallet, LogIn, ArrowRight, Mail, Lock, Key, Clock, Copy, Check, Sparkles } from 'lucide-react';
+import { Wallet, LogIn, ArrowRight, Mail, Lock, Key, Clock, Copy, Check } from 'lucide-react';
 
 interface LoginPageProps {
   onLoginSuccess: (user: User) => void;
@@ -64,7 +64,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
     try {
       const user = await onLoginWithToken(sessionToken);
       onLoginSuccess(user);
-    } catch (err: any) {
+    } catch {
       setError('Cached token expired. Please enter your credentials.');
     } finally {
       setLoading(false);
@@ -78,44 +78,47 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   };
 
   return (
-    <div className="min-h-screen min-h-[100dvh] flex items-center justify-center p-4 sm:p-6 pt-[max(calc(env(safe-area-inset-top,0px)+1.25rem),2rem)] pb-[max(calc(env(safe-area-inset-bottom,0px)+0.75rem),1.5rem)] bg-[#171513] relative overflow-hidden w-full max-w-full">
+    <div className="min-h-screen min-h-[100dvh] flex items-center justify-center p-4 sm:p-6 pt-[max(calc(env(safe-area-inset-top,0px)+1.25rem),2rem)] pb-[max(calc(env(safe-area-inset-bottom,0px)+0.75rem),1.5rem)] bg-[#1A1735] relative overflow-hidden w-full max-w-full">
       {/* Warm Ambient Soft Pastel Glow */}
-      <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-gradient-to-tr from-[#E07A5F]/15 via-[#81B29A]/10 to-[#F2CC8F]/15 rounded-full blur-[130px] pointer-events-none" />
+      <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-gradient-to-tr from-[#FBD8B3]/15 via-[#C8B6FF]/10 to-[#A7D7F9]/15 rounded-full blur-[130px] pointer-events-none" />
 
       <div className="w-full max-w-sm sm:max-w-md relative z-10 animate-fadeIn">
         {/* Brand Header */}
         <div className="text-center space-y-3 mb-6">
-          <div className="inline-flex p-3 rounded-3xl bg-[#24201D] border border-[#342F2C] shadow-xl shadow-black/40">
-            <div className="w-12 h-12 rounded-2xl bg-[#E07A5F] p-0.5 flex items-center justify-center shadow-md shadow-[#E07A5F]/20">
-              <div className="w-full h-full bg-[#1A1715] rounded-[14px] flex items-center justify-center">
-                <Wallet className="w-6 h-6 text-[#E07A5F]" />
+          <div className="inline-flex p-3 rounded-3xl bg-[#232044] border border-white/10 shadow-xl shadow-black/40">
+            <div className="w-12 h-12 rounded-2xl bg-[#FBD8B3] p-0.5 flex items-center justify-center shadow-md shadow-[#FBD8B3]/20">
+              <div className="w-full h-full bg-[#1A1735] rounded-[14px] flex items-center justify-center">
+                <Wallet className="w-6 h-6 text-[#FBD8B3]" />
               </div>
             </div>
           </div>
           <div>
-            <h1 className="text-3xl font-black tracking-tight text-[#F4F1DE] flex items-center justify-center gap-2">
-              Penne <span className="text-[#E07A5F]">Budget</span>
+            <span className="text-[10px] font-medium tracking-wide text-slate-400 block uppercase font-mono">
+              Penne
+            </span>
+            <h1 className="text-3xl font-black tracking-tight text-white flex items-center justify-center gap-2">
+              Bill & <span className="text-[#FBD8B3]">Budget</span>
             </h1>
-            <p className="text-xs text-[#A89F95] font-medium mt-1">
-              Personal Expenses & Transactions Tracker
+            <p className="text-xs text-slate-400 font-medium mt-1 font-mono">
+              Zero-Based Expenses & Vault Tracker
             </p>
           </div>
         </div>
 
         {/* Login Card */}
-        <div className="bg-[#24201D] border border-[#38322E] rounded-3xl p-6 sm:p-8 shadow-2xl shadow-black/50 space-y-6">
-          <div className="flex items-center justify-between border-b border-[#342F2C] pb-4">
+        <div className="velvet-card p-6 sm:p-8 space-y-6 shadow-2xl">
+          <div className="flex items-center justify-between border-b border-white/10 pb-4">
             <div className="space-y-0.5 text-left">
               <Badge variant="terracotta">Welcome Back</Badge>
-              <h2 className="text-lg font-bold text-[#F4F1DE]">Sign in to Penne</h2>
+              <h2 className="text-lg font-bold text-white">Sign in to Penne</h2>
             </div>
             {/* Mode Switcher */}
-            <div className="flex items-center gap-1 bg-[#1A1715] p-1 rounded-xl border border-[#342F2C]">
+            <div className="flex items-center gap-1 bg-[#1A1735] p-1 rounded-xl border border-white/10 font-mono text-[11px]">
               <button
                 type="button"
                 onClick={() => setAuthMode('password')}
-                className={`px-2.5 py-1 text-[11px] font-semibold rounded-lg transition-all ${
-                  authMode === 'password' ? 'bg-[#38322E] text-[#F4F1DE]' : 'text-[#A89F95] hover:text-[#F4F1DE]'
+                className={`px-2.5 py-1 font-bold rounded-lg transition-all cursor-pointer ${
+                  authMode === 'password' ? 'bg-[#FBD8B3] text-[#1A1835]' : 'text-slate-400 hover:text-white'
                 }`}
               >
                 Password
@@ -123,8 +126,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({
               <button
                 type="button"
                 onClick={() => setAuthMode('token')}
-                className={`px-2.5 py-1 text-[11px] font-semibold rounded-lg transition-all ${
-                  authMode === 'token' ? 'bg-[#38322E] text-[#F4F1DE]' : 'text-[#A89F95] hover:text-[#F4F1DE]'
+                className={`px-2.5 py-1 font-bold rounded-lg transition-all cursor-pointer ${
+                  authMode === 'token' ? 'bg-[#FBD8B3] text-[#1A1835]' : 'text-slate-400 hover:text-white'
                 }`}
               >
                 Token
@@ -133,7 +136,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
           </div>
 
           {error && (
-            <div className="p-3.5 rounded-2xl bg-[#E8A598]/15 border border-[#E8A598]/30 text-[#E8A598] text-xs font-medium flex items-center gap-2 animate-fadeIn">
+            <div className="p-3.5 rounded-2xl bg-[#FFB5A7]/15 border border-[#FFB5A7]/30 text-[#FFB5A7] text-xs font-medium flex items-center gap-2 animate-fadeIn font-mono">
               <span>⚠️</span>
               <span>{error}</span>
             </div>
@@ -148,7 +151,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                 placeholder="name@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                icon={<Mail className="w-4 h-4 text-[#8C837A]" />}
+                icon={<Mail className="w-4 h-4 text-[#FBD8B3]" />}
                 required
               />
 
@@ -158,7 +161,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                 placeholder="••••••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                icon={<Lock className="w-4 h-4 text-[#8C837A]" />}
+                icon={<Lock className="w-4 h-4 text-[#FBD8B3]" />}
                 required
               />
 
@@ -167,10 +170,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                 variant="primary"
                 size="lg"
                 disabled={loading}
-                className="w-full gap-2 mt-2"
+                className="w-full gap-2 mt-2 font-mono text-xs py-3"
               >
                 <LogIn className="w-4 h-4" />
-                <span>{loading ? 'Signing In...' : 'Sign In'}</span>
+                <span>{loading ? 'Signing In...' : 'Sign In to Ledger'}</span>
               </Button>
             </form>
           )}
@@ -184,30 +187,30 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                 placeholder="e.g. f66dcebd-e275-4b22-83bd-e446e0a45624"
                 value={tokenInput}
                 onChange={(e) => setTokenInput(e.target.value)}
-                icon={<Key className="w-4 h-4 text-[#8C837A]" />}
+                icon={<Key className="w-4 h-4 text-[#FBD8B3]" />}
                 required
               />
 
               {/* Preset Test Token Banner */}
-              <div className="bg-[#1A1715] p-3 rounded-2xl border border-[#342F2C] flex items-center justify-between text-xs">
-                <div className="space-y-0.5 text-left">
-                  <span className="text-[10px] text-[#A89F95] font-semibold uppercase">Default Test Token</span>
-                  <p className="font-mono text-[#F4F1DE] text-[11px] truncate max-w-[170px]">{TEST_TOKEN}</p>
+              <div className="bg-[#1A1735] p-3 rounded-2xl border border-white/10 flex items-center justify-between text-xs">
+                <div className="space-y-0.5 text-left min-w-0">
+                  <span className="text-[10px] text-slate-400 font-semibold font-mono uppercase block">Default Test Token</span>
+                  <p className="font-mono text-white text-[11px] truncate max-w-[170px]">{TEST_TOKEN}</p>
                 </div>
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 shrink-0">
                   <button
                     type="button"
                     onClick={() => setTokenInput(TEST_TOKEN)}
-                    className="px-2.5 py-1 rounded-lg bg-[#81B29A]/15 text-[#81B29A] border border-[#81B29A]/30 hover:bg-[#81B29A]/25 transition-all font-semibold text-xs"
+                    className="px-2.5 py-1 rounded-lg bg-[#FBD8B3]/20 text-[#FBD8B3] border border-[#FBD8B3]/30 hover:bg-[#FBD8B3]/30 transition-all font-mono font-bold text-xs cursor-pointer"
                   >
                     Use
                   </button>
                   <button
                     type="button"
                     onClick={() => copyToClipboard(TEST_TOKEN)}
-                    className="p-1.5 rounded-lg text-[#A89F95] hover:text-[#F4F1DE] hover:bg-[#2E2A27] transition-all"
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition-all cursor-pointer"
                   >
-                    {copiedToken === TEST_TOKEN ? <Check className="w-3.5 h-3.5 text-[#81B29A]" /> : <Copy className="w-3.5 h-3.5" />}
+                    {copiedToken === TEST_TOKEN ? <Check className="w-3.5 h-3.5 text-[#A8E6CF]" /> : <Copy className="w-3.5 h-3.5" />}
                   </button>
                 </div>
               </div>
@@ -217,7 +220,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                 variant="primary"
                 size="lg"
                 disabled={loading}
-                className="w-full gap-2 mt-2"
+                className="w-full gap-2 mt-2 font-mono text-xs py-3"
               >
                 <LogIn className="w-4 h-4" />
                 <span>{loading ? 'Validating Token...' : 'Sign In with Token'}</span>
@@ -227,10 +230,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({
 
           {/* RECENT CACHED SESSIONS */}
           {recentSessions.length > 0 && (
-            <div className="space-y-3 pt-3 border-t border-[#342F2C]">
-              <div className="flex items-center justify-between text-xs text-[#A89F95]">
+            <div className="space-y-3 pt-3 border-t border-white/10">
+              <div className="flex items-center justify-between text-xs text-slate-400 font-mono">
                 <span className="font-semibold flex items-center gap-1">
-                  <Clock className="w-3.5 h-3.5 text-[#8C837A]" /> Cached Local Sessions
+                  <Clock className="w-3.5 h-3.5 text-slate-400" /> Cached Local Sessions
                 </span>
               </div>
               <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
@@ -238,22 +241,22 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                   <div
                     key={session.token}
                     onClick={() => handleQuickSessionLogin(session.token)}
-                    className="bg-[#1A1715] border border-[#342F2C] hover:border-[#E07A5F]/50 rounded-2xl p-3 flex items-center justify-between cursor-pointer transition-all hover:scale-[1.01] group"
+                    className="bg-[#1A1735] border border-white/10 hover:border-[#FBD8B3]/50 rounded-2xl p-3 flex items-center justify-between cursor-pointer transition-all hover:scale-[1.01] group"
                   >
-                    <div className="flex items-center gap-2.5 text-left">
-                      <div className="w-8 h-8 rounded-xl bg-[#2E2A27] flex items-center justify-center font-bold text-[#E07A5F] text-xs">
+                    <div className="flex items-center gap-2.5 text-left min-w-0">
+                      <div className="w-8 h-8 rounded-xl bg-[#232044] border border-white/5 flex items-center justify-center font-bold text-[#FBD8B3] text-xs shrink-0 font-mono">
                         {session.name.charAt(0).toUpperCase()}
                       </div>
-                      <div>
-                        <p className="font-semibold text-xs text-[#F4F1DE] group-hover:text-[#E07A5F] transition-colors">
+                      <div className="min-w-0">
+                        <p className="font-semibold text-xs text-white group-hover:text-[#FBD8B3] transition-colors truncate">
                           {session.name}
                         </p>
-                        <p className="font-mono text-[10px] text-[#8C837A] truncate max-w-[150px]">
+                        <p className="font-mono text-[10px] text-slate-400 truncate max-w-[150px]">
                           {session.token}
                         </p>
                       </div>
                     </div>
-                    <Badge variant="sage" className="text-[10px] gap-1">
+                    <Badge variant="sage" className="text-[10px] gap-1 shrink-0">
                       <span>Login</span>
                       <ArrowRight className="w-3 h-3" />
                     </Badge>
@@ -264,11 +267,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({
           )}
 
           {/* Navigation link to Signup */}
-          <div className="pt-4 border-t border-[#342F2C] flex items-center justify-between text-xs">
-            <span className="text-[#A89F95]">Don't have an account?</span>
+          <div className="pt-4 border-t border-white/10 flex items-center justify-between text-xs font-mono">
+            <span className="text-slate-400">Don't have an account?</span>
             <button
               onClick={onNavigateToSignup}
-              className="font-bold text-[#E07A5F] hover:text-[#e89078] transition-colors cursor-pointer"
+              className="font-bold text-[#FBD8B3] hover:underline transition-colors cursor-pointer"
             >
               Create Account →
             </button>

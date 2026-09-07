@@ -1010,7 +1010,7 @@ export class PenneApiClient {
   async getDashboardSummary(): Promise<DashboardSummary> {
     if (this.useMock) {
       const cardLimit = Number(localStorage.getItem('penne_limit_bank_card') || 25000);
-      const bankLimit = Number(localStorage.getItem('penne_limit_bank_account') || 50000);
+      const bankLimit = Number(localStorage.getItem('penne_limit_bank_account') || 10000);
 
       const totalIncomeE5 = this.mockTransactions
         .filter((t) => t.txn_type === 'credit')
@@ -1049,7 +1049,7 @@ export class PenneApiClient {
     } catch (err) {
       console.warn('[Penne API] GET /api/dashboard-summary failed, calculating fallback summary', err);
       const cardLimit = Number(localStorage.getItem('penne_limit_bank_card') || 25000);
-      const bankLimit = Number(localStorage.getItem('penne_limit_bank_account') || 50000);
+      const bankLimit = Number(localStorage.getItem('penne_limit_bank_account') || 10000);
 
       const txns = await this.getTransactions();
       const totalIncomeE5 = txns

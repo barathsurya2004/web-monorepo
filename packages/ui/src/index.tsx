@@ -13,17 +13,17 @@ export const Button: React.FC<ButtonProps> = ({
   className = '',
   ...props
 }) => {
-  const base = 'inline-flex items-center justify-center font-semibold rounded-2xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none cursor-pointer active:scale-[0.97]';
+  const base = 'inline-flex items-center justify-center font-bold rounded-2xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none cursor-pointer active:scale-[0.97]';
   
   const variants = {
-    primary: 'bg-[#E07A5F] hover:bg-[#d0694e] text-white shadow-md shadow-[#E07A5F]/20 focus:ring-[#E07A5F]',
-    pastelSage: 'bg-[#81B29A] hover:bg-[#72a38b] text-slate-900 shadow-md shadow-[#81B29A]/20 focus:ring-[#81B29A]',
-    pastelRose: 'bg-[#E8A598] hover:bg-[#d99487] text-slate-900 shadow-md shadow-[#E8A598]/20 focus:ring-[#E8A598]',
-    pastelTerracotta: 'bg-[#D4A373] hover:bg-[#c59464] text-slate-900 shadow-md shadow-[#D4A373]/20 focus:ring-[#D4A373]',
-    secondary: 'bg-[#2E2A27] hover:bg-[#383330] text-[#F4F1DE] focus:ring-amber-500/30 border border-[#3E3835]',
-    outline: 'border border-[#3E3835] hover:bg-[#2A2623] text-[#E6E1DA] focus:ring-amber-500/20 backdrop-blur-sm',
-    danger: 'bg-rose-500/90 hover:bg-rose-600 text-white focus:ring-rose-500 shadow-md shadow-rose-950/30',
-    ghost: 'hover:bg-[#2A2623] text-[#B0A79E] hover:text-[#F4F1DE] focus:ring-amber-500/20',
+    primary: 'bg-[#FBD8B3] hover:bg-[#f7c495] text-[#1A1835] font-black shadow-lg shadow-[#FBD8B3]/25 focus:ring-[#FBD8B3]',
+    pastelSage: 'bg-[#A8E6CF] hover:bg-[#92d4bd] text-[#1A1835] shadow-md shadow-[#A8E6CF]/20 focus:ring-[#A8E6CF]',
+    pastelRose: 'bg-[#FFB5A7] hover:bg-[#f29f8f] text-[#1A1835] shadow-md shadow-[#FFB5A7]/20 focus:ring-[#FFB5A7]',
+    pastelTerracotta: 'bg-[#FBD8B3] hover:bg-[#f7c495] text-[#1A1835] shadow-md shadow-[#FBD8B3]/20 focus:ring-[#FBD8B3]',
+    secondary: 'bg-[#343060] hover:bg-[#3D3870] text-[#F5F3FF] focus:ring-white/20 border border-white/10 shadow-md',
+    outline: 'border border-white/15 hover:bg-white/5 text-slate-200 focus:ring-white/20 backdrop-blur-sm',
+    danger: 'bg-[#FFB5A7] hover:bg-[#f29f8f] text-[#1A1835] font-bold focus:ring-[#FFB5A7] shadow-md',
+    ghost: 'hover:bg-white/5 text-slate-400 hover:text-white focus:ring-white/20',
     apple: 'bg-white hover:bg-slate-100 text-slate-950 font-semibold shadow-md focus:ring-white'
   };
 
@@ -51,7 +51,7 @@ export const Card: React.FC<CardProps> = ({ children, className = '', onClick })
   return (
     <div 
       onClick={onClick}
-      className={`bg-[#24201D] border border-[#342F2C] rounded-3xl p-5 sm:p-6 shadow-xl shadow-black/30 transition-all duration-300 ${onClick ? 'cursor-pointer hover:border-[#4A433F] hover:scale-[1.01]' : ''} ${className}`}
+      className={`bg-[#343060] border border-white/10 rounded-3xl p-5 sm:p-6 shadow-xl shadow-black/40 transition-all duration-300 ${onClick ? 'cursor-pointer hover:border-white/20 hover:scale-[1.01]' : ''} ${className}`}
     >
       {children}
     </div>
@@ -68,15 +68,15 @@ export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> 
 export const Input: React.FC<InputProps> = ({ label, error, icon, className = '', ...props }) => {
   return (
     <div className="flex flex-col gap-1.5 w-full">
-      {label && <label className="text-[11px] font-bold tracking-wider text-[#A89F95] uppercase">{label}</label>}
+      {label && <label className="text-[11px] font-bold font-mono tracking-wider text-slate-300 uppercase">{label}</label>}
       <div className="relative flex items-center">
-        {icon && <div className="absolute left-3.5 text-[#8C837A] pointer-events-none">{icon}</div>}
+        {icon && <div className="absolute left-3.5 text-[#FBD8B3] pointer-events-none">{icon}</div>}
         <input
-          className={`bg-[#1A1715] border ${error ? 'border-rose-400' : 'border-[#38322E]'} text-[#F4F1DE] placeholder-[#6E665E] text-base sm:text-sm rounded-2xl focus:outline-none focus:border-[#E07A5F] focus:ring-2 focus:ring-[#E07A5F]/20 ${icon ? 'pl-10' : 'px-4'} py-3 transition-all w-full min-h-[44px] shadow-inner ${className}`}
+          className={`bg-[#232044] border ${error ? 'border-[#FFB5A7]' : 'border-white/10'} text-white placeholder-slate-400 text-base sm:text-sm rounded-2xl focus:outline-none focus:border-[#FBD8B3] focus:ring-2 focus:ring-[#FBD8B3]/20 ${icon ? 'pl-10' : 'px-4'} py-3 transition-all w-full min-h-[44px] shadow-inner font-mono ${className}`}
           {...props}
         />
       </div>
-      {error && <span className="text-xs text-rose-400 font-medium">{error}</span>}
+      {error && <span className="text-xs text-[#FFB5A7] font-medium">{error}</span>}
     </div>
   );
 };
@@ -90,13 +90,13 @@ export interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElemen
 export const Select: React.FC<SelectProps> = ({ label, options, className = '', ...props }) => {
   return (
     <div className="flex flex-col gap-1.5 w-full">
-      {label && <label className="text-[11px] font-bold tracking-wider text-[#A89F95] uppercase">{label}</label>}
+      {label && <label className="text-[11px] font-bold font-mono tracking-wider text-slate-300 uppercase">{label}</label>}
       <select
-        className={`bg-[#1A1715] border border-[#38322E] text-[#F4F1DE] text-base sm:text-sm rounded-2xl focus:outline-none focus:border-[#E07A5F] focus:ring-2 focus:ring-[#E07A5F]/20 px-4 py-3 transition-all w-full min-h-[44px] shadow-inner ${className}`}
+        className={`bg-[#232044] border border-white/10 text-white text-base sm:text-sm rounded-2xl focus:outline-none focus:border-[#FBD8B3] focus:ring-2 focus:ring-[#FBD8B3]/20 px-4 py-3 transition-all w-full min-h-[44px] shadow-inner font-mono ${className}`}
         {...props}
       >
         {options.map((opt) => (
-          <option key={opt.value} value={opt.value} className="bg-[#24201D] text-[#F4F1DE]">
+          <option key={opt.value} value={opt.value} className="bg-[#232044] text-white">
             {opt.label}
           </option>
         ))}
@@ -114,20 +114,20 @@ export interface BadgeProps {
 
 export const Badge: React.FC<BadgeProps> = ({ children, variant = 'slate', className = '' }) => {
   const variants = {
-    sage: 'bg-[#81B29A]/15 text-[#81B29A] border-[#81B29A]/30',
-    terracotta: 'bg-[#E07A5F]/15 text-[#E07A5F] border-[#E07A5F]/30',
-    rose: 'bg-[#E8A598]/15 text-[#E8A598] border-[#E8A598]/30',
-    cream: 'bg-[#F2CC8F]/15 text-[#F2CC8F] border-[#F2CC8F]/30',
-    peach: 'bg-[#F4A261]/15 text-[#F4A261] border-[#F4A261]/30',
-    slate: 'bg-[#2E2A27] text-[#C4BBB1] border-[#3E3835]',
-    emerald: 'bg-[#81B29A]/15 text-[#81B29A] border-[#81B29A]/30',
-    amber: 'bg-[#F2CC8F]/15 text-[#F2CC8F] border-[#F2CC8F]/30',
-    indigo: 'bg-[#B8C0E0]/15 text-[#B8C0E0] border-[#B8C0E0]/30',
-    apple: 'bg-white/10 text-[#F4F1DE] border-white/20'
+    sage: 'bg-[#A8E6CF]/20 text-[#A8E6CF] border-[#A8E6CF]/35',
+    terracotta: 'bg-[#FBD8B3]/20 text-[#FBD8B3] border-[#FBD8B3]/35',
+    rose: 'bg-[#FFB5A7]/20 text-[#FFB5A7] border-[#FFB5A7]/35',
+    cream: 'bg-[#FDE2B8]/20 text-[#FDE2B8] border-[#FDE2B8]/35',
+    peach: 'bg-[#FBD8B3]/20 text-[#FBD8B3] border-[#FBD8B3]/35',
+    slate: 'bg-white/5 text-slate-300 border-white/10',
+    emerald: 'bg-[#A8E6CF]/20 text-[#A8E6CF] border-[#A8E6CF]/35',
+    amber: 'bg-[#FDE2B8]/20 text-[#FDE2B8] border-[#FDE2B8]/35',
+    indigo: 'bg-[#C8B6FF]/20 text-[#C8B6FF] border-[#C8B6FF]/35',
+    apple: 'bg-white/10 text-white border-white/20'
   };
 
   return (
-    <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border ${variants[variant]} ${className}`}>
+    <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold border font-mono ${variants[variant]} ${className}`}>
       {children}
     </span>
   );
@@ -142,17 +142,17 @@ export interface SegmentedControlProps {
 
 export const SegmentedControl: React.FC<SegmentedControlProps> = ({ options, activeId, onChange }) => {
   return (
-    <div className="bg-[#1A1715] p-1 rounded-2xl border border-[#38322E] flex items-center gap-1 overflow-x-auto no-scrollbar">
+    <div className="bg-[#232044] p-1.5 rounded-2xl border border-white/10 flex items-center gap-1 overflow-x-auto no-scrollbar">
       {options.map((opt) => {
         const isActive = opt.id === activeId;
         return (
           <button
             key={opt.id}
             onClick={() => onChange(opt.id)}
-            className={`flex-1 min-h-[40px] flex items-center justify-center gap-2 py-2 px-3 sm:px-4 rounded-xl text-xs font-semibold transition-all duration-300 cursor-pointer whitespace-nowrap ${
+            className={`flex-1 min-h-[40px] flex items-center justify-center gap-2 py-2 px-3 sm:px-4 rounded-xl text-xs font-bold font-mono transition-all duration-300 cursor-pointer whitespace-nowrap ${
               isActive
-                ? 'bg-[#38322E] text-[#F4F1DE] shadow-md border border-[#4A433F]'
-                : 'text-[#A89F95] hover:text-[#F4F1DE]'
+                ? 'bg-[#FBD8B3] text-[#1A1835] shadow-md font-black'
+                : 'text-slate-400 hover:text-white'
             }`}
           >
             {opt.icon}
@@ -174,14 +174,14 @@ export interface ProgressBarProps {
 export const ProgressBar: React.FC<ProgressBarProps> = ({ value, colorVariant = 'emerald', className = '' }) => {
   const clamped = Math.min(Math.max(value, 0), 100);
   const colors = {
-    emerald: 'bg-[#81B29A]',
-    amber: 'bg-[#F2CC8F]',
-    rose: 'bg-[#E8A598]',
-    indigo: 'bg-[#B8C0E0]'
+    emerald: 'bg-[#A8E6CF]',
+    amber: 'bg-[#FDE2B8]',
+    rose: 'bg-[#FFB5A7]',
+    indigo: 'bg-[#C8B6FF]'
   };
 
   return (
-    <div className={`w-full bg-[#1A1715] rounded-full h-2 overflow-hidden border border-[#38322E] ${className}`}>
+    <div className={`w-full bg-[#1A1835] rounded-full h-2.5 overflow-hidden border border-white/10 ${className}`}>
       <div
         className={`h-full transition-all duration-500 rounded-full ${colors[colorVariant]}`}
         style={{ width: `${clamped}%` }}
@@ -213,23 +213,23 @@ export const StatCard: React.FC<StatCardProps> = ({
   children
 }) => {
   const borderAccents = {
-    terracotta: 'border-l-[#E07A5F] bg-gradient-to-br from-[#292421] to-[#211D1A]',
-    sage: 'border-l-[#81B29A] bg-gradient-to-br from-[#222926] to-[#1C211F]',
-    cream: 'border-l-[#F2CC8F] bg-gradient-to-br from-[#2B2720] to-[#221F19]',
-    rose: 'border-l-[#E8A598] bg-gradient-to-br from-[#2B2322] to-[#211B1B]'
+    terracotta: 'border-l-[#FBD8B3] bg-gradient-to-br from-[#383364] to-[#2D2852]',
+    sage: 'border-l-[#A8E6CF] bg-gradient-to-br from-[#2E3B3A] to-[#263131]',
+    cream: 'border-l-[#FDE2B8] bg-gradient-to-br from-[#383428] to-[#2E2A20]',
+    rose: 'border-l-[#FFB5A7] bg-gradient-to-br from-[#3B2D33] to-[#30242A]'
   };
 
   return (
     <Card className={`border-l-4 ${borderAccents[variant]} ${accentColor ? accentColor : ''} ${className}`}>
       <div className="flex items-center justify-between gap-2 min-w-0">
         <div className="space-y-1 min-w-0 flex-1">
-          <p className="text-[11px] font-bold tracking-wider text-[#A89F95] uppercase truncate">{title}</p>
-          <h3 className="text-xl sm:text-2xl md:text-3xl font-extrabold text-[#F4F1DE] tracking-tight truncate">{value}</h3>
-          {subtitle && <p className="text-xs text-[#8C837A] truncate">{subtitle}</p>}
+          <p className="text-[11px] font-bold font-mono tracking-wider text-slate-400 uppercase truncate">{title}</p>
+          <h3 className="text-xl sm:text-2xl md:text-3xl font-extrabold text-white tracking-tight font-mono truncate">{value}</h3>
+          {subtitle && <p className="text-xs text-slate-400 truncate">{subtitle}</p>}
         </div>
-        {icon && <div className="p-2.5 sm:p-3 bg-[#1A1715]/80 text-[#E6E1DA] rounded-2xl shadow-inner shrink-0 self-start">{icon}</div>}
+        {icon && <div className="p-2.5 sm:p-3 bg-indigo-950/80 text-white rounded-2xl shadow-inner shrink-0 self-start border border-white/5">{icon}</div>}
       </div>
-      {children && <div className="mt-3 pt-2.5 border-t border-[#38322E]/60">{children}</div>}
+      {children && <div className="mt-3 pt-2.5 border-t border-white/10">{children}</div>}
     </Card>
   );
 };
@@ -246,13 +246,13 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-[#141210]/85 backdrop-blur-md animate-fadeIn pt-[max(env(safe-area-inset-top,0px),1rem)] pb-[max(env(safe-area-inset-bottom,0px),1rem)]">
-      <div className="bg-[#24201D] border border-[#3E3835] rounded-t-3xl sm:rounded-3xl w-full max-w-md shadow-2xl overflow-hidden transform transition-all max-h-[85dvh] flex flex-col">
-        <div className="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-[#342F2C] bg-[#1E1B19] shrink-0">
-          <h3 className="text-base sm:text-lg font-bold text-[#F4F1DE]">{title}</h3>
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/75 backdrop-blur-md animate-fadeIn pt-[max(env(safe-area-inset-top,0px),1rem)] pb-[max(env(safe-area-inset-bottom,0px),1rem)]">
+      <div className="bg-[#2C2856] border border-white/15 rounded-t-3xl sm:rounded-3xl w-full max-w-md shadow-2xl overflow-hidden transform transition-all max-h-[85dvh] flex flex-col">
+        <div className="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-white/10 bg-[#232044] shrink-0">
+          <h3 className="text-base sm:text-lg font-extrabold text-white">{title}</h3>
           <button
             onClick={onClose}
-            className="text-[#A89F95] hover:text-[#F4F1DE] p-2 rounded-xl hover:bg-[#2E2A27] transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center cursor-pointer"
+            className="text-slate-400 hover:text-white p-2 rounded-xl hover:bg-white/5 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center cursor-pointer font-bold"
           >
             ✕
           </button>

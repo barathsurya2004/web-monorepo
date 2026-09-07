@@ -7,6 +7,13 @@
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
   --sar: env(safe-area-inset-right, 0px);
+
+  --bg: #232044;
+  --surface: #322E5C;
+  --surface-elevated: #3A3669;
+  --border: rgba(255, 255, 255, 0.08);
+  --accent: #FBD8B3;
+  --accent-deep: #322E5C;
 }
 
 @layer base {
@@ -22,14 +29,16 @@
   }
 
   body {
-    background-color: #171513;
-    color: #F4F1DE;
-    background-image: 
-      radial-gradient(at 10% 10%, rgba(224, 122, 95, 0.07) 0px, transparent 50%),
-      radial-gradient(at 90% 15%, rgba(129, 178, 154, 0.07) 0px, transparent 50%),
-      radial-gradient(at 50% 85%, rgba(242, 204, 143, 0.05) 0px, transparent 50%);
-    background-attachment: fixed;
+    background-color: #1A1735;
+    color: #F5F3FF;
     font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-image: 
+      radial-gradient(at 15% 10%, rgba(251, 216, 179, 0.07) 0px, transparent 45%),
+      radial-gradient(at 85% 15%, rgba(167, 215, 249, 0.06) 0px, transparent 45%),
+      radial-gradient(at 50% 80%, rgba(200, 182, 255, 0.05) 0px, transparent 50%);
+    background-attachment: fixed;
   }
 }
 
@@ -40,41 +49,159 @@
 }
 
 ::-webkit-scrollbar-track {
-  background: #141210;
+  background: #1A1735;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #2E2A27;
+  background: #3A3669;
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #3E3835;
+  background: #4D4786;
 }
 
-/* Safe area inset support for mobile status bars & notch navigation */
-.pt-safe {
-  padding-top: max(calc(env(safe-area-inset-top, 0px) + 0.75rem), 1rem);
+/* Tactile Velvet Cards & Surfaces */
+.velvet-card {
+  background: #343060;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 24px;
+  box-shadow: 0 12px 30px -6px rgba(18, 16, 42, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.25s ease;
 }
 
-.pt-safe-top {
-  padding-top: max(calc(env(safe-area-inset-top, 0px) + 1rem), 1.25rem);
+.velvet-card:hover {
+  border-color: rgba(255, 255, 255, 0.14);
 }
 
-.pt-safe-extra {
-  padding-top: max(calc(env(safe-area-inset-top, 0px) + 1.25rem), 1.5rem);
+.velvet-card-subtle {
+  background: #2D2954;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 20px;
+  transition: all 0.2s ease;
 }
 
+.velvet-card-subtle:hover {
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.hero-apricot-card {
+  background: linear-gradient(145deg, #FDE6D0 0%, #FBD4AD 100%);
+  color: #2A2548;
+  border-radius: 28px;
+  box-shadow: 0 16px 36px -8px rgba(251, 216, 179, 0.28), inset 0 1px 2px rgba(255, 255, 255, 0.8);
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.hero-apricot-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 20px 42px -6px rgba(251, 216, 179, 0.35), inset 0 1px 2px rgba(255, 255, 255, 0.9);
+}
+
+.glass-dock {
+  background: rgba(35, 32, 68, 0.92);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-top: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow: 0 -12px 40px rgba(15, 13, 35, 0.7);
+}
+
+/* Subtle Interactive Hover Lift */
+.hover-lift {
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease;
+}
+
+.hover-lift:hover {
+  transform: translateY(-1.5px);
+}
+
+.hover-lift:active {
+  transform: scale(0.98);
+}
+
+/* Pill Slider with Custard Cream Thumb */
+input[type=range].custom-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  height: 14px;
+  outline: none;
+  padding: 2px;
+  transition: background 0.2s ease;
+}
+
+input[type=range].custom-slider:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+input[type=range].custom-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 22px;
+  width: 22px;
+  border-radius: 50%;
+  background: #FDE2B8;
+  border: 3px solid #2C2856;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+  transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.15s ease;
+}
+
+input[type=range].custom-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.12);
+  box-shadow: 0 0 12px rgba(253, 226, 184, 0.6);
+}
+
+input[type=range].custom-slider::-webkit-slider-thumb:active {
+  transform: scale(1.22);
+}
+
+/* Dotted Slider Snap Track Scaffolding */
+.track-dots {
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.25) 1.5px, transparent 1.5px);
+  background-size: 16px 16px;
+  background-repeat: repeat-x;
+  background-position: center;
+}
+
+/* Smooth keyframes */
+@keyframes slideDownFade {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-slide-down {
+  animation: slideDownFade 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes pulseGlow {
+  0%, 100% {
+    opacity: 1;
+    filter: drop-shadow(0 0 6px rgba(251, 216, 179, 0.4));
+  }
+  50% {
+    opacity: 0.8;
+    filter: drop-shadow(0 0 2px rgba(251, 216, 179, 0.2));
+  }
+}
+
+.animate-glow {
+  animation: pulseGlow 3s infinite ease-in-out;
+}
+
+/* Safe area padding */
 .pb-safe {
   padding-bottom: max(env(safe-area-inset-bottom, 0px), 0.75rem);
 }
 
-.status-bar-bg {
-  background-color: #1E1B19;
-  padding-top: max(calc(env(safe-area-inset-top, 0px) + 0.75rem), 1rem);
-}
-
-/* Hide scrollbars for mobile swipeable filter toolbars */
+/* Hide scrollbars */
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
@@ -83,45 +210,3 @@
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
-
-/* Alert Banner Depleting Timer & Toast Animations */
-@keyframes timerDeplete {
-  from {
-    width: 100%;
-  }
-  to {
-    width: 0%;
-  }
-}
-
-@keyframes toastSlideIn {
-  from {
-    opacity: 0;
-    transform: translateY(-16px) scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-@keyframes toastSlideOut {
-  from {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-  to {
-    opacity: 0;
-    transform: translateY(-16px) scale(0.95);
-  }
-}
-
-.animate-toast-in {
-  animation: toastSlideIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-.animate-toast-out {
-  animation: toastSlideOut 0.25s cubic-bezier(0.7, 0, 0.84, 0) forwards;
-}
-
-

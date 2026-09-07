@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Input, Select, Button } from '@packages/ui';
 import { Transaction, EnvelopeGroup, Envelope, amountToE5, e5ToAmount, formatCurrency } from '@packages/types';
-import { Trash2, AlertTriangle, Pencil } from 'lucide-react';
+import { Trash2, AlertTriangle, Receipt } from 'lucide-react';
+import { EnvelopeMonogramBadge } from '../utils/envelopeVisuals';
 
 // --- New Transaction Modal ---
 interface NewTxnModalProps {
@@ -9,7 +10,7 @@ interface NewTxnModalProps {
   onClose: () => void;
   envelopes: Envelope[];
   groups?: EnvelopeGroup[];
-  onSubmit: (amountE5: number, txnType: string, paymentMethod: string, envelopeId?: string | null) => Promise<void>;
+  onSubmit: (amountE5: number, txnType: string, paymentMethod: string, envelopeId?: string | null, createdAt?: string) => Promise<void>;
 }
 
 export const NewTxnModal: React.FC<NewTxnModalProps> = ({
@@ -63,10 +64,10 @@ export const NewTxnModal: React.FC<NewTxnModalProps> = ({
     const gName = groupMap.get(env.envelope_group_id);
     const envName = env.name || (env.is_system ? 'Unallocated Budget' : `Envelope #${env.id.slice(-4)}`);
     const label = env.is_system
-      ? 'Unallocated Budget (System Pool)'
+      ? 'Unallocated General Surplus'
       : gName
-        ? `${gName} › ${envName}`
-        : envName;
+      ? `${gName} › ${envName}`
+      : envName;
     return {
       value: env.id,
       label
@@ -76,58 +77,118 @@ export const NewTxnModal: React.FC<NewTxnModalProps> = ({
   if (envelopeOptions.length === 0) {
     envelopeOptions.push({
       value: systemEnvId,
-      label: 'Unallocated Budget (System Pool)'
+      label: 'Unallocated General Surplus'
     });
   }
+
+  const parsedAmt = parseFloat(amount);
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Record Expense / Income">
       <form onSubmit={handleSubmit} className="space-y-4">
-        <Input
-          label="Amount (₹)"
-          type="number"
-          step="0.01"
-          placeholder="e.g. 1500.00"
-          value={amount}
-          onChange={(e) => setAmount(e.target.value)}
-          required
-          autoFocus
-        />
+        {/* Transaction Type Pills */}
+        <div className="grid grid-cols-3 gap-1.5 p-1 bg-[#232044] rounded-2xl border border-white/5 font-mono text-xs">
+          {[
+            { id: 'debit', label: 'Debit' },
+            { id: 'credit', label: 'Inflow' },
+            { id: 'transfer', label: 'Transfer' }
+          ].map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setTxnType(t.id)}
+              className={`py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+                txnType === t.id
+                  ? 'bg-[#FBD8B3] text-[#1A1835] shadow-sm font-black'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
 
-        <Select
-          label="Transaction Type"
-          value={txnType}
-          onChange={(e) => setTxnType(e.target.value)}
-          options={[
-            { value: 'debit', label: 'Expense (Debit Outflow)' },
-            { value: 'credit', label: 'Income (Credit Inflow)' },
-            { value: 'transfer', label: 'Transfer (Account Transfer)' }
-          ]}
-        />
+        {/* Currency Amount Input */}
+        <div>
+          <label className="text-[11px] font-bold font-mono tracking-wider text-slate-300 uppercase block mb-1">
+            Amount (₹)
+          </label>
+          <div className="relative flex items-center">
+            <span className="absolute left-3.5 text-xl font-mono text-[#FBD8B3] font-bold">₹</span>
+            <input
+              type="number"
+              step="0.01"
+              required
+              autoFocus
+              placeholder="0.00"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              className="w-full pl-9 pr-4 py-3 bg-[#232044] border border-white/10 rounded-2xl text-2xl font-mono font-black text-white focus:outline-none focus:border-[#FBD8B3]"
+            />
+          </div>
+          {parsedAmt > 0 && (
+            <span className="text-[10px] font-mono text-[#FBD8B3] mt-1 block">
+              Calculated E5: {amountToE5(parsedAmt).toLocaleString()} E5 units
+            </span>
+          )}
+        </div>
 
-        <Select
-          label="Assigned Envelope"
-          value={envelopeId}
-          onChange={(e) => setEnvelopeId(e.target.value)}
-          options={envelopeOptions}
-        />
+        {/* Envelope Selector */}
+        {txnType !== 'credit' && (
+          <div className="space-y-1.5">
+            <Select
+              label="Assigned Budget Envelope"
+              value={envelopeId}
+              onChange={(e) => setEnvelopeId(e.target.value)}
+              options={envelopeOptions}
+            />
+            {envelopeId && (
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#1A1835] border border-white/5 animate-fadeIn">
+                <EnvelopeMonogramBadge
+                  name={(envelopes || []).find((e) => e?.id === envelopeId)?.name || 'General'}
+                  size="xs"
+                />
+                <span className="text-[11px] font-mono text-slate-300 truncate">
+                  {(envelopes || []).find((e) => e?.id === envelopeId)?.name || 'Unallocated Surplus Pool'}
+                </span>
+              </div>
+            )}
+          </div>
+        )}
 
-        <Select
-          label="Payment Method"
-          value={paymentMethod}
-          onChange={(e) => setPaymentMethod(e.target.value)}
-          options={[
-            { value: 'bank_card', label: 'Bank Card' },
-            { value: 'bank_account', label: 'Bank Account' }
-          ]}
-        />
+        {/* Payment Rail Selector */}
+        <div>
+          <label className="text-[11px] font-bold font-mono tracking-wider text-slate-300 uppercase block mb-1">
+            Payment Account Rail
+          </label>
+          <div className="grid grid-cols-2 gap-2">
+            {[
+              { id: 'bank_card', label: 'Obsidian CC' },
+              { id: 'bank_account', label: 'Primary Bank (ACH)' }
+            ].map((m) => (
+              <button
+                key={m.id}
+                type="button"
+                onClick={() => setPaymentMethod(m.id)}
+                className={`p-3 rounded-2xl border text-xs font-mono font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                  paymentMethod === m.id
+                    ? 'bg-[#FBD8B3] text-[#1A1835] font-black border-[#FBD8B3] shadow-sm'
+                    : 'bg-[#232044] border-white/5 text-slate-400 hover:text-white'
+                }`}
+              >
+                <span>{m.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
 
-        <div className="flex justify-end gap-3 pt-3 border-t border-[#342F2C]">
+        {/* Actions */}
+        <div className="flex justify-end gap-3 pt-3 border-t border-white/10">
           <Button type="button" variant="ghost" onClick={onClose}>
             Cancel
           </Button>
           <Button type="submit" variant="primary" disabled={loading}>
-            {loading ? 'Saving...' : 'Add Transaction'}
+            {loading ? 'Recording...' : 'Add Transaction'}
           </Button>
         </div>
       </form>
@@ -160,7 +221,7 @@ export const EditTxnModal: React.FC<EditTxnModalProps> = ({
 
   const [amount, setAmount] = useState<string>('');
   const [txnType, setTxnType] = useState<string>('debit');
-  const [paymentMethod, setPaymentMethod] = useState<string>('');
+  const [paymentMethod, setPaymentMethod] = useState<string>('bank_card');
   const [envelopeId, setEnvelopeId] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState<boolean>(false);
@@ -223,10 +284,10 @@ export const EditTxnModal: React.FC<EditTxnModalProps> = ({
     const gName = groupMap.get(env.envelope_group_id);
     const envName = env.name || (env.is_system ? 'Unallocated Budget' : `Envelope #${env.id.slice(-4)}`);
     const label = env.is_system
-      ? 'Unallocated Budget (System Pool)'
+      ? 'Unallocated General Surplus'
       : gName
-        ? `${gName} › ${envName}`
-        : envName;
+      ? `${gName} › ${envName}`
+      : envName;
     return {
       value: env.id,
       label
@@ -236,63 +297,108 @@ export const EditTxnModal: React.FC<EditTxnModalProps> = ({
   if (envelopeOptions.length === 0) {
     envelopeOptions.push({
       value: systemEnvId,
-      label: 'Unallocated Budget (System Pool)'
+      label: 'Unallocated General Surplus'
     });
   }
 
   return (
     <>
-      <Modal isOpen={isOpen} onClose={onClose} title="Edit Transaction Details">
+      <Modal isOpen={isOpen} onClose={onClose} title="Modify Transaction Entry">
         <form onSubmit={handleSubmit} className="space-y-4">
-          <Input
-            label="Amount (₹)"
-            type="number"
-            step="0.01"
-            placeholder="e.g. 1500.00"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            required
-          />
-
-          <Select
-            label="Transaction Type"
-            value={txnType}
-            onChange={(e) => setTxnType(e.target.value)}
-            options={[
-              { value: 'debit', label: 'Expense (Debit Outflow)' },
-              { value: 'credit', label: 'Income (Credit Inflow)' },
-              { value: 'transfer', label: 'Transfer (Account Transfer)' }
-            ]}
-          />
-
-          <Select
-            label="Assigned Envelope"
-            value={envelopeId}
-            onChange={(e) => setEnvelopeId(e.target.value)}
-            options={envelopeOptions}
-          />
-
-          <Select
-            label="Payment Method"
-            value={paymentMethod}
-            onChange={(e) => setPaymentMethod(e.target.value)}
-            options={[
-              { value: 'bank_card', label: 'Bank Card' },
-              { value: 'bank_account', label: 'Bank Account' }
-            ]}
-          />
-
-          <div className="flex items-center justify-between gap-3 pt-3 border-t border-[#342F2C]">
-            {onDelete ? (
-              <Button
+          <div className="grid grid-cols-3 gap-1.5 p-1 bg-[#232044] rounded-2xl border border-white/5 font-mono text-xs">
+            {[
+              { id: 'debit', label: 'Debit' },
+              { id: 'credit', label: 'Inflow' },
+              { id: 'transfer', label: 'Transfer' }
+            ].map((t) => (
+              <button
+                key={t.id}
                 type="button"
-                variant="danger"
+                onClick={() => setTxnType(t.id)}
+                className={`py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+                  txnType === t.id
+                    ? 'bg-[#FBD8B3] text-[#1A1835] shadow-sm font-black'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          <div>
+            <label className="text-[11px] font-bold font-mono tracking-wider text-slate-300 uppercase block mb-1">
+              Amount (₹)
+            </label>
+            <div className="relative flex items-center">
+              <span className="absolute left-3.5 text-xl font-mono text-[#FBD8B3] font-bold">₹</span>
+              <input
+                type="number"
+                step="0.01"
+                required
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                className="w-full pl-9 pr-4 py-3 bg-[#232044] border border-white/10 rounded-2xl text-2xl font-mono font-black text-white focus:outline-none focus:border-[#FBD8B3]"
+              />
+            </div>
+          </div>
+
+          {/* Envelope Selector */}
+          <div className="space-y-1.5">
+            <Select
+              label="Assigned Envelope"
+              value={envelopeId}
+              onChange={(e) => setEnvelopeId(e.target.value)}
+              options={envelopeOptions}
+            />
+            {envelopeId && (
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#1A1835] border border-white/5 animate-fadeIn">
+                <EnvelopeMonogramBadge
+                  name={(envelopes || []).find((e) => e?.id === envelopeId)?.name || 'General'}
+                  size="xs"
+                />
+                <span className="text-[11px] font-mono text-slate-300 truncate">
+                  {(envelopes || []).find((e) => e?.id === envelopeId)?.name || 'Unallocated Surplus Pool'}
+                </span>
+              </div>
+            )}
+          </div>
+
+          <div>
+            <label className="text-[11px] font-bold font-mono tracking-wider text-slate-300 uppercase block mb-1">
+              Payment Rail
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { id: 'bank_card', label: 'Obsidian CC' },
+                { id: 'bank_account', label: 'Primary Bank (ACH)' }
+              ].map((m) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => setPaymentMethod(m.id)}
+                  className={`p-3 rounded-2xl border text-xs font-mono font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                    paymentMethod === m.id
+                      ? 'bg-[#FBD8B3] text-[#1A1835] font-black border-[#FBD8B3] shadow-sm'
+                      : 'bg-[#232044] border-white/5 text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <span>{m.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between gap-3 pt-3 border-t border-white/10">
+            {onDelete ? (
+              <button
+                type="button"
                 onClick={() => setIsDeleteConfirmOpen(true)}
-                className="flex items-center gap-1.5"
+                className="p-3 rounded-2xl bg-[#FFB5A7]/20 text-[#FFB5A7] border border-[#FFB5A7]/30 hover:bg-[#FFB5A7]/30 transition-colors cursor-pointer"
+                title="Delete Entry"
               >
                 <Trash2 className="w-4 h-4" />
-                <span>Delete</span>
-              </Button>
+              </button>
             ) : (
               <div />
             )}
@@ -302,13 +408,14 @@ export const EditTxnModal: React.FC<EditTxnModalProps> = ({
                 Cancel
               </Button>
               <Button type="submit" variant="primary" disabled={loading}>
-                {loading ? 'Saving...' : 'Save Changes'}
+                {loading ? 'Saving...' : 'Update Entry'}
               </Button>
             </div>
           </div>
         </form>
       </Modal>
 
+      {/* Delete Confirmation Modal */}
       {isDeleteConfirmOpen && (
         <Modal
           isOpen={isDeleteConfirmOpen}
@@ -316,18 +423,18 @@ export const EditTxnModal: React.FC<EditTxnModalProps> = ({
           title="Delete Transaction"
         >
           <div className="space-y-4">
-            <div className="flex items-start gap-3.5 p-4 bg-rose-500/10 border border-rose-500/20 rounded-2xl">
-              <div className="p-2 bg-rose-500/20 text-rose-400 rounded-xl shrink-0 mt-0.5">
+            <div className="p-4 bg-[#FFB5A7]/10 border border-[#FFB5A7]/20 rounded-2xl flex items-start gap-3">
+              <div className="p-2 bg-[#FFB5A7]/20 text-[#FFB5A7] rounded-xl shrink-0 mt-0.5">
                 <AlertTriangle className="w-5 h-5" />
               </div>
               <div className="space-y-1">
-                <h4 className="text-sm font-bold text-[#F4F1DE]">Confirm Transaction Deletion</h4>
-                <p className="text-xs text-[#B0A79E] leading-relaxed">
-                  Are you sure you want to delete this transaction of{' '}
-                  <span className="font-semibold text-rose-300">
+                <h4 className="text-sm font-bold text-white">Delete Transaction Entry?</h4>
+                <p className="text-xs text-slate-300 leading-relaxed font-mono">
+                  Confirm removing this transaction of{' '}
+                  <span className="font-bold text-[#FFB5A7]">
                     {formatCurrency(transaction?.amount_e5 || 0)}
                   </span>
-                  {transaction?.payment_method ? ` (${transaction.payment_method})` : ''}? This action cannot be undone.
+                  . This balance will be returned to the account.
                 </p>
               </div>
             </div>
@@ -347,223 +454,13 @@ export const EditTxnModal: React.FC<EditTxnModalProps> = ({
                 onClick={handleConfirmDelete}
                 disabled={isDeleting}
               >
-                {isDeleting ? 'Deleting...' : 'Continue'}
+                {isDeleting ? 'Deleting...' : 'Confirm Delete'}
               </Button>
             </div>
           </div>
         </Modal>
       )}
     </>
-  );
-};
-
-// --- New Envelope Group Modal ---
-interface NewGroupModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onSubmit: (name: string) => Promise<void>;
-}
-
-export const NewGroupModal: React.FC<NewGroupModalProps> = ({ isOpen, onClose, onSubmit }) => {
-  const [name, setName] = useState('');
-  const [loading, setLoading] = useState(false);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name.trim()) return;
-    setLoading(true);
-    try {
-      await onSubmit(name.trim());
-      setName('');
-      onClose();
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Create Budget Pool Group">
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <Input
-          label="Group Name"
-          type="text"
-          placeholder="e.g. Monthly Needs, Savings"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          required
-        />
-
-        <div className="flex justify-end gap-3 pt-3 border-t border-[#342F2C]">
-          <Button type="button" variant="ghost" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button type="submit" variant="primary" disabled={loading}>
-            {loading ? 'Creating...' : 'Create Group'}
-          </Button>
-        </div>
-      </form>
-    </Modal>
-  );
-};
-
-// --- New Envelope Modal ---
-interface NewEnvModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  groups: EnvelopeGroup[];
-  defaultGroupId?: string;
-  onSubmit: (groupId: string, targetAmountE5: number, cadence: string) => Promise<void>;
-}
-
-export const NewEnvModal: React.FC<NewEnvModalProps> = ({
-  isOpen,
-  onClose,
-  groups,
-  defaultGroupId,
-  onSubmit
-}) => {
-  const [groupId, setGroupId] = useState(defaultGroupId || groups[0]?.id || '');
-  const [targetAmount, setTargetAmount] = useState('');
-  const [cadence, setCadence] = useState('monthly');
-  const [loading, setLoading] = useState(false);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const parsed = parseFloat(targetAmount);
-    if (isNaN(parsed) || parsed < 0 || !groupId) return;
-
-    setLoading(true);
-    try {
-      await onSubmit(groupId, amountToE5(parsed), cadence);
-      setTargetAmount('');
-      onClose();
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const groupOptions = groups
-    .filter((g) => !g.is_system)
-    .map((g) => ({ value: g.id, label: g.name }));
-
-  return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Create Budget Envelope">
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <Select
-          label="Target Pool Group"
-          value={groupId}
-          onChange={(e) => setGroupId(e.target.value)}
-          options={groupOptions.length > 0 ? groupOptions : [{ value: '', label: 'No Groups Available' }]}
-        />
-
-        <Input
-          label="Target Amount (₹)"
-          type="number"
-          step="0.01"
-          placeholder="e.g. 10000.00"
-          value={targetAmount}
-          onChange={(e) => setTargetAmount(e.target.value)}
-          required
-        />
-
-        <Select
-          label="Cadence"
-          value={cadence}
-          onChange={(e) => setCadence(e.target.value)}
-          options={[
-            { value: 'monthly', label: 'Monthly' },
-            { value: 'weekly', label: 'Weekly' },
-            { value: 'yearly', label: 'Yearly' }
-          ]}
-        />
-
-        <div className="flex justify-end gap-3 pt-3 border-t border-[#342F2C]">
-          <Button type="button" variant="ghost" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button type="submit" variant="primary" disabled={loading}>
-            {loading ? 'Creating...' : 'Create Envelope'}
-          </Button>
-        </div>
-      </form>
-    </Modal>
-  );
-};
-
-// --- Allocation Modal ---
-interface AllocationModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  envelopes: Envelope[];
-  readyToAssignE5: number;
-  selectedEnvelopeId?: string;
-  onSubmit: (envelopeId: string, amountE5: number) => Promise<void>;
-}
-
-export const AllocationModal: React.FC<AllocationModalProps> = ({
-  isOpen,
-  onClose,
-  envelopes,
-  readyToAssignE5,
-  selectedEnvelopeId,
-  onSubmit
-}) => {
-  const [envelopeId, setEnvelopeId] = useState(selectedEnvelopeId || envelopes[0]?.id || '');
-  const [amount, setAmount] = useState('');
-  const [loading, setLoading] = useState(false);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const parsed = parseFloat(amount);
-    if (isNaN(parsed) || parsed <= 0 || !envelopeId) return;
-
-    setLoading(true);
-    try {
-      await onSubmit(envelopeId, amountToE5(parsed));
-      setAmount('');
-      onClose();
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const options = envelopes
-    .filter((e) => !e.is_system)
-    .map((e) => ({
-      value: e.id,
-      label: `Envelope #${e.id.slice(-4)} (Target: ${formatCurrency(e.target_amount_e5)})`
-    }));
-
-  return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Fund Envelope">
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <Select
-          label="Target Envelope"
-          value={envelopeId}
-          onChange={(e) => setEnvelopeId(e.target.value)}
-          options={options.length > 0 ? options : [{ value: '', label: 'No Envelopes' }]}
-        />
-
-        <Input
-          label="Fund Amount (₹)"
-          type="number"
-          step="0.01"
-          placeholder="e.g. 5000.00"
-          value={amount}
-          onChange={(e) => setAmount(e.target.value)}
-          required
-        />
-
-        <div className="flex justify-end gap-3 pt-3 border-t border-[#342F2C]">
-          <Button type="button" variant="ghost" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button type="submit" variant="primary" disabled={loading}>
-            {loading ? 'Funding...' : 'Fund Envelope'}
-          </Button>
-        </div>
-      </form>
-    </Modal>
   );
 };
 
@@ -597,7 +494,7 @@ export const NewCategoryModal: React.FC<NewCategoryModalProps> = ({
   const [cadence, setCadence] = useState<string>('monthly');
   const [loading, setLoading] = useState<boolean>(false);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (safeGroups.length > 0 && (!selectedGroupId || selectedGroupId === '')) {
       setSelectedGroupId(safeGroups[0].id);
     }
@@ -638,26 +535,22 @@ export const NewCategoryModal: React.FC<NewCategoryModalProps> = ({
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Create Budget Category">
       <form onSubmit={handleSubmit} className="space-y-4">
-        {/* Parent Envelope Group Selection */}
-        <div className="space-y-2">
-          <Select
-            label="Parent Envelope Group"
-            value={isCreatingNewGroup ? 'NEW_GROUP' : selectedGroupId}
-            onChange={(e) => setSelectedGroupId(e.target.value)}
-            options={groupOptions}
-          />
-        </div>
+        <Select
+          label="Parent Classification Group"
+          value={isCreatingNewGroup ? 'NEW_GROUP' : selectedGroupId}
+          onChange={(e) => setSelectedGroupId(e.target.value)}
+          options={groupOptions}
+        />
 
-        {/* Dynamic New Group Name Input if creating new group */}
         {isCreatingNewGroup && (
-          <div className="p-3.5 rounded-2xl bg-[#1A1715] border border-[#E07A5F]/40 space-y-2 animate-fadeIn">
-            <span className="text-[11px] font-bold text-[#E07A5F] uppercase tracking-wider">
-              ✨ New Parent Group Info
+          <div className="p-3.5 rounded-2xl bg-[#232044] border border-[#FBD8B3]/30 space-y-2 animate-fadeIn">
+            <span className="text-[11px] font-bold font-mono text-[#FBD8B3] uppercase tracking-wider">
+              ✨ New Group Name
             </span>
             <Input
               label="Group Name"
               type="text"
-              placeholder="e.g. Food, Transportation, Housing, Fun"
+              placeholder="e.g. Essential Living, Lifestyle & Social"
               value={newGroupName}
               onChange={(e) => setNewGroupName(e.target.value)}
               required={isCreatingNewGroup}
@@ -665,28 +558,25 @@ export const NewCategoryModal: React.FC<NewCategoryModalProps> = ({
           </div>
         )}
 
-        {/* Category Name */}
         <Input
-          label="Category Name"
+          label="Envelope Title"
           type="text"
-          placeholder="e.g. Groceries, Dining Out, Snacks"
+          placeholder="e.g. Artisanal Roasteries & Teas"
           value={categoryName}
           onChange={(e) => setCategoryName(e.target.value)}
           required
         />
 
-        {/* Budget Amount (₹) */}
         <Input
-          label="Budget Amount (₹)"
+          label="Monthly Target Budget (₹)"
           type="number"
           step="0.01"
-          placeholder="e.g. 5000.00"
+          placeholder="e.g. 12000.00"
           value={budgetAmount}
           onChange={(e) => setBudgetAmount(e.target.value)}
           required
         />
 
-        {/* Cadence */}
         <Select
           label="Cadence"
           value={cadence}
@@ -698,13 +588,12 @@ export const NewCategoryModal: React.FC<NewCategoryModalProps> = ({
           ]}
         />
 
-        {/* Footer Actions */}
-        <div className="flex justify-end gap-3 pt-3 border-t border-[#342F2C]">
+        <div className="flex justify-end gap-3 pt-3 border-t border-white/10">
           <Button type="button" variant="ghost" onClick={onClose}>
             Cancel
           </Button>
           <Button type="submit" variant="primary" disabled={loading}>
-            {loading ? 'Creating...' : 'Create Category'}
+            {loading ? 'Creating...' : 'Create Envelope'}
           </Button>
         </div>
       </form>
@@ -712,7 +601,7 @@ export const NewCategoryModal: React.FC<NewCategoryModalProps> = ({
   );
 };
 
-// --- Edit Category (Envelope) Modal ---
+// --- Edit Category Modal ---
 interface EditCategoryModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -729,8 +618,7 @@ export const EditCategoryModal: React.FC<EditCategoryModalProps> = ({
   envelope,
   groups = [],
   onUpdate,
-  onDelete,
-  onEditGroup
+  onDelete
 }) => {
   const [categoryName, setCategoryName] = useState('');
   const [budgetAmount, setBudgetAmount] = useState('');
@@ -782,23 +670,25 @@ export const EditCategoryModal: React.FC<EditCategoryModalProps> = ({
   }));
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Edit Category Envelope">
+    <Modal isOpen={isOpen} onClose={onClose} title="Configure Envelope">
       <form onSubmit={handleSubmit} className="space-y-4">
         <Input
-          label="Category Name"
+          label="Envelope Title"
           type="text"
           value={categoryName}
           onChange={(e) => setCategoryName(e.target.value)}
           required
         />
+
         <Input
-          label="Budget Target Amount (₹)"
+          label="Monthly Target Budget (₹)"
           type="number"
           step="0.01"
           value={budgetAmount}
           onChange={(e) => setBudgetAmount(e.target.value)}
           required
         />
+
         <Select
           label="Cadence"
           value={cadence}
@@ -809,43 +699,24 @@ export const EditCategoryModal: React.FC<EditCategoryModalProps> = ({
             { value: 'yearly', label: 'Yearly' }
           ]}
         />
+
         {groupOptions.length > 0 && (
-          <div className="space-y-1">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-bold text-[#A89F95]">Parent Envelope Group</label>
-              {onEditGroup && groupId && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    const matchedGroup = groups.find((g) => g.id === groupId);
-                    if (matchedGroup) {
-                      onClose();
-                      onEditGroup(matchedGroup);
-                    }
-                  }}
-                  className="text-[11px] font-bold text-[#E07A5F] hover:underline flex items-center gap-1 cursor-pointer"
-                >
-                  <Pencil className="w-3 h-3 text-[#E07A5F]" />
-                  <span>Rename Group</span>
-                </button>
-              )}
-            </div>
-            <Select
-              value={groupId}
-              onChange={(e) => setGroupId(e.target.value)}
-              options={groupOptions}
-            />
-          </div>
+          <Select
+            label="Parent Classification Group"
+            value={groupId}
+            onChange={(e) => setGroupId(e.target.value)}
+            options={groupOptions}
+          />
         )}
 
         {showConfirmDelete ? (
-          <div className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/30 space-y-2">
-            <p className="text-xs text-rose-300 font-bold flex items-center gap-1.5">
-              <AlertTriangle className="w-4 h-4 text-rose-400" />
-              Confirm Deletion?
+          <div className="p-3.5 rounded-2xl bg-[#FFB5A7]/10 border border-[#FFB5A7]/30 space-y-2">
+            <p className="text-xs text-[#FFB5A7] font-bold flex items-center gap-1.5 font-mono">
+              <AlertTriangle className="w-4 h-4" />
+              Confirm Release to Pool?
             </p>
-            <p className="text-[11px] text-[#A89F95]">
-              Deleting this category envelope will disassociate it from existing transactions.
+            <p className="text-[11px] text-slate-300 font-mono">
+              Deleting this envelope releases its balance back into the Unallocated Surplus pool.
             </p>
             <div className="flex gap-2 pt-1">
               <Button
@@ -856,7 +727,7 @@ export const EditCategoryModal: React.FC<EditCategoryModalProps> = ({
                 disabled={deleting}
                 className="w-full text-xs font-bold"
               >
-                {deleting ? 'Deleting...' : 'Yes, Delete Category'}
+                {deleting ? 'Releasing...' : 'Yes, Delete Envelope'}
               </Button>
               <Button
                 type="button"
@@ -870,15 +741,15 @@ export const EditCategoryModal: React.FC<EditCategoryModalProps> = ({
             </div>
           </div>
         ) : (
-          <div className="flex items-center justify-between pt-3 border-t border-[#342F2C]">
+          <div className="flex items-center justify-between pt-3 border-t border-white/10">
             {onDelete && !envelope?.is_system ? (
               <button
                 type="button"
                 onClick={() => setShowConfirmDelete(true)}
-                className="text-xs font-bold text-rose-400 hover:text-rose-300 flex items-center gap-1.5 transition-colors cursor-pointer"
+                className="text-xs font-bold text-[#FFB5A7] hover:underline flex items-center gap-1.5 cursor-pointer font-mono"
               >
                 <Trash2 className="w-4 h-4" />
-                <span>Delete Category</span>
+                <span>Delete Envelope</span>
               </button>
             ) : (
               <div />
@@ -951,7 +822,7 @@ export const EditGroupModal: React.FC<EditGroupModalProps> = ({
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Edit Envelope Group">
+    <Modal isOpen={isOpen} onClose={onClose} title="Edit Classification Group">
       <form onSubmit={handleSubmit} className="space-y-4">
         <Input
           label="Envelope Group Name"
@@ -962,13 +833,10 @@ export const EditGroupModal: React.FC<EditGroupModalProps> = ({
         />
 
         {showConfirmDelete ? (
-          <div className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/30 space-y-2">
-            <p className="text-xs text-rose-300 font-bold flex items-center gap-1.5">
-              <AlertTriangle className="w-4 h-4 text-rose-400" />
+          <div className="p-3.5 rounded-2xl bg-[#FFB5A7]/10 border border-[#FFB5A7]/30 space-y-2">
+            <p className="text-xs text-[#FFB5A7] font-bold flex items-center gap-1.5 font-mono">
+              <AlertTriangle className="w-4 h-4" />
               Confirm Group Deletion?
-            </p>
-            <p className="text-[11px] text-[#A89F95]">
-              Deleting this group will remove it from category groupings.
             </p>
             <div className="flex gap-2 pt-1">
               <Button
@@ -993,12 +861,12 @@ export const EditGroupModal: React.FC<EditGroupModalProps> = ({
             </div>
           </div>
         ) : (
-          <div className="flex items-center justify-between pt-3 border-t border-[#342F2C]">
+          <div className="flex items-center justify-between pt-3 border-t border-white/10">
             {onDelete && !group?.is_system ? (
               <button
                 type="button"
                 onClick={() => setShowConfirmDelete(true)}
-                className="text-xs font-bold text-rose-400 hover:text-rose-300 flex items-center gap-1.5 transition-colors cursor-pointer"
+                className="text-xs font-bold text-[#FFB5A7] hover:underline flex items-center gap-1.5 cursor-pointer font-mono"
               >
                 <Trash2 className="w-4 h-4" />
                 <span>Delete Group</span>
