@@ -119,7 +119,6 @@ export const NewTxnModal: React.FC<NewTxnModalProps> = ({
               type="number"
               step="0.01"
               required
-              autoFocus
               placeholder="0.00"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}

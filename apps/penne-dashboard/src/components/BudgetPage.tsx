@@ -432,11 +432,23 @@ export const BudgetPage: React.FC<BudgetPageProps> = ({
                           <div
                             key={tx.id}
                             onClick={() => onSelectTxnForEdit?.(tx)}
-                            className="flex justify-between py-1.5 px-2 rounded-lg hover:bg-white/5 cursor-pointer text-[11px] transition-colors"
+                            className="flex items-center justify-between py-1.5 px-2 rounded-lg hover:bg-white/5 cursor-pointer text-[11px] transition-colors"
                           >
-                            <span className="text-slate-200 truncate mr-2">
-                              {tx.payment_method === 'bank_card' ? 'Obsidian Card Expense' : 'Bank Direct Debit'}
-                            </span>
+                            <div className="flex items-center gap-1.5 min-w-0 mr-2">
+                              <span className="text-slate-200 truncate">
+                                {env.name}
+                              </span>
+                              <span
+                                className={`px-1.5 py-0.5 rounded text-[9px] font-mono font-black shrink-0 tracking-wider uppercase leading-none shadow-sm ${
+                                  tx.payment_method === 'bank_card'
+                                    ? 'bg-[#C8B6FF]/25 text-[#E2D8FF] border border-[#C8B6FF]/55'
+                                    : 'bg-[#64D2FF]/20 text-[#64D2FF] border border-[#64D2FF]/50'
+                                }`}
+                                title={tx.payment_method === 'bank_card' ? 'Obsidian Card (CC)' : 'Primary Bank (BA)'}
+                              >
+                                {tx.payment_method === 'bank_card' ? 'CC' : 'BA'}
+                              </span>
+                            </div>
                             <span className="text-[#FFB5A7] font-bold shrink-0">
                               -{formatINR(e5ToAmount(tx.amount_e5))}
                             </span>

@@ -273,42 +273,44 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
                       isCredit
                         ? 'bg-[#A8E6CF]/20 text-[#A8E6CF] border border-[#A8E6CF]/30'
                         : isTransfer
-                        ? 'bg-[#C8B6FF]/20 text-[#C8B6FF] border border-[#C8B6FF]/30'
-                        : tx.payment_method === 'bank_card'
                         ? 'bg-[#FBD8B3]/20 text-[#FBD8B3] border border-[#FBD8B3]/30'
-                        : 'bg-[#A7D7F9]/20 text-[#A7D7F9] border border-[#A7D7F9]/30'
+                        : tx.payment_method === 'bank_card'
+                        ? 'bg-[#C8B6FF]/20 text-[#C8B6FF] border border-[#C8B6FF]/35'
+                        : 'bg-[#64D2FF]/20 text-[#64D2FF] border border-[#64D2FF]/35'
                     }`}
                   >
                     {isCredit ? (
                       <ArrowDownLeft className="w-4 h-4 text-[#A8E6CF]" />
                     ) : isTransfer ? (
-                      <ArrowLeftRight className="w-4 h-4 text-[#C8B6FF]" />
+                      <ArrowLeftRight className="w-4 h-4 text-[#FBD8B3]" />
                     ) : tx.payment_method === 'bank_card' ? (
-                      <CreditCard className="w-4 h-4 text-[#FBD8B3]" />
+                      <CreditCard className="w-4 h-4 text-[#C8B6FF]" />
                     ) : (
-                      <Landmark className="w-4 h-4 text-[#A7D7F9]" />
+                      <Landmark className="w-4 h-4 text-[#64D2FF]" />
                     )}
                   </div>
                   <div className="min-w-0">
-                    <p className="text-xs font-semibold text-slate-100 truncate group-hover:text-[#FBD8B3] transition-colors">
-                      {assignedEnv?.name || (isCredit
-                        ? 'Direct Inflow'
-                        : isTransfer
-                        ? 'Account Transfer'
-                        : tx.payment_method === 'bank_card'
-                        ? 'Obsidian Card Expense'
-                        : 'Primary Bank Debit')}
-                    </p>
-                    <div className="flex items-center gap-1.5 text-[10px] font-mono text-slate-400 mt-0.5">
-                      <span className="capitalize">{tx.payment_method.replace('_', ' ')}</span>
-                      {assignedEnv && (
-                        <>
-                          <span>•</span>
-                          <span className="text-[#FBD8B3] font-medium">{assignedEnv.name}</span>
-                        </>
-                      )}
-                      <span>•</span>
-                      <span>{dateStr} {timeStr}</span>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <p className="text-xs font-bold text-slate-100 truncate group-hover:text-[#FBD8B3] transition-colors">
+                        {assignedEnv?.name || (isCredit
+                          ? 'Direct Inflow'
+                          : isTransfer
+                          ? 'Account Transfer'
+                          : 'General Expense')}
+                      </p>
+                      <span
+                        className={`px-1.5 py-0.5 rounded text-[9px] font-mono font-black shrink-0 tracking-wider uppercase leading-none shadow-sm ${
+                          tx.payment_method === 'bank_card'
+                            ? 'bg-[#C8B6FF]/25 text-[#E2D8FF] border border-[#C8B6FF]/55'
+                            : 'bg-[#64D2FF]/20 text-[#64D2FF] border border-[#64D2FF]/50'
+                        }`}
+                        title={tx.payment_method === 'bank_card' ? 'Obsidian Card (CC)' : 'Primary Bank (BA)'}
+                      >
+                        {tx.payment_method === 'bank_card' ? 'CC' : 'BA'}
+                      </span>
+                    </div>
+                    <div className="text-[10px] font-mono text-slate-400 mt-0.5">
+                      {dateStr} • {timeStr}
                     </div>
                   </div>
                 </div>

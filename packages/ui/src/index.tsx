@@ -243,11 +243,48 @@ export interface ModalProps {
 }
 
 export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
+  React.useEffect(() => {
+    if (isOpen) {
+      // Prevent automatic input focus and mobile virtual keyboard popup when modal opens
+      const blurActive = () => {
+        if (
+          document.activeElement instanceof HTMLElement &&
+          (document.activeElement.tagName === 'INPUT' ||
+            document.activeElement.tagName === 'TEXTAREA' ||
+            document.activeElement.tagName === 'SELECT')
+        ) {
+          document.activeElement.blur();
+        }
+      };
+      blurActive();
+      const raf = requestAnimationFrame(blurActive);
+      return () => cancelAnimationFrame(raf);
+    }
+  }, [isOpen]);
+
+  // Handle Escape key to close modal
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/75 backdrop-blur-md animate-fadeIn pt-[max(env(safe-area-inset-top,0px),1rem)] pb-[max(env(safe-area-inset-bottom,0px),1rem)]">
-      <div className="bg-[#2C2856] border border-white/15 rounded-t-3xl sm:rounded-3xl w-full max-w-md shadow-2xl overflow-hidden transform transition-all max-h-[85dvh] flex flex-col">
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/75 backdrop-blur-md animate-fadeIn pt-[max(env(safe-area-inset-top,0px),1rem)] pb-[max(env(safe-area-inset-bottom,0px),1rem)]"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-[#2C2856] border border-white/15 rounded-t-3xl sm:rounded-3xl w-full max-w-md shadow-2xl overflow-hidden transform transition-all max-h-[85dvh] flex flex-col"
+      >
         <div className="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-white/10 bg-[#232044] shrink-0">
           <h3 className="text-base sm:text-lg font-extrabold text-white">{title}</h3>
           <button
