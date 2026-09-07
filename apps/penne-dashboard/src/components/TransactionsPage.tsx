@@ -296,7 +296,7 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
                           ? 'Direct Inflow'
                           : isTransfer
                           ? 'Account Transfer'
-                          : 'General Expense')}
+                          : 'Uncategorized')}
                       </p>
                       <span
                         className={`px-1.5 py-0.5 rounded text-[9px] font-mono font-black shrink-0 tracking-wider uppercase leading-none shadow-sm ${

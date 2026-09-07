@@ -448,9 +448,7 @@ export const HomePage: React.FC<HomePageProps> = ({
                 ? 'Income Inflow'
                 : isTransfer
                 ? 'Account Transfer'
-                : tx.payment_method === 'bank_card'
-                ? 'Obsidian Card Expense'
-                : 'Primary Bank Debit');
+                : 'Uncategorized');
 
               return (
                 <div
