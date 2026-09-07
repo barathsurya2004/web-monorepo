@@ -83,11 +83,27 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
   const [selectedGroupTag, setSelectedGroupTag] = useState<string>('all');
   const [selectedCategoryEnv, setSelectedCategoryEnv] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<'all' | 'debit' | 'credit' | 'transfer'>('all');
+  const [paymentMethodFilter, setPaymentMethodFilter] = useState<'all' | 'bank_card' | 'bank_account'>('all');
   const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
 
   const safeTxns = Array.isArray(transactions) ? transactions : [];
   const safeGroups = Array.isArray(envelopeGroups) ? envelopeGroups : [];
   const safeEnvelopes = Array.isArray(envelopes) ? envelopes : [];
+
+  // Count totals for account types
+  const { cardCount, bankCount } = useMemo(() => {
+    let cards = 0;
+    let bank = 0;
+    safeTxns.forEach((t) => {
+      if (!t) return;
+      if (t.payment_method === 'bank_card') {
+        cards++;
+      } else {
+        bank++;
+      }
+    });
+    return { cardCount: cards, bankCount: bank };
+  }, [safeTxns]);
 
   // Lookup maps for fast lookup of group & category details
   const envelopeMap = useMemo(() => {
@@ -119,6 +135,14 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
 
       // Type filter
       if (typeFilter !== 'all' && t.txn_type !== typeFilter) {
+        return false;
+      }
+
+      // Payment Method / Account filter
+      if (paymentMethodFilter === 'bank_card' && t.payment_method !== 'bank_card') {
+        return false;
+      }
+      if (paymentMethodFilter === 'bank_account' && t.payment_method === 'bank_card') {
         return false;
       }
 
@@ -155,7 +179,7 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
 
       return true;
     });
-  }, [safeTxns, typeFilter, selectedGroupTag, selectedCategoryEnv, searchTerm, envelopeMap, groupMap]);
+  }, [safeTxns, typeFilter, paymentMethodFilter, selectedGroupTag, selectedCategoryEnv, searchTerm, envelopeMap, groupMap]);
 
   // Group transactions by date & sort timewise (newest first) within each group
   const groupedTransactions = useMemo(() => {
@@ -182,12 +206,14 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
   const activeFiltersCount =
     (selectedGroupTag !== 'all' ? 1 : 0) +
     (selectedCategoryEnv !== 'all' ? 1 : 0) +
-    (typeFilter !== 'all' ? 1 : 0);
+    (typeFilter !== 'all' ? 1 : 0) +
+    (paymentMethodFilter !== 'all' ? 1 : 0);
 
   const resetFilters = () => {
     setSelectedGroupTag('all');
     setSelectedCategoryEnv('all');
     setTypeFilter('all');
+    setPaymentMethodFilter('all');
     setSearchTerm('');
   };
 
@@ -240,8 +266,8 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
         </Button>
       </div>
 
-      {/* Search & Filter Bar */}
-      <div className="space-y-2">
+      {/* Search & Filter Controls */}
+      <div className="space-y-2.5">
         <div className="flex items-center gap-2">
           {/* Search Input Box */}
           <div className="relative flex-1">
@@ -281,6 +307,74 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
             )}
           </button>
         </div>
+
+        {/* Quick CC / Bank Account Filter Pills */}
+        <div className="flex items-center gap-1.5 p-1 bg-[#1A1715] border border-[#38322E] rounded-2xl shadow-inner">
+          <button
+            type="button"
+            onClick={() => setPaymentMethodFilter('all')}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
+              paymentMethodFilter === 'all'
+                ? 'bg-[#2E2A27] text-[#F4F1DE] shadow-sm border border-[#453F3A]'
+                : 'text-[#8C837A] hover:text-[#F4F1DE] hover:bg-[#25211E]'
+            }`}
+          >
+            <span>All</span>
+            <span
+              className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono font-bold ${
+                paymentMethodFilter === 'all'
+                  ? 'bg-[#E07A5F]/20 text-[#E07A5F]'
+                  : 'bg-[#26221F] text-[#8C837A]'
+              }`}
+            >
+              {safeTxns.length}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setPaymentMethodFilter('bank_card')}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
+              paymentMethodFilter === 'bank_card'
+                ? 'bg-[#818CF8]/20 text-[#818CF8] border border-[#818CF8]/40 shadow-sm'
+                : 'text-[#8C837A] hover:text-[#F4F1DE] hover:bg-[#25211E]'
+            }`}
+          >
+            <CreditCard className="w-3.5 h-3.5 shrink-0" />
+            <span className="truncate">Cards / CC</span>
+            <span
+              className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono font-bold ${
+                paymentMethodFilter === 'bank_card'
+                  ? 'bg-[#818CF8]/30 text-[#818CF8]'
+                  : 'bg-[#26221F] text-[#8C837A]'
+              }`}
+            >
+              {cardCount}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setPaymentMethodFilter('bank_account')}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
+              paymentMethodFilter === 'bank_account'
+                ? 'bg-[#2DD4BF]/20 text-[#2DD4BF] border border-[#2DD4BF]/40 shadow-sm'
+                : 'text-[#8C837A] hover:text-[#F4F1DE] hover:bg-[#25211E]'
+            }`}
+          >
+            <Building2 className="w-3.5 h-3.5 shrink-0" />
+            <span className="truncate">Bank Accts</span>
+            <span
+              className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono font-bold ${
+                paymentMethodFilter === 'bank_account'
+                  ? 'bg-[#2DD4BF]/30 text-[#2DD4BF]'
+                  : 'bg-[#26221F] text-[#8C837A]'
+              }`}
+            >
+              {bankCount}
+            </span>
+          </button>
+        </div>
       </div>
 
       {/* Expandable Filter Panel */}
@@ -302,7 +396,52 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
           </div>
 
           <div className="space-y-3">
-            {/* Filter 1: Tag (Envelope Group) */}
+            {/* Filter 1: Account / Payment Method */}
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-bold text-[#A89F95] flex items-center gap-1">
+                <CreditCard className="w-3 h-3 text-[#818CF8]" />
+                <span>Account / Payment Method</span>
+              </label>
+              <div className="grid grid-cols-3 gap-1.5 bg-[#1A1715] p-1 rounded-2xl border border-[#38322E]">
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethodFilter('all')}
+                  className={`py-1.5 px-2 text-[11px] font-bold rounded-xl transition-all cursor-pointer ${
+                    paymentMethodFilter === 'all'
+                      ? 'bg-[#38322E] text-[#F4F1DE] shadow-sm'
+                      : 'text-[#A89F95] hover:text-[#F4F1DE]'
+                  }`}
+                >
+                  All Accounts
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethodFilter('bank_card')}
+                  className={`py-1.5 px-2 text-[11px] font-bold rounded-xl flex items-center justify-center gap-1 transition-all cursor-pointer ${
+                    paymentMethodFilter === 'bank_card'
+                      ? 'bg-[#818CF8]/25 text-[#818CF8] border border-[#818CF8]/40 shadow-sm'
+                      : 'text-[#A89F95] hover:text-[#F4F1DE]'
+                  }`}
+                >
+                  <CreditCard className="w-3 h-3 shrink-0" />
+                  <span>Cards / CC</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethodFilter('bank_account')}
+                  className={`py-1.5 px-2 text-[11px] font-bold rounded-xl flex items-center justify-center gap-1 transition-all cursor-pointer ${
+                    paymentMethodFilter === 'bank_account'
+                      ? 'bg-[#2DD4BF]/25 text-[#2DD4BF] border border-[#2DD4BF]/40 shadow-sm'
+                      : 'text-[#A89F95] hover:text-[#F4F1DE]'
+                  }`}
+                >
+                  <Building2 className="w-3 h-3 shrink-0" />
+                  <span>Bank Accts</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Filter 2: Tag (Envelope Group) */}
             <div className="space-y-1.5">
               <label className="text-[11px] font-bold text-[#A89F95] flex items-center gap-1">
                 <Tag className="w-3 h-3 text-[#E07A5F]" />
@@ -325,7 +464,7 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
               </select>
             </div>
 
-            {/* Filter 2: Category (Envelope) */}
+            {/* Filter 3: Category (Envelope) */}
             <div className="space-y-1.5">
               <label className="text-[11px] font-bold text-[#A89F95] flex items-center gap-1">
                 <Folder className="w-3 h-3 text-[#81B29A]" />
@@ -345,7 +484,7 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
               </select>
             </div>
 
-            {/* Filter 3: Transaction Type */}
+            {/* Filter 4: Transaction Type */}
             <div className="space-y-1.5">
               <label className="text-[11px] font-bold text-[#A89F95]">Transaction Type</label>
               <div className="flex items-center gap-1.5 bg-[#1A1715] p-1 rounded-2xl border border-[#38322E]">
@@ -372,6 +511,20 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
       {activeFiltersCount > 0 && !isFilterPanelOpen && (
         <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5">
           <span className="text-[10px] font-bold text-[#8C837A] uppercase shrink-0">Filters:</span>
+          {paymentMethodFilter !== 'all' && (
+            <Badge
+              variant={paymentMethodFilter === 'bank_card' ? 'indigo' : 'sage'}
+              className="text-[10px] gap-1 shrink-0"
+            >
+              {paymentMethodFilter === 'bank_card' ? (
+                <CreditCard className="w-2.5 h-2.5" />
+              ) : (
+                <Building2 className="w-2.5 h-2.5" />
+              )}
+              <span>Account: {paymentMethodFilter === 'bank_card' ? 'Cards / CC' : 'Bank Account'}</span>
+              <X className="w-3 h-3 cursor-pointer" onClick={() => setPaymentMethodFilter('all')} />
+            </Badge>
+          )}
           {selectedGroupTag !== 'all' && (
             <Badge variant="terracotta" className="text-[10px] gap-1 shrink-0">
               <span>Tag: {groupMap.get(selectedGroupTag)?.name || 'Group'}</span>
