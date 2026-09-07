@@ -26,10 +26,18 @@ const BASE_URL = "https://yak-crisp-vulture.ngrok-free.app/";
 const USER_UUID = "f66dcebd-e275-4b22-83bd-e446e0a45624";
 const BEARER_TOKEN = "f66dcebd-e275-4b22-83bd-e446e0a45624";
 
+let isCompleted = false;
+
 // Helper function to set output and complete script execution cleanly for iOS Shortcuts
 function finishScript(output) {
-  console.log("Script output: " + JSON.stringify(output));
-  Script.setShortcutOutput(output);
+  if (isCompleted) return;
+  isCompleted = true;
+  console.log("Script output: " + (typeof output === "object" ? JSON.stringify(output) : output));
+  try {
+    Script.setShortcutOutput(output);
+  } catch (e) {
+    console.warn("Script.setShortcutOutput error: " + e);
+  }
   Script.complete();
 }
 
@@ -86,16 +94,24 @@ async function main() {
   let longitude = 0.0;
   try {
     console.log("Fetching current GPS location...");
-    Location.setAccuracyToBest();
-    const loc = await Location.current();
-    latitude = loc.latitude;
-    longitude = loc.longitude;
-    console.log(`Location obtained: (${latitude}, ${longitude})`);
+    Location.setAccuracyToHundredMeters();
+
+    // Guard with a 5-second timeout so location fetch never stalls the shortcut indefinitely
+    const locPromise = Location.current();
+    const timeoutPromise = new Promise((_, reject) => {
+      Timer.schedule(5000, false, () => {
+        reject(new Error("Location fetch timed out after 5s"));
+      });
+    });
+
+    const loc = await Promise.race([locPromise, timeoutPromise]);
+    if (loc && typeof loc.latitude === "number" && typeof loc.longitude === "number") {
+      latitude = loc.latitude;
+      longitude = loc.longitude;
+      console.log(`Location obtained: (${latitude}, ${longitude})`);
+    }
   } catch (locErr) {
-    console.error(`Failed to acquire GPS location: ${locErr.message || locErr}`);
-    const errMsg = `Location error: ${locErr.message || String(locErr)}`;
-    finishScript({ error: errMsg, status: "failed" });
-    return;
+    console.warn(`GPS location warning: ${locErr.message || locErr}. Continuing with default coordinates (0, 0).`);
   }
 
   // Construct request URL & payload
@@ -145,7 +161,13 @@ async function main() {
   }
 }
 
-main().catch(err => {
+try {
+  await main();
+} catch (err) {
   console.error("Unhandled execution error: " + (err.message || err));
   finishScript({ error: String(err.message || err), status: "failed" });
-});
+} finally {
+  if (!isCompleted) {
+    finishScript({ status: "completed" });
+  }
+}
