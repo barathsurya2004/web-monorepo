@@ -27,7 +27,7 @@ export const Header: React.FC<HeaderProps> = ({
   const firstLetter = userName.charAt(0).toUpperCase();
 
   return (
-    <header className="w-full max-w-full overflow-x-hidden bg-transparent px-4 pt-5 pb-2">
+    <header className="w-full max-w-full overflow-x-hidden bg-transparent px-4 pt-[max(calc(env(safe-area-inset-top,0px)+1rem),3.25rem)] sm:pt-6 pb-2">
       <div className="max-w-md mx-auto flex items-center justify-between gap-3 min-w-0">
         {/* Left: Brand Logo & Title */}
         <div className="min-w-0 flex flex-col justify-center">

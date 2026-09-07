@@ -36,7 +36,7 @@ export const SignupPage: React.FC<SignupPageProps> = ({
   };
 
   return (
-    <div className="min-h-screen min-h-[100dvh] flex items-center justify-center p-4 sm:p-6 pt-[max(calc(env(safe-area-inset-top,0px)+1.25rem),2rem)] pb-[max(calc(env(safe-area-inset-bottom,0px)+0.75rem),1.5rem)] bg-[#1A1735] relative overflow-hidden w-full max-w-full">
+    <div className="min-h-screen min-h-[100dvh] flex items-center justify-center p-4 sm:p-6 pt-[max(calc(env(safe-area-inset-top,0px)+1.5rem),3.25rem)] pb-[max(calc(env(safe-area-inset-bottom,0px)+0.75rem),1.5rem)] bg-[#1A1735] relative overflow-hidden w-full max-w-full">
       {/* Warm Ambient Soft Pastel Glow */}
       <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-gradient-to-tr from-[#A8E6CF]/15 via-[#FBD8B3]/10 to-[#C8B6FF]/15 rounded-full blur-[130px] pointer-events-none" />
 

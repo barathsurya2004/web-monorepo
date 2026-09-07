@@ -245,7 +245,7 @@ export const AlertBannerContainer: React.FC = () => {
   if (toasts.length === 0) return null;
 
   return (
-    <div className="fixed top-3 left-3 right-3 sm:left-auto sm:right-6 sm:top-6 z-[9999] flex flex-col gap-2.5 w-auto sm:w-[400px] sm:max-w-md pointer-events-none max-w-full">
+    <div className="fixed top-[max(calc(env(safe-area-inset-top,0px)+0.75rem),1.25rem)] left-3 right-3 sm:left-auto sm:right-6 sm:top-6 z-[9999] flex flex-col gap-2.5 w-auto sm:w-[400px] sm:max-w-md pointer-events-none max-w-full">
       {toasts.map((t) => (
         <AlertBannerItem key={t.id} toast={t} onDismiss={removeToast} />
       ))}

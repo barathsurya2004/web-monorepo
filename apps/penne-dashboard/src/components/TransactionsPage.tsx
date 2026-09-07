@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Transaction, EnvelopeGroup, Envelope, e5ToAmount, parseUtcDate } from '@packages/types';
+import { Transaction, EnvelopeGroup, Envelope, ActiveCategory, e5ToAmount, parseUtcDate } from '@packages/types';
 import { Button } from '@packages/ui';
 import {
   ArrowUpRight,
@@ -21,6 +21,7 @@ interface TransactionsPageProps {
   transactions: Transaction[];
   envelopeGroups?: EnvelopeGroup[];
   envelopes?: Envelope[];
+  categories?: ActiveCategory[];
   isServerOffline?: boolean;
   isMockMode?: boolean;
   onRetryConnection?: () => void;
@@ -40,6 +41,7 @@ const formatINR = (val: number) => {
 export const TransactionsPage: React.FC<TransactionsPageProps> = ({
   transactions,
   envelopes = [],
+  categories = [],
   isServerOffline,
   isMockMode,
   onRetryConnection,
@@ -60,12 +62,22 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
   const safeEnvelopes = Array.isArray(envelopes) ? envelopes : [];
 
   const envelopeMap = useMemo(() => {
-    const map = new Map<string, Envelope>();
+    const map = new Map<string, { id: string; name?: string }>();
     safeEnvelopes.forEach((e) => {
       if (e && e.id) map.set(e.id, e);
     });
+    (categories || []).forEach((c) => {
+      if (c && c.envelope_id) {
+        const existing = map.get(c.envelope_id);
+        if (existing) {
+          if (!existing.name && c.name) existing.name = c.name;
+        } else {
+          map.set(c.envelope_id, { id: c.envelope_id, name: c.name });
+        }
+      }
+    });
     return map;
-  }, [safeEnvelopes]);
+  }, [safeEnvelopes, categories]);
 
   const { cardCount, bankCount } = useMemo(() => {
     let cards = 0;

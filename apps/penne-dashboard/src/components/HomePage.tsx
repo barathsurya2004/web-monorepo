@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Transaction, Envelope, EnvelopeGroup, DashboardSummary, e5ToAmount, parseUtcDate } from '@packages/types';
+import { Transaction, Envelope, EnvelopeGroup, DashboardSummary, ActiveCategory, e5ToAmount, parseUtcDate } from '@packages/types';
 import { Button } from '@packages/ui';
 import {
   ArrowUpRight,
@@ -12,13 +12,14 @@ import {
   RefreshCw,
   ChevronRight
 } from 'lucide-react';
-import { EnvelopeMonogramBadge } from '../utils/envelopeVisuals';
+import { EnvelopeMonogramBadge, getEnvelopeMonogram } from '../utils/envelopeVisuals';
 import { StatCardsSkeleton, PaymentLimitsSkeleton, TransactionListSkeleton } from './Skeleton';
 
 interface HomePageProps {
   transactions: Transaction[];
   envelopes?: Envelope[];
   envelopeGroups?: EnvelopeGroup[];
+  categories?: ActiveCategory[];
   dashboardSummary?: DashboardSummary | null;
   isServerOffline?: boolean;
   isMockMode?: boolean;
@@ -57,6 +58,7 @@ const formatINR = (val: number) => {
 export const HomePage: React.FC<HomePageProps> = ({
   transactions,
   envelopes = [],
+  categories = [],
   dashboardSummary,
   isServerOffline,
   isMockMode,
@@ -71,12 +73,22 @@ export const HomePage: React.FC<HomePageProps> = ({
   isLoadingSummary
 }) => {
   const envelopeMap = useMemo(() => {
-    const map = new Map<string, Envelope>();
+    const map = new Map<string, { id: string; name?: string }>();
     (envelopes || []).forEach((e) => {
       if (e && e.id) map.set(e.id, e);
     });
+    (categories || []).forEach((c) => {
+      if (c && c.envelope_id) {
+        const existing = map.get(c.envelope_id);
+        if (existing) {
+          if (!existing.name && c.name) existing.name = c.name;
+        } else {
+          map.set(c.envelope_id, { id: c.envelope_id, name: c.name });
+        }
+      }
+    });
     return map;
-  }, [envelopes]);
+  }, [envelopes, categories]);
 
   const fallbackCardLimit = useMemo(() => {
     const saved = localStorage.getItem('penne_limit_bank_card');
@@ -87,7 +99,7 @@ export const HomePage: React.FC<HomePageProps> = ({
   const fallbackBankLimit = useMemo(() => {
     const saved = localStorage.getItem('penne_limit_bank_account');
     const val = saved ? Number(saved) : 10000;
-    return Math.min(10000, Math.max(0, isNaN(val) ? 10000 : val));
+    return Math.min(20000, Math.max(0, isNaN(val) ? 10000 : val));
   }, []);
 
   const cardLimit = (dashboardSummary && dashboardSummary.card_limit_e5 > 0)
@@ -182,20 +194,25 @@ export const HomePage: React.FC<HomePageProps> = ({
         <StatCardsSkeleton />
       ) : (
         <div className="hero-apricot-card p-5 relative overflow-hidden group">
-          {/* Split With Capsule (Right Tab from reference) */}
+          {/* Split With Capsule (Right Tab) */}
           <div className="absolute right-4 top-4 bg-white/95 backdrop-blur-md rounded-2xl py-2 px-1.5 flex flex-col items-center gap-1.5 shadow-[0_4px_16px_rgba(0,0,0,0.12)] z-10 transition-transform duration-200 group-hover:scale-105">
             <span className="text-[8px] font-mono font-bold text-indigo-950 uppercase tracking-tighter block">
               Pool
             </span>
-            <div className="w-6 h-6 rounded-full bg-[#A7D7F9]/50 text-indigo-900 border border-indigo-950/20 flex items-center justify-center text-[10px] shadow-sm">
-              🍽️
-            </div>
-            <div className="w-6 h-6 rounded-full bg-[#C8B6FF]/50 text-indigo-900 border border-indigo-950/20 flex items-center justify-center text-[10px] shadow-sm">
-              ☕
-            </div>
-            <div className="w-6 h-6 rounded-full bg-[#FFB5A7]/50 text-indigo-900 border border-indigo-950/20 flex items-center justify-center text-[10px] shadow-sm">
-              🛒
-            </div>
+            {((envelopes || []).filter((e) => !e.is_system).slice(0, 3)).map((env) => (
+              <div
+                key={env.id}
+                className="w-6 h-6 rounded-full bg-[#232044] text-[#FBD8B3] border border-indigo-950/20 flex items-center justify-center text-[9px] font-mono font-black shadow-sm select-none"
+                title={env.name}
+              >
+                {getEnvelopeMonogram(env.name)}
+              </div>
+            ))}
+            {((envelopes || []).filter((e) => !e.is_system).length === 0) && (
+              <div className="w-6 h-6 rounded-full bg-[#232044] text-[#FBD8B3] border border-indigo-950/20 flex items-center justify-center text-[9px] font-mono font-black shadow-sm">
+                EN
+              </div>
+            )}
             {onOpenNewCategoryModal && (
               <div
                 className="w-6 h-6 rounded-full bg-[#FFD5B8] hover:bg-[#FBD8B3] text-indigo-950 flex items-center justify-center text-[11px] font-black cursor-pointer hover:scale-110 active:scale-95 transition-all shadow-sm"
@@ -210,10 +227,10 @@ export const HomePage: React.FC<HomePageProps> = ({
           {/* Left Content Column */}
           <div className="pr-16 space-y-1">
             <span className="text-[10px] font-mono font-bold tracking-wider uppercase text-indigo-950/70 block">
-              Net Remaining Headroom
+              Total Spend
             </span>
             <div className="text-3xl sm:text-4xl font-black tracking-tight text-indigo-950 font-mono">
-              {formatINR(totalRemainingAmount)}
+              {formatINR(totalSpentAmount)}
             </div>
 
             {/* Quick Split / Record Action Button */}
@@ -231,7 +248,7 @@ export const HomePage: React.FC<HomePageProps> = ({
             </div>
           </div>
 
-          {/* Inflow vs Outflow Mini Split at bottom of card */}
+          {/* Inflow vs Net Remaining Mini Split at bottom of card */}
           <div className="mt-5 pt-3.5 border-t border-indigo-950/10 grid grid-cols-2 gap-3 pr-14 text-indigo-950">
             <div>
               <span className="text-[9px] font-mono uppercase text-indigo-950/60 block font-bold">Monthly Inflow</span>
@@ -241,10 +258,18 @@ export const HomePage: React.FC<HomePageProps> = ({
               </span>
             </div>
             <div>
-              <span className="text-[9px] font-mono uppercase text-indigo-950/60 block font-bold">Monthly Outflow</span>
-              <span className="text-xs sm:text-sm font-bold font-mono text-rose-900 flex items-center gap-1">
-                <ArrowUpRight className="w-3.5 h-3.5 text-rose-700" />
-                {formatINR(totalSpentAmount)}
+              <span className="text-[9px] font-mono uppercase text-indigo-950/60 block font-bold">Net Remaining</span>
+              <span
+                className={`text-xs sm:text-sm font-bold font-mono flex items-center gap-1 ${
+                  totalRemainingAmount >= 0 ? 'text-indigo-950 font-black' : 'text-rose-900 font-black'
+                }`}
+              >
+                {totalRemainingAmount >= 0 ? (
+                  <ArrowDownLeft className="w-3.5 h-3.5 text-emerald-700" />
+                ) : (
+                  <ArrowUpRight className="w-3.5 h-3.5 text-rose-700" />
+                )}
+                {formatINR(totalRemainingAmount)}
               </span>
             </div>
           </div>

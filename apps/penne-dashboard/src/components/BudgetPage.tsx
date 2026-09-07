@@ -37,7 +37,9 @@ const formatINR = (val: number) => {
 };
 
 export const BudgetPage: React.FC<BudgetPageProps> = ({
-  transactions,
+  categories = [],
+  transactions = [],
+  envelopeGroups = [],
   envelopes = [],
   isServerOffline,
   isMockMode,
@@ -46,19 +48,88 @@ export const BudgetPage: React.FC<BudgetPageProps> = ({
   onOpenNewCategoryModal,
   onSelectTxnForEdit,
   onSelectEnvelopeForEdit,
+  onSelectGroupForEdit,
   isLoadingCategories,
   isLoadingEnvelopes
 }) => {
   const [filterTab, setFilterTab] = useState<'all' | 'healthy' | 'warning' | 'over' | 'untracked'>('all');
   const [expandedEnvId, setExpandedEnvId] = useState<string | null>(null);
 
-  const safeEnvelopes = Array.isArray(envelopes) ? envelopes : [];
   const safeTxns = Array.isArray(transactions) ? transactions : [];
+
+  // Group name lookup
+  const groupNameMap = useMemo(() => {
+    const map = new Map<string, string>();
+    (envelopeGroups || []).forEach((g) => {
+      if (g && g.id) map.set(g.id, g.name);
+    });
+    return map;
+  }, [envelopeGroups]);
+
+  // Combine envelopes and categories seamlessly so data is never missed
+  const unifiedEnvelopes = useMemo(() => {
+    const map = new Map<string, {
+      id: string;
+      name: string;
+      target_amount_e5: number;
+      cadence: string;
+      is_system: boolean;
+      envelope_group_id?: string;
+      groupName?: string;
+      matchedEnv?: Envelope;
+    }>();
+
+    // 1. Seed from envelopes prop
+    (envelopes || []).forEach((env) => {
+      if (!env || !env.id) return;
+      const gName = env.envelope_group_id ? groupNameMap.get(env.envelope_group_id) : undefined;
+      map.set(env.id, {
+        id: env.id,
+        name: env.name || 'Category Envelope',
+        target_amount_e5: env.target_amount_e5 || 0,
+        cadence: env.cadence || 'monthly',
+        is_system: !!env.is_system,
+        envelope_group_id: env.envelope_group_id,
+        groupName: gName,
+        matchedEnv: env
+      });
+    });
+
+    // 2. Add or enrich from categories prop
+    (categories || []).forEach((cat) => {
+      if (!cat || !cat.envelope_id) return;
+      const existing = map.get(cat.envelope_id);
+      if (existing) {
+        if (!existing.target_amount_e5 && cat.allocated_amount_e5) {
+          existing.target_amount_e5 = cat.allocated_amount_e5;
+        }
+        if (cat.name && (!existing.name || existing.name === 'Category Envelope')) {
+          existing.name = cat.name;
+        }
+      } else {
+        const matchedEnv = (envelopes || []).find((e) => e && e.id === cat.envelope_id);
+        const gId = matchedEnv?.envelope_group_id;
+        const gName = gId ? groupNameMap.get(gId) : undefined;
+        map.set(cat.envelope_id, {
+          id: cat.envelope_id,
+          name: cat.name || matchedEnv?.name || 'Category Envelope',
+          target_amount_e5: cat.allocated_amount_e5 || 0,
+          cadence: cat.cadence || matchedEnv?.cadence || 'monthly',
+          is_system: !!cat.is_system,
+          envelope_group_id: gId,
+          groupName: gName,
+          matchedEnv
+        });
+      }
+    });
+
+    return Array.from(map.values());
+  }, [envelopes, categories, groupNameMap]);
 
   // Compute spent per envelope
   const envStats = useMemo(() => {
     const map = new Map<string, { spent_e5: number; count: number }>();
-    safeEnvelopes.forEach((e) => {
+    unifiedEnvelopes.forEach((e) => {
       map.set(e.id, { spent_e5: 0, count: 0 });
     });
 
@@ -74,9 +145,9 @@ export const BudgetPage: React.FC<BudgetPageProps> = ({
       }
     });
     return map;
-  }, [safeEnvelopes, safeTxns]);
+  }, [unifiedEnvelopes, safeTxns]);
 
-  const totalBudgetedAmount = safeEnvelopes
+  const totalBudgetedAmount = unifiedEnvelopes
     .filter((e) => !e.is_system)
     .reduce((acc, e) => acc + e5ToAmount(e.target_amount_e5), 0);
 
@@ -91,8 +162,13 @@ export const BudgetPage: React.FC<BudgetPageProps> = ({
   const totalRemainingAmount = totalIncomeAmount - totalSpentAmount;
 
   const filteredEnvelopes = useMemo(() => {
-    return safeEnvelopes.filter((e) => {
+    return unifiedEnvelopes.filter((e) => {
       if (filterTab === 'untracked') return e.is_system;
+      if (filterTab === 'all') {
+        const hasCustom = unifiedEnvelopes.some((item) => !item.is_system);
+        if (hasCustom && e.is_system) return false;
+        return true;
+      }
       if (e.is_system) return false;
       const stats = envStats.get(e.id) || { spent_e5: 0, count: 0 };
       const spent = e5ToAmount(stats.spent_e5);
@@ -104,13 +180,13 @@ export const BudgetPage: React.FC<BudgetPageProps> = ({
       if (filterTab === 'healthy') return pct < 80;
       return true;
     });
-  }, [safeEnvelopes, filterTab, envStats]);
+  }, [unifiedEnvelopes, filterTab, envStats]);
 
   // Unassigned debit transactions
   const unassignedTxns = useMemo(() => {
-    const knownEnvIds = new Set(safeEnvelopes.map((e) => e.id));
+    const knownEnvIds = new Set(unifiedEnvelopes.map((e) => e.id));
     return safeTxns.filter((t) => (!t.envelope_id || !knownEnvIds.has(t.envelope_id)) && t.txn_type === 'debit');
-  }, [safeTxns, safeEnvelopes]);
+  }, [safeTxns, unifiedEnvelopes]);
 
   return (
     <div className="w-full max-w-md mx-auto px-4 py-3 space-y-4 animate-fadeIn pb-28 overflow-x-hidden">
@@ -160,7 +236,7 @@ export const BudgetPage: React.FC<BudgetPageProps> = ({
                 className="px-3.5 py-1.5 rounded-xl bg-[#FBD8B3] hover:bg-[#f7c495] text-[#1A1835] font-black text-xs flex items-center gap-1.5 shadow-[0_2px_12px_rgba(251,216,179,0.35)] active:scale-95 transition-all duration-200 cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5 stroke-[3] text-[#1A1835]" />
-                <span>+ Envelope</span>
+                <span>Envelope</span>
               </button>
             )}
           </div>
@@ -273,7 +349,20 @@ export const BudgetPage: React.FC<BudgetPageProps> = ({
                     </span>
                     {onSelectEnvelopeForEdit && (
                       <button
-                        onClick={() => onSelectEnvelopeForEdit(env)}
+                        onClick={() =>
+                          onSelectEnvelopeForEdit(
+                            env.matchedEnv || {
+                              id: env.id,
+                              user_uuid: '',
+                              envelope_group_id: env.envelope_group_id || '',
+                              name: env.name,
+                              target_amount_e5: env.target_amount_e5,
+                              cadence: env.cadence,
+                              country_iso2: 'IN',
+                              is_system: env.is_system,
+                            }
+                          )
+                        }
                         className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 active:scale-95 transition-all cursor-pointer"
                         title="Edit Envelope"
                       >

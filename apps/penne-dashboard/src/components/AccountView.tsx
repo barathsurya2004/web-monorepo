@@ -48,7 +48,7 @@ export const AccountView: React.FC<AccountViewProps> = ({
   const [bankLimit, setBankLimit] = useState<number>(() => {
     const saved = localStorage.getItem('penne_limit_bank_account');
     const val = saved ? Number(saved) : 10000;
-    return Math.min(10000, Math.max(0, isNaN(val) ? 10000 : val));
+    return Math.min(20000, Math.max(0, isNaN(val) ? 10000 : val));
   });
 
   const [cardLimitStr, setCardLimitStr] = useState<string>(() => String(cardLimit));
@@ -62,7 +62,7 @@ export const AccountView: React.FC<AccountViewProps> = ({
   };
 
   const handleBankLimitChange = (val: number) => {
-    const clamped = Math.min(10000, Math.max(0, val));
+    const clamped = Math.min(20000, Math.max(0, val));
     setBankLimit(clamped);
     setBankLimitStr(String(clamped));
     localStorage.setItem('penne_limit_bank_account', String(clamped));
@@ -78,7 +78,7 @@ export const AccountView: React.FC<AccountViewProps> = ({
 
   const handleBankInputBlur = () => {
     const num = Number(bankLimitStr);
-    const clamped = isNaN(num) ? 0 : Math.min(10000, Math.max(0, num));
+    const clamped = isNaN(num) ? 0 : Math.min(20000, Math.max(0, num));
     setBankLimit(clamped);
     setBankLimitStr(String(clamped));
     localStorage.setItem('penne_limit_bank_account', String(clamped));
@@ -172,7 +172,7 @@ export const AccountView: React.FC<AccountViewProps> = ({
           </div>
         </div>
 
-        {/* Bank Limit Slider & Type-in (0 - 10k) */}
+        {/* Bank Limit Slider & Type-in (0 - 20k) */}
         <div className="space-y-2 pt-2 border-t border-white/5">
           <div className="flex justify-between items-center text-xs font-mono">
             <span className="text-slate-300">Primary Bank Vault Limit</span>
@@ -181,14 +181,15 @@ export const AccountView: React.FC<AccountViewProps> = ({
               <input
                 type="number"
                 min="0"
-                max="10000"
-                step="250"
+                max="20000"
+                step="500"
                 value={bankLimitStr}
                 onChange={(e) => {
                   const raw = e.target.value;
                   setBankLimitStr(raw);
                   const num = Number(raw);
-                  if (!isNaN(num) && num >= 0 && num <= 10000) {
+                  if (!num && num !== 0) return;
+                  if (!isNaN(num) && num >= 0 && num <= 20000) {
                     setBankLimit(num);
                     localStorage.setItem('penne_limit_bank_account', String(num));
                   }
@@ -203,7 +204,7 @@ export const AccountView: React.FC<AccountViewProps> = ({
           <input
             type="range"
             min="0"
-            max="10000"
+            max="20000"
             step="500"
             value={bankLimit}
             onChange={(e) => handleBankLimitChange(Number(e.target.value))}
@@ -211,8 +212,8 @@ export const AccountView: React.FC<AccountViewProps> = ({
           />
           <div className="flex justify-between text-[10px] font-mono text-slate-400">
             <span>₹0</span>
-            <span>₹5,000</span>
             <span>₹10,000</span>
+            <span>₹20,000</span>
           </div>
         </div>
       </div>

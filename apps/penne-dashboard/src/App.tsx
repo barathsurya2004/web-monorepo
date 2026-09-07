@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { api, ApiEventListenerPayload } from './services/api';
 import { User, Transaction, AuthSession, ActiveCategory, EnvelopeGroup, Envelope, DashboardSummary } from '@packages/types';
 
@@ -37,6 +37,24 @@ const AppInner: React.FC = () => {
   }));
   const [authView, setAuthView] = useState<'login' | 'signup'>('signup');
   const [activeTab, setActiveTab] = useState<NavTab>('home');
+  const mainRef = useRef<HTMLElement | null>(null);
+
+  // Automatically scroll to the top of the viewport when changing pages/tabs
+  useEffect(() => {
+    const scrollToTop = () => {
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior });
+      if (document.documentElement) document.documentElement.scrollTop = 0;
+      if (document.body) document.body.scrollTop = 0;
+      const root = document.getElementById('root');
+      if (root) root.scrollTop = 0;
+      if (mainRef.current) mainRef.current.scrollTop = 0;
+    };
+
+    scrollToTop();
+    // Guarantee scroll position on next animation frame after tab DOM tree updates
+    const rafId = requestAnimationFrame(scrollToTop);
+    return () => cancelAnimationFrame(rafId);
+  }, [activeTab]);
   const [recentSessions, setRecentSessions] = useState<AuthSession[]>([]);
 
   const [dashboardSummary, setDashboardSummary] = useState<DashboardSummary | null>(null);
@@ -563,12 +581,13 @@ const AppInner: React.FC = () => {
       />
 
       {/* Dynamic Tab Contents: Home, Budget & Account */}
-      <main className="flex-1 w-full max-w-full overflow-x-hidden">
+      <main ref={mainRef} className="flex-1 w-full max-w-full overflow-x-hidden">
         {activeTab === 'home' && (
           <HomePage
             transactions={transactions}
             envelopes={envelopes}
             envelopeGroups={envelopeGroups}
+            categories={categories}
             dashboardSummary={dashboardSummary}
             isServerOffline={isServerOffline}
             isMockMode={isMockMode}
@@ -589,6 +608,7 @@ const AppInner: React.FC = () => {
             transactions={transactions}
             envelopeGroups={envelopeGroups}
             envelopes={envelopes}
+            categories={categories}
             isServerOffline={isServerOffline}
             isMockMode={isMockMode}
             onRetryConnection={loadData}
