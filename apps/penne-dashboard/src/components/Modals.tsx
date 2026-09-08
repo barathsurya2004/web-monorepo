@@ -10,7 +10,7 @@ interface NewTxnModalProps {
   onClose: () => void;
   envelopes: Envelope[];
   groups?: EnvelopeGroup[];
-  onSubmit: (amountE5: number, txnType: string, paymentMethod: string, envelopeId?: string | null, createdAt?: string) => Promise<void>;
+  onSubmit: (amountE5: number, txnType: string, paymentMethod: string, envelopeId?: string | null, createdAt?: string) => Promise<void> | void;
 }
 
 export const NewTxnModal: React.FC<NewTxnModalProps> = ({
@@ -37,22 +37,25 @@ export const NewTxnModal: React.FC<NewTxnModalProps> = ({
     }
   }, [isOpen, systemEnvId]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const parsed = parseFloat(amount);
     if (isNaN(parsed) || parsed <= 0) return;
 
     const targetEnvId = envelopeId || systemEnvId;
+    const amtE5 = amountToE5(parsed);
 
-    setLoading(true);
+    // Optimistic UI: dispatch transaction immediately so balances & accounts update instantly
     try {
-      await onSubmit(amountToE5(parsed), txnType, paymentMethod, targetEnvId);
-      setAmount('');
-      setEnvelopeId('');
-      onClose();
-    } finally {
-      setLoading(false);
+      onSubmit(amtE5, txnType, paymentMethod, targetEnvId);
+    } catch (err) {
+      console.error('[NewTxnModal] Submit error:', err);
     }
+
+    // Instantly reset and close modal for perfectly snappy experience
+    setAmount('');
+    setEnvelopeId('');
+    onClose();
   };
 
   const groupMap = new Map<string, string>();

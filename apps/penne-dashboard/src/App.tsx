@@ -1,6 +1,8 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { api, ApiEventListenerPayload } from './services/api';
 import { User, Transaction, AuthSession, ActiveCategory, EnvelopeGroup, Envelope, DashboardSummary } from '@packages/types';
+import { useDashboardData, QUERY_KEYS } from './hooks/useDashboardData';
+import { queryClient } from './services/queryClient';
 
 import { Header } from './components/Header';
 import { SignupPage } from './components/SignupPage';
@@ -25,19 +27,39 @@ export interface ResourceLoadingStates {
 const AppInner: React.FC = () => {
   const { addToast } = useToast();
 
-  const [user, setUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => !!api.getToken());
-  const [loadingState, setLoadingState] = useState<ResourceLoadingStates>(() => ({
-    user: !!api.getToken(),
-    transactions: !!api.getToken(),
-    categories: !!api.getToken(),
-    envelopeGroups: !!api.getToken(),
-    envelopes: !!api.getToken(),
-    summary: !!api.getToken()
-  }));
   const [authView, setAuthView] = useState<'login' | 'signup'>('signup');
   const [activeTab, setActiveTab] = useState<NavTab>('home');
   const mainRef = useRef<HTMLElement | null>(null);
+
+  // TanStack Query Request Caching & Optimistic UI Data
+  const {
+    user,
+    transactions,
+    dashboardSummary,
+    categories,
+    envelopes,
+    envelopeGroups,
+    isLoadingUser,
+    isLoadingTransactions,
+    isLoadingSummary,
+    isLoadingCategories,
+    isLoadingEnvelopes,
+    isLoadingGroups,
+    refetchAll,
+    createTxnMutation,
+  } = useDashboardData(isAuthenticated);
+
+  const loadingState: ResourceLoadingStates = useMemo(() => ({
+    user: isLoadingUser,
+    transactions: isLoadingTransactions,
+    categories: isLoadingCategories,
+    envelopeGroups: isLoadingGroups,
+    envelopes: isLoadingEnvelopes,
+    summary: isLoadingSummary,
+  }), [isLoadingUser, isLoadingTransactions, isLoadingCategories, isLoadingGroups, isLoadingEnvelopes, isLoadingSummary]);
+
+  const isLoadingAny = useMemo(() => Object.values(loadingState).some(Boolean), [loadingState]);
 
   // Automatically scroll to the top of the viewport when changing pages/tabs
   useEffect(() => {
@@ -51,17 +73,11 @@ const AppInner: React.FC = () => {
     };
 
     scrollToTop();
-    // Guarantee scroll position on next animation frame after tab DOM tree updates
     const rafId = requestAnimationFrame(scrollToTop);
     return () => cancelAnimationFrame(rafId);
   }, [activeTab]);
-  const [recentSessions, setRecentSessions] = useState<AuthSession[]>([]);
 
-  const [dashboardSummary, setDashboardSummary] = useState<DashboardSummary | null>(null);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [categories, setCategories] = useState<ActiveCategory[]>([]);
-  const [envelopeGroups, setEnvelopeGroups] = useState<EnvelopeGroup[]>([]);
-  const [envelopes, setEnvelopes] = useState<Envelope[]>([]);
+  const [recentSessions, setRecentSessions] = useState<AuthSession[]>([]);
   const [isMockMode, setIsMockMode] = useState<boolean>(false);
   const [isServerOffline, setIsServerOffline] = useState<boolean>(false);
 
@@ -91,7 +107,7 @@ const AppInner: React.FC = () => {
         lastTxn.id
       );
       if (Array.isArray(more) && more.length > 0) {
-        setTransactions((prev) => [...prev, ...more]);
+        queryClient.setQueryData<Transaction[]>(QUERY_KEYS.transactions, (prev = []) => [...prev, ...more]);
         if (more.length < 20) setHasMoreTxns(false);
       } else {
         setHasMoreTxns(false);
@@ -103,12 +119,6 @@ const AppInner: React.FC = () => {
     }
   };
 
-  const setResourceLoading = (resource: keyof ResourceLoadingStates, loading: boolean) => {
-    setLoadingState((prev) => ({ ...prev, [resource]: loading }));
-  };
-
-  const isLoadingAny = useMemo(() => Object.values(loadingState).some(Boolean), [loadingState]);
-
   // Subscribe to API Request & Status Events globally
   useEffect(() => {
     const unsubscribe = api.onApiResult((event: ApiEventListenerPayload) => {
@@ -119,7 +129,7 @@ const AppInner: React.FC = () => {
         message: event.message,
         method: event.method,
         endpoint: event.endpoint,
-        duration: 1000
+        duration: 1000,
       });
     });
 
@@ -130,94 +140,15 @@ const AppInner: React.FC = () => {
 
   const loadData = async () => {
     setIsServerOffline(false);
-    setLoadingState({
-      user: true,
-      transactions: true,
-      categories: true,
-      envelopeGroups: true,
-      envelopes: true,
-      summary: true
-    });
-
-    const isUnauthorized = (err: any) => {
+    try {
+      await refetchAll();
+    } catch (err: any) {
       if (api.isUnauthorizedError(err)) {
-        api.logout();
-        setUser(null);
-        setIsAuthenticated(false);
-        setAuthView('signup');
-        addToast({
-          type: 'warning',
-          statusCode: '401 UNAUTHORIZED',
-          title: 'Session Expired',
-          message: 'Your session has expired. Redirecting to Signup.'
-        });
-        return true;
+        handleLogout();
+      } else {
+        setIsServerOffline(true);
       }
-      return false;
-    };
-
-    // 1. Fetch User Profile independently
-    const fetchUser = api
-      .getUser()
-      .then((u) => setUser(u))
-      .catch((err) => {
-        if (!isUnauthorized(err)) console.warn('Failed to load user', err);
-      })
-      .finally(() => setResourceLoading('user', false));
-
-    // 2. Fetch Transactions independently
-    const fetchTransactions = api
-      .getTransactions()
-      .then((t) => {
-        setTransactions(Array.isArray(t) ? t : []);
-        setIsServerOffline(false);
-      })
-      .catch((err) => {
-        if (!isUnauthorized(err)) {
-          console.warn('Failed to load transactions', err);
-          setIsServerOffline(true);
-        }
-      })
-      .finally(() => setResourceLoading('transactions', false));
-
-    // 3. Fetch Active Categories independently
-    const fetchCategories = api
-      .getActiveCategories()
-      .then((c) => setCategories(Array.isArray(c) ? c : []))
-      .catch((err) => {
-        if (!isUnauthorized(err)) console.warn('Failed to load categories', err);
-      })
-      .finally(() => setResourceLoading('categories', false));
-
-    // 4. Fetch Envelope Groups independently
-    const fetchGroups = api
-      .getEnvelopeGroups()
-      .then((g) => setEnvelopeGroups(Array.isArray(g) ? g : []))
-      .catch((err) => {
-        if (!isUnauthorized(err)) console.warn('Failed to load envelope groups', err);
-      })
-      .finally(() => setResourceLoading('envelopeGroups', false));
-
-    // 5. Fetch Envelopes independently
-    const fetchEnvelopes = api
-      .getEnvelopes()
-      .then((envs) => setEnvelopes(Array.isArray(envs) ? envs : []))
-      .catch((err) => {
-        if (!isUnauthorized(err)) console.warn('Failed to load envelopes', err);
-      })
-      .finally(() => setResourceLoading('envelopes', false));
-
-    // 6. Fetch Dashboard Summary independently
-    const fetchSummary = api
-      .getDashboardSummary()
-      .then((s) => setDashboardSummary(s))
-      .catch((err) => {
-        if (!isUnauthorized(err)) console.warn('Failed to load dashboard summary', err);
-      })
-      .finally(() => setResourceLoading('summary', false));
-
-    // Execute all resource fetches concurrently without blocking each other
-    await Promise.allSettled([fetchUser, fetchTransactions, fetchCategories, fetchGroups, fetchEnvelopes, fetchSummary]);
+    }
   };
 
   // Initial Auth Verification on Mount
@@ -228,53 +159,36 @@ const AppInner: React.FC = () => {
     const activeToken = api.getToken();
     if (activeToken) {
       setIsAuthenticated(true);
-      loadData();
     } else {
       setIsAuthenticated(false);
-      setLoadingState({
-        user: false,
-        transactions: false,
-        categories: false,
-        envelopeGroups: false,
-        envelopes: false,
-        summary: false
-      });
       setAuthView('signup');
     }
   }, [isMockMode]);
 
   const handleLoginSuccess = async (authUser: User) => {
-    setUser(authUser);
+    queryClient.setQueryData(QUERY_KEYS.user, authUser);
     setIsAuthenticated(true);
     setRecentSessions(api.getCachedSessions());
     addToast({
       type: 'success',
       statusCode: '200 OK',
       title: 'Welcome Back!',
-      message: `Signed in as ${authUser.name}`
+      message: `Signed in as ${authUser.name}`,
     });
-    await loadData();
+    await refetchAll();
   };
 
   const handleLogout = () => {
     api.logout();
-    setUser(null);
+    queryClient.clear();
     setIsAuthenticated(false);
-    setLoadingState({
-      user: false,
-      transactions: false,
-      categories: false,
-      envelopeGroups: false,
-      envelopes: false,
-      summary: false
-    });
     setAuthView('signup');
     setActiveTab('home');
     setIsServerOffline(false);
     addToast({
       type: 'info',
       title: 'Signed Out',
-      message: 'You have signed out of Penne Budget'
+      message: 'You have signed out of Penne Budget',
     });
   };
 
@@ -283,7 +197,7 @@ const AppInner: React.FC = () => {
     addToast({
       type: 'info',
       title: 'Data Synced',
-      message: 'Latest transactions & budget envelopes rehydrated.'
+      message: 'Latest transactions & budget envelopes rehydrated.',
     });
   };
 
@@ -298,44 +212,24 @@ const AppInner: React.FC = () => {
       title: `Switched to ${nextMock ? 'Demo Mode' : 'Live Server'}`,
       message: nextMock
         ? 'Using simulated in-memory store.'
-        : 'Connecting to backend server.'
+        : 'Connecting to backend server.',
     });
     if (isAuthenticated) {
-      await loadData();
+      await refetchAll();
     }
   };
 
-  const refreshSummarySilent = async () => {
-    try {
-      const s = await api.getDashboardSummary();
-      if (s) setDashboardSummary(s);
-    } catch (err) {
-      console.warn('[Penne App] Silent summary refresh failed', err);
-    }
+  const refreshSummarySilent = () => {
+    queryClient.invalidateQueries({ queryKey: QUERY_KEYS.dashboardSummary });
   };
 
-  const refreshTransactionsSilent = async () => {
-    try {
-      const t = await api.getTransactions();
-      if (Array.isArray(t)) setTransactions(t);
-    } catch (err) {
-      console.warn('[Penne App] Silent transactions refresh failed', err);
-    }
+  const refreshCategoriesSilent = () => {
+    queryClient.invalidateQueries({ queryKey: QUERY_KEYS.categories });
+    queryClient.invalidateQueries({ queryKey: QUERY_KEYS.envelopes });
+    queryClient.invalidateQueries({ queryKey: QUERY_KEYS.envelopeGroups });
   };
 
-  const refreshCategoriesSilent = async () => {
-    try {
-      const c = await api.getActiveCategories();
-      if (Array.isArray(c)) setCategories(c);
-      const envs = await api.getEnvelopes();
-      if (Array.isArray(envs)) setEnvelopes(envs);
-      const groups = await api.getEnvelopeGroups();
-      if (Array.isArray(groups)) setEnvelopeGroups(groups);
-    } catch (err) {
-      console.warn('[Penne App] Silent categories refresh failed', err);
-    }
-  };
-
+  // Optimistic transaction creation handler
   const handleCreateTxn = async (
     amountE5: number,
     txnType: string,
@@ -344,17 +238,19 @@ const AppInner: React.FC = () => {
     createdAt?: string
   ) => {
     try {
-      const createdTxn = await api.createTransaction(amountE5, txnType, bankName, envelopeId, createdAt);
-      setTransactions((prev) => [createdTxn, ...prev]);
-      refreshSummarySilent();
-      refreshTransactionsSilent();
-      refreshCategoriesSilent();
+      await createTxnMutation.mutateAsync({
+        amountE5,
+        txnType,
+        paymentMethod: bankName,
+        envelopeId,
+        createdAt,
+      });
     } catch (err: any) {
       addToast({
         type: 'error',
         statusCode: err.status || 'ERROR',
         title: 'Transaction Failed',
-        message: err.message || 'Failed to create transaction'
+        message: err.message || 'Failed to create transaction',
       });
     }
   };
@@ -373,16 +269,17 @@ const AppInner: React.FC = () => {
   ) => {
     try {
       const updatedTxn = await api.updateTransaction(txnId, amountE5, txnType, bankName, envelopeId);
-      setTransactions((prev) => prev.map((t) => (t.id === txnId ? updatedTxn : t)));
+      queryClient.setQueryData<Transaction[]>(QUERY_KEYS.transactions, (prev = []) =>
+        prev.map((t) => (t.id === txnId ? updatedTxn : t))
+      );
       refreshSummarySilent();
-      refreshTransactionsSilent();
       refreshCategoriesSilent();
     } catch (err: any) {
       addToast({
         type: 'error',
         statusCode: err.status || 'ERROR',
         title: 'Update Failed',
-        message: err.message || 'Failed to update transaction'
+        message: err.message || 'Failed to update transaction',
       });
     }
   };
@@ -390,7 +287,9 @@ const AppInner: React.FC = () => {
   const handleDeleteTxn = async (txnId: string) => {
     try {
       await api.deleteTransaction(txnId);
-      setTransactions((prev) => prev.filter((t) => t.id !== txnId));
+      queryClient.setQueryData<Transaction[]>(QUERY_KEYS.transactions, (prev = []) =>
+        prev.filter((t) => t.id !== txnId)
+      );
       refreshSummarySilent();
       refreshCategoriesSilent();
     } catch (err: any) {
@@ -398,7 +297,7 @@ const AppInner: React.FC = () => {
         type: 'error',
         statusCode: err.status || 'ERROR',
         title: 'Deletion Failed',
-        message: err.message || 'Failed to delete transaction'
+        message: err.message || 'Failed to delete transaction',
       });
     }
   };
@@ -415,14 +314,14 @@ const AppInner: React.FC = () => {
       if (!targetGroupId && newGroupName) {
         const createdGroup = await api.createEnvelopeGroup(newGroupName);
         targetGroupId = createdGroup.id;
-        setEnvelopeGroups((prev) => [...prev, createdGroup]);
+        queryClient.setQueryData<EnvelopeGroup[]>(QUERY_KEYS.envelopeGroups, (prev = []) => [...prev, createdGroup]);
       }
 
       if (!targetGroupId) {
         addToast({
           type: 'warning',
           title: 'Missing Group',
-          message: 'Please select or enter a valid Envelope Group'
+          message: 'Please select or enter a valid Envelope Group',
         });
         return;
       }
@@ -434,7 +333,7 @@ const AppInner: React.FC = () => {
         type: 'error',
         statusCode: err.status || 'ERROR',
         title: 'Category Creation Failed',
-        message: err.message || 'Failed to create budget category'
+        message: err.message || 'Failed to create budget category',
       });
     }
   };
@@ -458,21 +357,23 @@ const AppInner: React.FC = () => {
   ) => {
     try {
       const updatedEnv = await api.updateEnvelope(id, name, targetAmountE5, cadence, envelopeGroupId);
-      setEnvelopes((prev) => prev.map((e) => (e.id === id ? updatedEnv : e)));
+      queryClient.setQueryData<Envelope[]>(QUERY_KEYS.envelopes, (prev = []) =>
+        prev.map((e) => (e.id === id ? updatedEnv : e))
+      );
       refreshCategoriesSilent();
       refreshSummarySilent();
       addToast({
         type: 'success',
         statusCode: 'OK',
         title: 'Category Updated',
-        message: `Updated category "${name}"`
+        message: `Updated category "${name}"`,
       });
     } catch (err: any) {
       addToast({
         type: 'error',
         statusCode: err.status || 'ERROR',
         title: 'Update Failed',
-        message: err.message || 'Failed to update category envelope'
+        message: err.message || 'Failed to update category envelope',
       });
     }
   };
@@ -480,21 +381,23 @@ const AppInner: React.FC = () => {
   const handleDeleteCategory = async (id: string) => {
     try {
       await api.deleteEnvelope(id);
-      setEnvelopes((prev) => prev.filter((e) => e.id !== id));
+      queryClient.setQueryData<Envelope[]>(QUERY_KEYS.envelopes, (prev = []) =>
+        prev.filter((e) => e.id !== id)
+      );
       refreshCategoriesSilent();
       refreshSummarySilent();
       addToast({
         type: 'success',
         statusCode: 'OK',
         title: 'Category Deleted',
-        message: 'Successfully deleted category envelope'
+        message: 'Successfully deleted category envelope',
       });
     } catch (err: any) {
       addToast({
         type: 'error',
         statusCode: err.status || 'ERROR',
         title: 'Deletion Failed',
-        message: err.message || 'Failed to delete category envelope'
+        message: err.message || 'Failed to delete category envelope',
       });
     }
   };
@@ -502,20 +405,22 @@ const AppInner: React.FC = () => {
   const handleUpdateGroup = async (id: string, name: string) => {
     try {
       const updatedGroup = await api.updateEnvelopeGroup(id, name);
-      setEnvelopeGroups((prev) => prev.map((g) => (g.id === id ? updatedGroup : g)));
+      queryClient.setQueryData<EnvelopeGroup[]>(QUERY_KEYS.envelopeGroups, (prev = []) =>
+        prev.map((g) => (g.id === id ? updatedGroup : g))
+      );
       refreshCategoriesSilent();
       addToast({
         type: 'success',
         statusCode: 'OK',
         title: 'Group Updated',
-        message: `Renamed envelope group to "${name}"`
+        message: `Renamed envelope group to "${name}"`,
       });
     } catch (err: any) {
       addToast({
         type: 'error',
         statusCode: err.status || 'ERROR',
         title: 'Update Failed',
-        message: err.message || 'Failed to update envelope group'
+        message: err.message || 'Failed to update envelope group',
       });
     }
   };
@@ -523,20 +428,22 @@ const AppInner: React.FC = () => {
   const handleDeleteGroup = async (id: string) => {
     try {
       await api.deleteEnvelopeGroup(id);
-      setEnvelopeGroups((prev) => prev.filter((g) => g.id !== id));
+      queryClient.setQueryData<EnvelopeGroup[]>(QUERY_KEYS.envelopeGroups, (prev = []) =>
+        prev.filter((g) => g.id !== id)
+      );
       refreshCategoriesSilent();
       addToast({
         type: 'success',
         statusCode: 'OK',
         title: 'Group Deleted',
-        message: 'Successfully deleted envelope group'
+        message: 'Successfully deleted envelope group',
       });
     } catch (err: any) {
       addToast({
         type: 'error',
         statusCode: err.status || 'ERROR',
         title: 'Deletion Failed',
-        message: err.message || 'Failed to delete envelope group'
+        message: err.message || 'Failed to delete envelope group',
       });
     }
   };
@@ -648,12 +555,14 @@ const AppInner: React.FC = () => {
             user={user}
             authToken={api.getToken()}
             transactions={transactions}
+            dashboardSummary={dashboardSummary}
             isMockMode={isMockMode}
             recentSessions={recentSessions}
             onToggleMock={toggleMockMode}
             onLogout={handleLogout}
             isLoadingUser={loadingState.user}
             isLoadingTransactions={loadingState.transactions}
+            isLoadingSummary={loadingState.summary}
           />
         )}
       </main>

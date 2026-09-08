@@ -257,6 +257,10 @@ export class PenneApiClient {
     return this.token;
   }
 
+  public getUserUUID(): string {
+    return this.userUUID || TEST_USER_UUID;
+  }
+
   public setUseMock(useMock: boolean) {
     this.clearEnvelopeCache();
     this.useMock = useMock;
@@ -277,6 +281,16 @@ export class PenneApiClient {
       msg.includes('expired auth token') ||
       msg.includes('invalid or expired')
     );
+  }
+
+  /**
+   * Simulates realistic staggered network delays when running in demo/mock mode
+   */
+  private async simulateDemoDelay(baseMs: number, varianceMs: number = 150): Promise<void> {
+    if (!this.useMock) return;
+    const jitter = Math.round(Math.random() * varianceMs * 2 - varianceMs);
+    const delay = Math.max(100, baseMs + jitter);
+    await new Promise((resolve) => setTimeout(resolve, delay));
   }
 
   // --- TOKEN CACHING & SESSION MANAGEMENT ---
@@ -512,7 +526,10 @@ export class PenneApiClient {
   }
 
   async getUser(): Promise<User> {
-    if (this.useMock) return this.mockUser;
+    if (this.useMock) {
+      await this.simulateDemoDelay(350, 80);
+      return this.mockUser;
+    }
     if (!this.token) {
       throw new Error('No active auth session');
     }
@@ -525,7 +542,10 @@ export class PenneApiClient {
   }
 
   async getEnvelopeGroups(): Promise<EnvelopeGroup[]> {
-    if (this.useMock) return this.mockGroups;
+    if (this.useMock) {
+      await this.simulateDemoDelay(550, 100);
+      return this.mockGroups;
+    }
     if (this.groupsCache && Date.now() - this.groupsCache.timestamp < this.cacheTTLMs) {
       return this.groupsCache.data;
     }
@@ -546,6 +566,7 @@ export class PenneApiClient {
     this.clearEnvelopeCache();
     const nowIso = new Date().toISOString();
     if (this.useMock) {
+      await this.simulateDemoDelay(700, 120);
       const newGroup: EnvelopeGroup = {
         id: `group-${Date.now()}`,
         user_uuid: this.userUUID,
@@ -592,7 +613,10 @@ export class PenneApiClient {
   }
 
   async getEnvelopes(): Promise<Envelope[]> {
-    if (this.useMock) return this.mockEnvelopes;
+    if (this.useMock) {
+      await this.simulateDemoDelay(750, 120);
+      return this.mockEnvelopes;
+    }
     if (this.envelopesCache && Date.now() - this.envelopesCache.timestamp < this.cacheTTLMs) {
       return this.envelopesCache.data;
     }
@@ -606,6 +630,7 @@ export class PenneApiClient {
     this.clearEnvelopeCache();
     const nowIso = new Date().toISOString();
     if (this.useMock) {
+      await this.simulateDemoDelay(800, 150);
       const newEnvelope: Envelope = {
         id: `env-${Date.now()}`,
         user_uuid: this.userUUID,
@@ -636,6 +661,7 @@ export class PenneApiClient {
   async updateEnvelopeGroup(id: string, name: string): Promise<EnvelopeGroup> {
     this.clearEnvelopeCache();
     if (this.useMock) {
+      await this.simulateDemoDelay(650, 120);
       const idx = this.mockGroups.findIndex((g: EnvelopeGroup) => g.id === id);
       if (idx !== -1) {
         this.mockGroups[idx] = { ...this.mockGroups[idx], name };
@@ -655,6 +681,7 @@ export class PenneApiClient {
   async deleteEnvelopeGroup(id: string): Promise<void> {
     this.clearEnvelopeCache();
     if (this.useMock) {
+      await this.simulateDemoDelay(600, 100);
       this.mockGroups = this.mockGroups.filter((g: EnvelopeGroup) => g.id !== id);
       return;
     }
@@ -670,6 +697,7 @@ export class PenneApiClient {
   ): Promise<Envelope> {
     this.clearEnvelopeCache();
     if (this.useMock) {
+      await this.simulateDemoDelay(700, 120);
       const idx = this.mockEnvelopes.findIndex((e) => e.id === id);
       if (idx !== -1) {
         const updated: Envelope = {
@@ -705,6 +733,7 @@ export class PenneApiClient {
   async deleteEnvelope(id: string): Promise<void> {
     this.clearEnvelopeCache();
     if (this.useMock) {
+      await this.simulateDemoDelay(600, 100);
       this.mockEnvelopes = this.mockEnvelopes.filter((e) => e.id !== id);
       return;
     }
@@ -730,6 +759,7 @@ export class PenneApiClient {
     lastTransactionID?: string
   ): Promise<Transaction[]> {
     if (this.useMock) {
+      await this.simulateDemoDelay(1050, 200);
       let filtered = [...this.mockTransactions];
       if (lastTransactionCreatedAt && lastTransactionID) {
         const cursorTime = new Date(lastTransactionCreatedAt).getTime();
@@ -792,6 +822,8 @@ export class PenneApiClient {
     }
     const nowIso = createdAt || new Date().toISOString();
     if (this.useMock) {
+      // Simulate realistic backend round-trip delay of ~1.2s to showcase instant optimistic UI snappiness
+      await this.simulateDemoDelay(1200, 200);
       const newTxn: Transaction = {
         id: `txn-${Date.now()}`,
         user_id: this.userUUID,
@@ -856,6 +888,7 @@ export class PenneApiClient {
     const roundedAmount = Math.round(amountE5);
 
     if (this.useMock) {
+      await this.simulateDemoDelay(900, 180);
       const idx = this.mockTransactions.findIndex((t) => t.id === id);
       if (idx !== -1) {
         this.mockTransactions[idx] = {
@@ -909,6 +942,7 @@ export class PenneApiClient {
   async deleteTransaction(id: string): Promise<void> {
     this.clearEnvelopeCache();
     if (this.useMock) {
+      await this.simulateDemoDelay(700, 150);
       this.mockTransactions = this.mockTransactions.filter((t) => t.id !== id);
       this.notifyApiResult({
         endpoint: `/transaction?uuid=${id}`,
@@ -929,7 +963,10 @@ export class PenneApiClient {
 
 
   async getActiveAllocations(): Promise<Allocation[]> {
-    if (this.useMock) return this.mockAllocations;
+    if (this.useMock) {
+      await this.simulateDemoDelay(650, 120);
+      return this.mockAllocations;
+    }
     const res = await this.request<Allocation[]>(`/allocations/active?user_uuid=${this.userUUID}`, { method: 'GET' });
     return Array.isArray(res) ? res : [];
   }
@@ -940,6 +977,7 @@ export class PenneApiClient {
     const hundredYearsLaterIso = new Date(Date.now() + 100 * 365 * 86400000).toISOString();
 
     if (this.useMock) {
+      await this.simulateDemoDelay(750, 150);
       const existingIdx = this.mockAllocations.findIndex(a => a.envelope_id === envelopeId);
       if (existingIdx >= 0) {
         this.mockAllocations[existingIdx].allocated_amount_e5 += Math.round(allocatedAmountE5);
@@ -970,6 +1008,7 @@ export class PenneApiClient {
 
   async getActiveCategories(): Promise<ActiveCategory[]> {
     if (this.useMock) {
+      await this.simulateDemoDelay(850, 150);
       const mockCategoryNames: Record<string, string> = {
         'env-sys-01': 'Unallocated Budget',
         'env-rent-02': 'House Rent & Housing',
@@ -1009,6 +1048,7 @@ export class PenneApiClient {
 
   async getDashboardSummary(): Promise<DashboardSummary> {
     if (this.useMock) {
+      await this.simulateDemoDelay(1350, 200);
       const cardLimit = Number(localStorage.getItem('penne_limit_bank_card') || 25000);
       const bankLimit = Number(localStorage.getItem('penne_limit_bank_account') || 10000);
 
