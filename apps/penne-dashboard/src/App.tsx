@@ -46,6 +46,7 @@ const AppInner: React.FC = () => {
     isLoadingCategories,
     isLoadingEnvelopes,
     isLoadingGroups,
+    isFetching,
     refetchAll,
     createTxnMutation,
   } = useDashboardData(isAuthenticated);
@@ -199,11 +200,6 @@ const AppInner: React.FC = () => {
 
   const handleRefreshData = async () => {
     await loadData();
-    addToast({
-      type: 'info',
-      title: 'Data Synced',
-      message: 'Latest transactions & budget envelopes rehydrated.',
-    });
   };
 
   const toggleMockMode = async () => {
@@ -499,6 +495,7 @@ const AppInner: React.FC = () => {
         onOpenNewTxn={() => setIsTxnModalOpen(true)}
         isLoadingUser={loadingState.user}
         isLoadingAny={isLoadingAny}
+        isFetching={isFetching}
       />
 
       {/* Dynamic Tab Contents: Home, Budget & Account */}

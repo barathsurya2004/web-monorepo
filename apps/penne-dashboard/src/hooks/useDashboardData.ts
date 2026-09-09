@@ -188,6 +188,13 @@ export function useDashboardData(isAuthenticated: boolean) {
     isLoadingEnvelopes: envelopesQuery.isLoading,
     isLoadingGroups: groupsQuery.isLoading,
     isRefetching: transactionsQuery.isRefetching || summaryQuery.isRefetching,
+    isFetching:
+      userQuery.isFetching ||
+      transactionsQuery.isFetching ||
+      summaryQuery.isFetching ||
+      categoriesQuery.isFetching ||
+      envelopesQuery.isFetching ||
+      groupsQuery.isFetching,
     refetchAll: async () => {
       await queryClient.invalidateQueries({ refetchType: 'all' });
       await Promise.allSettled([
