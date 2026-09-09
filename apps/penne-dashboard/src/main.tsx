@@ -16,7 +16,14 @@ if (typeof window !== 'undefined' && 'serviceWorker' in navigator && (import.met
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <PersistQueryClientProvider client={queryClient} persistOptions={persistOptions}>
+    <PersistQueryClientProvider
+      client={queryClient}
+      persistOptions={persistOptions}
+      onSuccess={() => {
+        // Trigger background invalidation after hydration from localStorage
+        queryClient.invalidateQueries();
+      }}
+    >
       <App />
     </PersistQueryClientProvider>
   </React.StrictMode>

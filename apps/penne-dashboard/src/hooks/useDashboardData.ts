@@ -43,12 +43,16 @@ export function useDashboardData(isAuthenticated: boolean) {
       return Array.isArray(data) ? data : [];
     },
     enabled: isAuthenticated,
+    staleTime: 0,
+    refetchOnMount: 'always',
   });
 
   const summaryQuery = useQuery({
     queryKey: QUERY_KEYS.dashboardSummary,
     queryFn: () => api.getDashboardSummary(),
     enabled: isAuthenticated,
+    staleTime: 0,
+    refetchOnMount: 'always',
   });
 
   const categoriesQuery = useQuery({
@@ -185,6 +189,7 @@ export function useDashboardData(isAuthenticated: boolean) {
     isLoadingGroups: groupsQuery.isLoading,
     isRefetching: transactionsQuery.isRefetching || summaryQuery.isRefetching,
     refetchAll: async () => {
+      await queryClient.invalidateQueries({ refetchType: 'all' });
       await Promise.allSettled([
         userQuery.refetch(),
         transactionsQuery.refetch(),

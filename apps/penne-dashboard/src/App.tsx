@@ -107,7 +107,11 @@ const AppInner: React.FC = () => {
         lastTxn.id
       );
       if (Array.isArray(more) && more.length > 0) {
-        queryClient.setQueryData<Transaction[]>(QUERY_KEYS.transactions, (prev = []) => [...prev, ...more]);
+        queryClient.setQueryData<Transaction[]>(QUERY_KEYS.transactions, (prev = []) => {
+          const existingIds = new Set(prev.map((t) => t.id));
+          const uniqueMore = more.filter((t) => !existingIds.has(t.id));
+          return [...prev, ...uniqueMore];
+        });
         if (more.length < 20) setHasMoreTxns(false);
       } else {
         setHasMoreTxns(false);
@@ -159,6 +163,7 @@ const AppInner: React.FC = () => {
     const activeToken = api.getToken();
     if (activeToken) {
       setIsAuthenticated(true);
+      loadData();
     } else {
       setIsAuthenticated(false);
       setAuthView('signup');
@@ -223,6 +228,10 @@ const AppInner: React.FC = () => {
     queryClient.invalidateQueries({ queryKey: QUERY_KEYS.dashboardSummary });
   };
 
+  const refreshTransactionsSilent = () => {
+    queryClient.invalidateQueries({ queryKey: QUERY_KEYS.transactions });
+  };
+
   const refreshCategoriesSilent = () => {
     queryClient.invalidateQueries({ queryKey: QUERY_KEYS.categories });
     queryClient.invalidateQueries({ queryKey: QUERY_KEYS.envelopes });
@@ -273,6 +282,7 @@ const AppInner: React.FC = () => {
         prev.map((t) => (t.id === txnId ? updatedTxn : t))
       );
       refreshSummarySilent();
+      refreshTransactionsSilent();
       refreshCategoriesSilent();
     } catch (err: any) {
       addToast({
@@ -291,6 +301,7 @@ const AppInner: React.FC = () => {
         prev.filter((t) => t.id !== txnId)
       );
       refreshSummarySilent();
+      refreshTransactionsSilent();
       refreshCategoriesSilent();
     } catch (err: any) {
       addToast({
@@ -328,6 +339,7 @@ const AppInner: React.FC = () => {
 
       await api.createCategory(targetGroupId, categoryName, targetAmountE5, cadence);
       refreshCategoriesSilent();
+      refreshTransactionsSilent();
     } catch (err: any) {
       addToast({
         type: 'error',
@@ -362,6 +374,7 @@ const AppInner: React.FC = () => {
       );
       refreshCategoriesSilent();
       refreshSummarySilent();
+      refreshTransactionsSilent();
       addToast({
         type: 'success',
         statusCode: 'OK',
@@ -386,6 +399,7 @@ const AppInner: React.FC = () => {
       );
       refreshCategoriesSilent();
       refreshSummarySilent();
+      refreshTransactionsSilent();
       addToast({
         type: 'success',
         statusCode: 'OK',

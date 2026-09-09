@@ -61,6 +61,15 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
   const safeTxns = Array.isArray(transactions) ? transactions : [];
   const safeEnvelopes = Array.isArray(envelopes) ? envelopes : [];
 
+  // Sort newest transactions first consistently with HomePage
+  const sortedTxns = useMemo(() => {
+    return [...safeTxns].sort((a, b) => {
+      const timeA = parseUtcDate(a.created_at || a.CreatedAt)?.getTime() || 0;
+      const timeB = parseUtcDate(b.created_at || b.CreatedAt)?.getTime() || 0;
+      return timeB - timeA;
+    });
+  }, [safeTxns]);
+
   const envelopeMap = useMemo(() => {
     const map = new Map<string, { id: string; name?: string }>();
     safeEnvelopes.forEach((e) => {
@@ -82,16 +91,16 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
   const { cardCount, bankCount } = useMemo(() => {
     let cards = 0;
     let bank = 0;
-    safeTxns.forEach((t) => {
+    sortedTxns.forEach((t) => {
       if (!t) return;
       if (t.payment_method === 'bank_card') cards++;
       else bank++;
     });
     return { cardCount: cards, bankCount: bank };
-  }, [safeTxns]);
+  }, [sortedTxns]);
 
   const filteredTxns = useMemo(() => {
-    return safeTxns.filter((t) => {
+    return sortedTxns.filter((t) => {
       if (!t) return false;
       if (filterMethod !== 'all' && t.payment_method !== filterMethod) return false;
       if (filterType !== 'all' && t.txn_type !== filterType) return false;
@@ -105,7 +114,7 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
       }
       return true;
     });
-  }, [safeTxns, filterMethod, filterType, search, envelopeMap]);
+  }, [sortedTxns, filterMethod, filterType, search, envelopeMap]);
 
   return (
     <div className="w-full max-w-md mx-auto px-4 py-3 space-y-4 animate-fadeIn pb-28 overflow-x-hidden">

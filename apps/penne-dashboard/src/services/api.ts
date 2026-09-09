@@ -217,8 +217,38 @@ export class PenneApiClient {
   private groupsCache: { data: EnvelopeGroup[]; timestamp: number } | null = null;
   private categoriesCache: { data: ActiveCategory[]; timestamp: number } | null = null;
 
+  private loadMockStore<T>(key: string, fallback: T): T {
+    try {
+      const raw = localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : fallback;
+    } catch {
+      return fallback;
+    }
+  }
+
+  private saveMockStore<T>(key: string, data: T) {
+    try {
+      localStorage.setItem(key, JSON.stringify(data));
+    } catch {
+      // ignore
+    }
+  }
+
   constructor() {
     this.token = localStorage.getItem('penne_auth_token');
+    const savedUserUUID = localStorage.getItem('penne_user_uuid');
+    if (savedUserUUID) {
+      this.userUUID = savedUserUUID;
+    } else {
+      const sessions = this.getCachedSessions();
+      if (sessions.length > 0 && sessions[0].user_uuid) {
+        this.userUUID = sessions[0].user_uuid;
+      }
+    }
+    this.mockGroups = this.loadMockStore('penne_mock_groups', [...INITIAL_GROUPS]);
+    this.mockEnvelopes = this.loadMockStore('penne_mock_envelopes', [...INITIAL_ENVELOPES]);
+    this.mockAllocations = this.loadMockStore('penne_mock_allocations', [...INITIAL_ALLOCATIONS]);
+    this.mockTransactions = this.loadMockStore('penne_mock_transactions', [...INITIAL_TRANSACTIONS]);
   }
 
   public onApiResult(listener: ApiEventListener): () => void {
@@ -307,6 +337,7 @@ export class PenneApiClient {
   public saveSession(token: string, name: string, userUuid: string) {
     this.setToken(token);
     this.userUUID = userUuid;
+    localStorage.setItem('penne_user_uuid', userUuid);
     const sessions = this.getCachedSessions();
 
     const existingIdx = sessions.findIndex((s) => s.token === token);
@@ -330,6 +361,7 @@ export class PenneApiClient {
     this.token = null;
     this.clearEnvelopeCache();
     localStorage.removeItem('penne_auth_token');
+    localStorage.removeItem('penne_user_uuid');
   }
 
   // HTTP Helper with Safe JSON Response Parsing & Connection Error Handling
@@ -536,6 +568,7 @@ export class PenneApiClient {
     const res = await this.request<User>('/user', { method: 'GET' });
     if (res && res.uuid) {
       this.userUUID = res.uuid;
+      localStorage.setItem('penne_user_uuid', res.uuid);
       return res;
     }
     return { uuid: this.userUUID, name: 'Penne User', created_at: new Date().toISOString() };
@@ -778,9 +811,8 @@ export class PenneApiClient {
 
     const targetUuid = userUuid || this.userUUID;
     let url = `/transactions?user_uuid=${targetUuid}`;
-    if (limit && limit > 0) {
-      url += `&limit=${limit}`;
-    }
+    const fetchLimit = limit && limit > 0 ? limit : 50;
+    url += `&limit=${fetchLimit}`;
     if (lastTransactionCreatedAt) {
       url += `&lastTransactionCreatedAt=${encodeURIComponent(lastTransactionCreatedAt)}`;
     }
@@ -835,6 +867,7 @@ export class PenneApiClient {
         created_at: nowIso
       };
       this.mockTransactions.unshift(newTxn);
+      this.saveMockStore('penne_mock_transactions', this.mockTransactions);
       this.notifyApiResult({
         endpoint: '/transaction',
         method: 'POST',
@@ -899,6 +932,7 @@ export class PenneApiClient {
           envelope_id: targetEnvelopeId
         };
         this.clearEnvelopeCache();
+        this.saveMockStore('penne_mock_transactions', this.mockTransactions);
         this.notifyApiResult({
           endpoint: '/transaction',
           method: 'PUT',
@@ -944,6 +978,7 @@ export class PenneApiClient {
     if (this.useMock) {
       await this.simulateDemoDelay(700, 150);
       this.mockTransactions = this.mockTransactions.filter((t) => t.id !== id);
+      this.saveMockStore('penne_mock_transactions', this.mockTransactions);
       this.notifyApiResult({
         endpoint: `/transaction?uuid=${id}`,
         method: 'DELETE',
