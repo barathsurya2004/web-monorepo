@@ -116,6 +116,74 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
     });
   }, [sortedTxns, filterMethod, filterType, search, envelopeMap]);
 
+  interface DateGroupedTransactions {
+    key: string;
+    label: string;
+    subLabel?: string;
+    totalExpenseE5: number;
+    totalIncomeE5: number;
+    txns: Transaction[];
+  }
+
+  // Date-wise separation: Today, Yesterday, and then "date and day" (e.g. 10 Sep, Wednesday)
+  const groupedTxns = useMemo(() => {
+    const groups: DateGroupedTransactions[] = [];
+    const groupMap = new Map<string, DateGroupedTransactions>();
+
+    const now = new Date();
+    const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+
+    filteredTxns.forEach((tx) => {
+      const d = parseUtcDate(tx.created_at || tx.CreatedAt) || new Date();
+      const dateMidnight = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+      const dayDiff = Math.round((todayMidnight - dateMidnight) / ONE_DAY_MS);
+
+      const dayKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+      let existing = groupMap.get(dayKey);
+      if (!existing) {
+        const dayName = d.toLocaleDateString('en-IN', { weekday: 'long' });
+        const dateStr = d.toLocaleDateString('en-IN', {
+          day: 'numeric',
+          month: 'short',
+          year: d.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
+        });
+
+        let label = `${dateStr}, ${dayName}`;
+        let subLabel: string | undefined;
+
+        if (dayDiff === 0) {
+          label = 'Today';
+          subLabel = `${dateStr}, ${dayName}`;
+        } else if (dayDiff === 1) {
+          label = 'Yesterday';
+          subLabel = `${dateStr}, ${dayName}`;
+        }
+
+        existing = {
+          key: dayKey,
+          label,
+          subLabel,
+          totalExpenseE5: 0,
+          totalIncomeE5: 0,
+          txns: []
+        };
+        groupMap.set(dayKey, existing);
+        groups.push(existing);
+      }
+
+      existing.txns.push(tx);
+      if (tx.txn_type === 'debit') {
+        existing.totalExpenseE5 += tx.amount_e5 || 0;
+      } else if (tx.txn_type === 'credit') {
+        existing.totalIncomeE5 += tx.amount_e5 || 0;
+      }
+    });
+
+    return groups;
+  }, [filteredTxns]);
+
   return (
     <div className="w-full max-w-md mx-auto px-4 py-3 space-y-4 animate-fadeIn pb-28 overflow-x-hidden">
       {/* Offline Banner */}
@@ -255,90 +323,128 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
         )}
       </div>
 
-      {/* Ledger Records List */}
-      <div className="velvet-card p-3 divide-y divide-white/[0.04] shadow-xl">
+      {/* Date-wise Grouped Ledger Records */}
+      <div className="space-y-3">
         {isLoadingTransactions ? (
-          <TransactionListSkeleton count={5} />
-        ) : filteredTxns.length === 0 ? (
-          <div className="py-12 text-center text-slate-400 text-xs font-mono">
+          <div className="velvet-card p-3 shadow-xl">
+            <TransactionListSkeleton count={5} />
+          </div>
+        ) : groupedTxns.length === 0 ? (
+          <div className="velvet-card p-12 text-center text-slate-400 text-xs font-mono shadow-xl">
             No ledger transactions match this filter.
           </div>
         ) : (
-          filteredTxns.map((tx) => {
-            const isCredit = tx.txn_type === 'credit';
-            const isTransfer = tx.txn_type === 'transfer';
-            const assignedEnv = tx.envelope_id ? envelopeMap.get(tx.envelope_id) : null;
-            const { dateStr, timeStr } = formatTransactionDateTime(tx.created_at || tx.CreatedAt);
-
-            return (
-              <div
-                key={tx.id}
-                onClick={() => onSelectTxnForEdit?.(tx)}
-                className="py-3 flex items-center justify-between cursor-pointer hover:bg-white/[0.04] hover:translate-x-1 px-2 rounded-xl transition-all duration-200 group"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div
-                    className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center shrink-0 transition-transform duration-200 group-hover:scale-105 ${
-                      isCredit
-                        ? 'bg-[#A8E6CF]/20 text-[#A8E6CF] border border-[#A8E6CF]/30'
-                        : isTransfer
-                        ? 'bg-[#FBD8B3]/20 text-[#FBD8B3] border border-[#FBD8B3]/30'
-                        : tx.payment_method === 'bank_card'
-                        ? 'bg-[#C8B6FF]/20 text-[#C8B6FF] border border-[#C8B6FF]/35'
-                        : 'bg-[#64D2FF]/20 text-[#64D2FF] border border-[#64D2FF]/35'
-                    }`}
-                  >
-                    {isCredit ? (
-                      <ArrowDownLeft className="w-4 h-4 text-[#A8E6CF]" />
-                    ) : isTransfer ? (
-                      <ArrowLeftRight className="w-4 h-4 text-[#FBD8B3]" />
-                    ) : tx.payment_method === 'bank_card' ? (
-                      <CreditCard className="w-4 h-4 text-[#C8B6FF]" />
-                    ) : (
-                      <Landmark className="w-4 h-4 text-[#64D2FF]" />
-                    )}
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <p className="text-xs font-bold text-slate-100 truncate group-hover:text-[#FBD8B3] transition-colors">
-                        {assignedEnv?.name || (isCredit
-                          ? 'Direct Inflow'
-                          : isTransfer
-                          ? 'Account Transfer'
-                          : 'Uncategorized')}
-                      </p>
-                      <span
-                        className={`px-1.5 py-0.5 rounded text-[9px] font-mono font-black shrink-0 tracking-wider uppercase leading-none shadow-sm ${
-                          tx.payment_method === 'bank_card'
-                            ? 'bg-[#C8B6FF]/25 text-[#E2D8FF] border border-[#C8B6FF]/55'
-                            : 'bg-[#64D2FF]/20 text-[#64D2FF] border border-[#64D2FF]/50'
-                        }`}
-                        title={tx.payment_method === 'bank_card' ? 'Obsidian Card (CC)' : 'Primary Bank (BA)'}
-                      >
-                        {tx.payment_method === 'bank_card' ? 'CC' : 'BA'}
-                      </span>
-                    </div>
-                    <div className="text-[10px] font-mono text-slate-400 mt-0.5">
-                      {dateStr} • {timeStr}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="text-right shrink-0 pl-3 font-mono">
-                  <span
-                    className={`text-xs font-bold ${
-                      isCredit ? 'text-[#A8E6CF]' : 'text-slate-100'
-                    }`}
-                  >
-                    {isCredit ? '+' : '-'}{formatINR(e5ToAmount(tx.amount_e5))}
+          groupedTxns.map((group) => (
+            <div key={group.key} className="space-y-1.5">
+              {/* Date Header Separator */}
+              <div className="flex items-center justify-between px-2 pt-1">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span className="text-xs font-black font-mono tracking-wider text-[#FBD8B3] uppercase">
+                    {group.label}
                   </span>
-                  <div className="text-[10px] text-slate-400 capitalize">
-                    {tx.payment_method.replace('_', ' ')}
-                  </div>
+                  {group.subLabel && (
+                    <span className="text-[11px] font-mono text-slate-400 truncate">
+                      • {group.subLabel}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 text-[10px] font-mono shrink-0 pl-2">
+                  {group.totalExpenseE5 > 0 && (
+                    <span className="text-rose-300 font-semibold">
+                      -{formatINR(e5ToAmount(group.totalExpenseE5))}
+                    </span>
+                  )}
+                  {group.totalIncomeE5 > 0 && (
+                    <span className="text-[#A8E6CF] font-semibold">
+                      +{formatINR(e5ToAmount(group.totalIncomeE5))}
+                    </span>
+                  )}
+                  <span className="text-slate-500 font-bold">
+                    {group.txns.length}
+                  </span>
                 </div>
               </div>
-            );
-          })
+
+              {/* Transactions in this Date Group */}
+              <div className="velvet-card p-2.5 divide-y divide-white/[0.04] shadow-md">
+                {group.txns.map((tx) => {
+                  const isCredit = tx.txn_type === 'credit';
+                  const isTransfer = tx.txn_type === 'transfer';
+                  const assignedEnv = tx.envelope_id ? envelopeMap.get(tx.envelope_id) : null;
+                  const { timeStr } = formatTransactionDateTime(tx.created_at || tx.CreatedAt);
+
+                  return (
+                    <div
+                      key={tx.id}
+                      onClick={() => onSelectTxnForEdit?.(tx)}
+                      className="py-2.5 flex items-center justify-between cursor-pointer hover:bg-white/[0.04] hover:translate-x-1 px-2 rounded-xl transition-all duration-200 group"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div
+                          className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center shrink-0 transition-transform duration-200 group-hover:scale-105 ${
+                            isCredit
+                              ? 'bg-[#A8E6CF]/20 text-[#A8E6CF] border border-[#A8E6CF]/30'
+                              : isTransfer
+                              ? 'bg-[#FBD8B3]/20 text-[#FBD8B3] border border-[#FBD8B3]/30'
+                              : tx.payment_method === 'bank_card'
+                              ? 'bg-[#C8B6FF]/20 text-[#C8B6FF] border border-[#C8B6FF]/35'
+                              : 'bg-[#64D2FF]/20 text-[#64D2FF] border border-[#64D2FF]/35'
+                          }`}
+                        >
+                          {isCredit ? (
+                            <ArrowDownLeft className="w-4 h-4 text-[#A8E6CF]" />
+                          ) : isTransfer ? (
+                            <ArrowLeftRight className="w-4 h-4 text-[#FBD8B3]" />
+                          ) : tx.payment_method === 'bank_card' ? (
+                            <CreditCard className="w-4 h-4 text-[#C8B6FF]" />
+                          ) : (
+                            <Landmark className="w-4 h-4 text-[#64D2FF]" />
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <p className="text-xs font-bold text-slate-100 truncate group-hover:text-[#FBD8B3] transition-colors">
+                              {assignedEnv?.name || (isCredit
+                                ? 'Direct Inflow'
+                                : isTransfer
+                                ? 'Account Transfer'
+                                : 'Uncategorized')}
+                            </p>
+                            <span
+                              className={`px-1.5 py-0.5 rounded text-[9px] font-mono font-black shrink-0 tracking-wider uppercase leading-none shadow-sm ${
+                                tx.payment_method === 'bank_card'
+                                  ? 'bg-[#C8B6FF]/25 text-[#E2D8FF] border border-[#C8B6FF]/55'
+                                  : 'bg-[#64D2FF]/20 text-[#64D2FF] border border-[#64D2FF]/50'
+                              }`}
+                              title={tx.payment_method === 'bank_card' ? 'Obsidian Card (CC)' : 'Primary Bank (BA)'}
+                            >
+                              {tx.payment_method === 'bank_card' ? 'CC' : 'BA'}
+                            </span>
+                          </div>
+                          <div className="text-[10px] font-mono text-slate-400 mt-0.5">
+                            {timeStr}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="text-right shrink-0 pl-3 font-mono">
+                        <span
+                          className={`text-xs font-bold ${
+                            isCredit ? 'text-[#A8E6CF]' : 'text-slate-100'
+                          }`}
+                        >
+                          {isCredit ? '+' : '-'}{formatINR(e5ToAmount(tx.amount_e5))}
+                        </span>
+                        <div className="text-[10px] text-slate-400 capitalize">
+                          {tx.payment_method.replace('_', ' ')}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))
         )}
       </div>
 
