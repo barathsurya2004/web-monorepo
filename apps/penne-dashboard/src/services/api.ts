@@ -211,11 +211,8 @@ export class PenneApiClient {
   private mockAllocations: Allocation[] = [...INITIAL_ALLOCATIONS];
   private mockTransactions: Transaction[] = [...INITIAL_TRANSACTIONS];
 
-  // In-memory Cache for Envelopes and Envelope Groups
-  private cacheTTLMs: number = 5 * 60 * 1000; // 5 minutes TTL
-  private envelopesCache: { data: Envelope[]; timestamp: number } | null = null;
-  private groupsCache: { data: EnvelopeGroup[]; timestamp: number } | null = null;
-  private categoriesCache: { data: ActiveCategory[]; timestamp: number } | null = null;
+  // In-memory caching removed in favor of TanStack React Query authoritative cache
+
 
   private loadMockStore<T>(key: string, fallback: T): T {
     try {
@@ -270,9 +267,7 @@ export class PenneApiClient {
 
 
   public clearEnvelopeCache() {
-    this.envelopesCache = null;
-    this.groupsCache = null;
-    this.categoriesCache = null;
+    // No-op: caching, invalidation, and persistence are managed by TanStack React Query
   }
 
   public setToken(token: string) {
@@ -316,10 +311,10 @@ export class PenneApiClient {
   /**
    * Simulates realistic staggered network delays when running in demo/mock mode
    */
-  private async simulateDemoDelay(baseMs: number, varianceMs: number = 150): Promise<void> {
+  private async simulateDemoDelay(baseMs: number = 50, varianceMs: number = 20): Promise<void> {
     if (!this.useMock) return;
     const jitter = Math.round(Math.random() * varianceMs * 2 - varianceMs);
-    const delay = Math.max(100, baseMs + jitter);
+    const delay = Math.max(10, baseMs + jitter);
     await new Promise((resolve) => setTimeout(resolve, delay));
   }
 
@@ -576,21 +571,15 @@ export class PenneApiClient {
 
   async getEnvelopeGroups(): Promise<EnvelopeGroup[]> {
     if (this.useMock) {
-      await this.simulateDemoDelay(550, 100);
+      await this.simulateDemoDelay(50, 20);
       return this.mockGroups;
-    }
-    if (this.groupsCache && Date.now() - this.groupsCache.timestamp < this.cacheTTLMs) {
-      return this.groupsCache.data;
     }
     try {
       const res = await this.request<EnvelopeGroup[]>(`/envelope-groups?user_uuid=${this.userUUID}`, { method: 'GET' });
-      const result = Array.isArray(res) ? res : [];
-      this.groupsCache = { data: result, timestamp: Date.now() };
-      return result;
+      return Array.isArray(res) ? res : [];
     } catch (err) {
       if (this.isUnauthorizedError(err)) throw err;
       console.warn('[Penne API] GET /envelope-groups backend endpoint error', err);
-      if (this.groupsCache) return this.groupsCache.data;
       return [];
     }
   }
@@ -647,16 +636,11 @@ export class PenneApiClient {
 
   async getEnvelopes(): Promise<Envelope[]> {
     if (this.useMock) {
-      await this.simulateDemoDelay(750, 120);
+      await this.simulateDemoDelay(50, 20);
       return this.mockEnvelopes;
     }
-    if (this.envelopesCache && Date.now() - this.envelopesCache.timestamp < this.cacheTTLMs) {
-      return this.envelopesCache.data;
-    }
     const res = await this.request<Envelope[]>(`/envelopes?user_uuid=${this.userUUID}`, { method: 'GET' });
-    const result = Array.isArray(res) ? res : [];
-    this.envelopesCache = { data: result, timestamp: Date.now() };
-    return result;
+    return Array.isArray(res) ? res : [];
   }
 
   async createEnvelope(envelopeGroupId: string, targetAmountE5: number, cadence: string = 'monthly', name?: string): Promise<Envelope> {
@@ -912,7 +896,8 @@ export class PenneApiClient {
     amountE5: number,
     txnType: string,
     paymentMethod: string,
-    envelopeId?: string | null
+    envelopeId?: string | null,
+    existingCreatedAt?: string
   ): Promise<Transaction> {
     let targetEnvelopeId = envelopeId || null;
     if (!targetEnvelopeId) {
@@ -921,7 +906,7 @@ export class PenneApiClient {
     const roundedAmount = Math.round(amountE5);
 
     if (this.useMock) {
-      await this.simulateDemoDelay(900, 180);
+      await this.simulateDemoDelay(50, 20);
       const idx = this.mockTransactions.findIndex((t) => t.id === id);
       if (idx !== -1) {
         this.mockTransactions[idx] = {
@@ -931,7 +916,6 @@ export class PenneApiClient {
           payment_method: paymentMethod,
           envelope_id: targetEnvelopeId
         };
-        this.clearEnvelopeCache();
         this.saveMockStore('penne_mock_transactions', this.mockTransactions);
         this.notifyApiResult({
           endpoint: '/transaction',
@@ -959,7 +943,12 @@ export class PenneApiClient {
         country_iso2: 'IN'
       })
     });
-    this.clearEnvelopeCache();
+
+    const finalCreatedAt =
+      (updated && updated.created_at && !updated.created_at.startsWith('0001-01-01'))
+        ? updated.created_at
+        : (existingCreatedAt || new Date().toISOString());
+
     const result: Transaction = {
       id: (updated && updated.id) ? updated.id : id,
       user_id: (updated && updated.user_id) ? updated.user_id : this.userUUID,
@@ -968,7 +957,7 @@ export class PenneApiClient {
       payment_method: (updated && updated.payment_method) ? updated.payment_method : paymentMethod,
       envelope_id: (updated && updated.envelope_id) ? updated.envelope_id : targetEnvelopeId,
       country_iso2: (updated && updated.country_iso2) ? updated.country_iso2 : 'IN',
-      created_at: (updated && updated.created_at && !updated.created_at.startsWith('0001-01-01')) ? updated.created_at : new Date().toISOString()
+      created_at: finalCreatedAt
     };
     return result;
   }
@@ -1066,15 +1055,9 @@ export class PenneApiClient {
       });
     }
 
-    if (this.categoriesCache && Date.now() - this.categoriesCache.timestamp < this.cacheTTLMs) {
-      return this.categoriesCache.data;
-    }
-
     try {
       const res = await this.request<ActiveCategory[]>(`/api/get-active-categories?user_uuid=${this.userUUID}`, { method: 'GET' });
-      const result = Array.isArray(res) ? res : [];
-      this.categoriesCache = { data: result, timestamp: Date.now() };
-      return result;
+      return Array.isArray(res) ? res : [];
     } catch (err) {
       console.warn('[Penne API] /api/get-active-categories failed, returning empty list', err);
       return [];

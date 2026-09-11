@@ -33,18 +33,36 @@ export function useDashboardData(isAuthenticated: boolean) {
     queryKey: QUERY_KEYS.user,
     queryFn: () => api.getUser(),
     enabled: isAuthenticated,
-    staleTime: 1000 * 60 * 5,
+    staleTime: 1000 * 60 * 2,
+    refetchOnMount: 'always',
   });
 
   const transactionsQuery = useQuery({
     queryKey: QUERY_KEYS.transactions,
     queryFn: async () => {
-      const data = await api.getTransactions();
-      return Array.isArray(data) ? data : [];
+      const fresh = await api.getTransactions();
+      const freshList = Array.isArray(fresh) ? fresh : [];
+      const currentCache = queryClient.getQueryData<Transaction[]>(QUERY_KEYS.transactions);
+      if (!currentCache || currentCache.length === 0) {
+        return freshList;
+      }
+      // Update existing items if fresh version exists, while preserving older paginated items
+      const freshMap = new Map<string, Transaction>();
+      freshList.forEach((t) => {
+        if (t && t.id) freshMap.set(t.id, t);
+      });
+
+      const mergedExisting = currentCache.map((t) => (t && t.id && freshMap.has(t.id) ? freshMap.get(t.id)! : t));
+      const existingIdSet = new Set(currentCache.map((t) => t?.id).filter(Boolean));
+      // Prepend any brand new items not in current cache
+      const brandNewItems = freshList.filter((t) => t && t.id && !existingIdSet.has(t.id));
+      return [...brandNewItems, ...mergedExisting];
     },
     enabled: isAuthenticated,
     staleTime: 0,
     refetchOnMount: 'always',
+    refetchInterval: 6000, // 6-second background sync for fresh transactions and updated envelopes
+    refetchIntervalInBackground: false,
   });
 
   const summaryQuery = useQuery({
@@ -53,6 +71,8 @@ export function useDashboardData(isAuthenticated: boolean) {
     enabled: isAuthenticated,
     staleTime: 0,
     refetchOnMount: 'always',
+    refetchInterval: 6000,
+    refetchIntervalInBackground: false,
   });
 
   const categoriesQuery = useQuery({
@@ -62,6 +82,10 @@ export function useDashboardData(isAuthenticated: boolean) {
       return Array.isArray(data) ? data : [];
     },
     enabled: isAuthenticated,
+    staleTime: 0,
+    refetchOnMount: 'always',
+    refetchInterval: 6000,
+    refetchIntervalInBackground: false,
   });
 
   const envelopesQuery = useQuery({
@@ -71,6 +95,10 @@ export function useDashboardData(isAuthenticated: boolean) {
       return Array.isArray(data) ? data : [];
     },
     enabled: isAuthenticated,
+    staleTime: 0,
+    refetchOnMount: 'always',
+    refetchInterval: 6000,
+    refetchIntervalInBackground: false,
   });
 
   const groupsQuery = useQuery({
@@ -80,6 +108,10 @@ export function useDashboardData(isAuthenticated: boolean) {
       return Array.isArray(data) ? data : [];
     },
     enabled: isAuthenticated,
+    staleTime: 0,
+    refetchOnMount: 'always',
+    refetchInterval: 12000,
+    refetchIntervalInBackground: false,
   });
 
   // Optimistic Create Transaction Mutation

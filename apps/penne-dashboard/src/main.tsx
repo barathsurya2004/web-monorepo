@@ -21,7 +21,10 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       persistOptions={persistOptions}
       onSuccess={() => {
         // Trigger background invalidation after hydration from localStorage
-        queryClient.invalidateQueries();
+        // Defer by one tick so isRestoring becomes false and active queries refetch immediately
+        setTimeout(() => {
+          queryClient.invalidateQueries({ refetchType: 'all' });
+        }, 0);
       }}
     >
       <App />

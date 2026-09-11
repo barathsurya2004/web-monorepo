@@ -6,10 +6,11 @@ export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       gcTime: 1000 * 60 * 60 * 24 * 7, // 7 days cached in memory and persisted
-      staleTime: 1000 * 60 * 2, // 2 minutes stale time before background re-fetch
+      staleTime: 0, // Real-time freshness: queries are stale immediately so invalidation/mount triggers background re-fetch
       networkMode: 'offlineFirst',
       retry: 1,
-      refetchOnWindowFocus: false,
+      refetchOnWindowFocus: true, // Auto-sync when switching back to tab
+      refetchOnReconnect: true,
     },
     mutations: {
       networkMode: 'offlineFirst',

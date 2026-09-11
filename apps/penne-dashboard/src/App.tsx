@@ -272,8 +272,37 @@ const AppInner: React.FC = () => {
     bankName: string,
     envelopeId?: string | null
   ) => {
+    // 1. Snapshot previous state for rollback
+    const prevTxns = queryClient.getQueryData<Transaction[]>(QUERY_KEYS.transactions) || [];
+    const existingTxn = prevTxns.find((t) => t.id === txnId);
+
+    // 2. Immediate optimistic update in cache
+    const optimisticTxn: Transaction = {
+      ...(existingTxn || {
+        id: txnId,
+        user_id: api.getUserUUID(),
+        country_iso2: 'IN',
+        created_at: new Date().toISOString()
+      }),
+      amount_e5: Math.round(amountE5),
+      txn_type: txnType,
+      payment_method: bankName,
+      envelope_id: envelopeId || null,
+    };
+
+    queryClient.setQueryData<Transaction[]>(QUERY_KEYS.transactions, (prev = []) =>
+      prev.map((t) => (t.id === txnId ? optimisticTxn : t))
+    );
+
     try {
-      const updatedTxn = await api.updateTransaction(txnId, amountE5, txnType, bankName, envelopeId);
+      const updatedTxn = await api.updateTransaction(
+        txnId,
+        amountE5,
+        txnType,
+        bankName,
+        envelopeId,
+        existingTxn?.created_at
+      );
       queryClient.setQueryData<Transaction[]>(QUERY_KEYS.transactions, (prev = []) =>
         prev.map((t) => (t.id === txnId ? updatedTxn : t))
       );
@@ -281,6 +310,8 @@ const AppInner: React.FC = () => {
       refreshTransactionsSilent();
       refreshCategoriesSilent();
     } catch (err: any) {
+      // Rollback on failure
+      queryClient.setQueryData(QUERY_KEYS.transactions, prevTxns);
       addToast({
         type: 'error',
         statusCode: err.status || 'ERROR',
@@ -333,9 +364,37 @@ const AppInner: React.FC = () => {
         return;
       }
 
-      await api.createCategory(targetGroupId, categoryName, targetAmountE5, cadence);
+      const { envelope } = await api.createCategory(targetGroupId, categoryName, targetAmountE5, cadence);
+
+      // Immediately register newly created envelope in queryClient cache for 0ms latency
+      if (envelope && envelope.id) {
+        queryClient.setQueryData<Envelope[]>(QUERY_KEYS.envelopes, (prev = []) => {
+          const filtered = prev.filter((e) => e.id !== envelope.id);
+          return [...filtered, envelope];
+        });
+        queryClient.setQueryData<ActiveCategory[]>(QUERY_KEYS.categories, (prev = []) => {
+          const filtered = prev.filter((c) => c.envelope_id !== envelope.id);
+          const newCategory: ActiveCategory = {
+            name: envelope.name || categoryName,
+            allocated_amount_e5: targetAmountE5,
+            is_system: false,
+            currency: envelope.country_iso2 || 'IN',
+            cadence: envelope.cadence || cadence,
+            envelope_id: envelope.id,
+          };
+          return [...filtered, newCategory];
+        });
+      }
+
       refreshCategoriesSilent();
       refreshTransactionsSilent();
+      refreshSummarySilent();
+      addToast({
+        type: 'success',
+        statusCode: 'OK',
+        title: 'Category Created',
+        message: `Created budget category "${categoryName}"`,
+      });
     } catch (err: any) {
       addToast({
         type: 'error',
@@ -368,6 +427,13 @@ const AppInner: React.FC = () => {
       queryClient.setQueryData<Envelope[]>(QUERY_KEYS.envelopes, (prev = []) =>
         prev.map((e) => (e.id === id ? updatedEnv : e))
       );
+      queryClient.setQueryData<ActiveCategory[]>(QUERY_KEYS.categories, (prev = []) =>
+        prev.map((c) =>
+          c.envelope_id === id
+            ? { ...c, name, allocated_amount_e5: targetAmountE5, cadence }
+            : c
+        )
+      );
       refreshCategoriesSilent();
       refreshSummarySilent();
       refreshTransactionsSilent();
@@ -392,6 +458,9 @@ const AppInner: React.FC = () => {
       await api.deleteEnvelope(id);
       queryClient.setQueryData<Envelope[]>(QUERY_KEYS.envelopes, (prev = []) =>
         prev.filter((e) => e.id !== id)
+      );
+      queryClient.setQueryData<ActiveCategory[]>(QUERY_KEYS.categories, (prev = []) =>
+        prev.filter((c) => c.envelope_id !== id)
       );
       refreshCategoriesSilent();
       refreshSummarySilent();
