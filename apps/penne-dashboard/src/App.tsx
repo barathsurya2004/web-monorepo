@@ -47,6 +47,8 @@ const AppInner: React.FC = () => {
     isLoadingEnvelopes,
     isLoadingGroups,
     isFetching,
+    isError,
+    error,
     refetchAll,
     createTxnMutation,
   } = useDashboardData(isAuthenticated);
@@ -156,6 +158,19 @@ const AppInner: React.FC = () => {
     }
   };
 
+  // Sync server offline / unauthorized state from query status without duplicate fetches
+  useEffect(() => {
+    if (isError && error) {
+      if (api.isUnauthorizedError(error)) {
+        handleLogout();
+      } else {
+        setIsServerOffline(true);
+      }
+    } else if (!isError) {
+      setIsServerOffline(false);
+    }
+  }, [isError, error]);
+
   // Initial Auth Verification on Mount
   useEffect(() => {
     const cachedSessions = api.getCachedSessions();
@@ -164,7 +179,7 @@ const AppInner: React.FC = () => {
     const activeToken = api.getToken();
     if (activeToken) {
       setIsAuthenticated(true);
-      loadData();
+      // Queries in useDashboardData run once authoritatively on mount without extra requests
     } else {
       setIsAuthenticated(false);
       setAuthView('signup');

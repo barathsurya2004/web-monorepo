@@ -33,7 +33,7 @@ export function useDashboardData(isAuthenticated: boolean) {
     queryKey: QUERY_KEYS.user,
     queryFn: () => api.getUser(),
     enabled: isAuthenticated,
-    staleTime: 1000 * 60 * 2,
+    staleTime: Infinity,
     refetchOnMount: 'always',
   });
 
@@ -59,20 +59,16 @@ export function useDashboardData(isAuthenticated: boolean) {
       return [...brandNewItems, ...mergedExisting];
     },
     enabled: isAuthenticated,
-    staleTime: 0,
+    staleTime: Infinity,
     refetchOnMount: 'always',
-    refetchInterval: 6000, // 6-second background sync for fresh transactions and updated envelopes
-    refetchIntervalInBackground: false,
   });
 
   const summaryQuery = useQuery({
     queryKey: QUERY_KEYS.dashboardSummary,
     queryFn: () => api.getDashboardSummary(),
     enabled: isAuthenticated,
-    staleTime: 0,
+    staleTime: Infinity,
     refetchOnMount: 'always',
-    refetchInterval: 6000,
-    refetchIntervalInBackground: false,
   });
 
   const categoriesQuery = useQuery({
@@ -82,10 +78,8 @@ export function useDashboardData(isAuthenticated: boolean) {
       return Array.isArray(data) ? data : [];
     },
     enabled: isAuthenticated,
-    staleTime: 0,
+    staleTime: Infinity,
     refetchOnMount: 'always',
-    refetchInterval: 6000,
-    refetchIntervalInBackground: false,
   });
 
   const envelopesQuery = useQuery({
@@ -95,10 +89,8 @@ export function useDashboardData(isAuthenticated: boolean) {
       return Array.isArray(data) ? data : [];
     },
     enabled: isAuthenticated,
-    staleTime: 0,
+    staleTime: Infinity,
     refetchOnMount: 'always',
-    refetchInterval: 6000,
-    refetchIntervalInBackground: false,
   });
 
   const groupsQuery = useQuery({
@@ -108,10 +100,8 @@ export function useDashboardData(isAuthenticated: boolean) {
       return Array.isArray(data) ? data : [];
     },
     enabled: isAuthenticated,
-    staleTime: 0,
+    staleTime: Infinity,
     refetchOnMount: 'always',
-    refetchInterval: 12000,
-    refetchIntervalInBackground: false,
   });
 
   // Optimistic Create Transaction Mutation
@@ -227,6 +217,8 @@ export function useDashboardData(isAuthenticated: boolean) {
       categoriesQuery.isFetching ||
       envelopesQuery.isFetching ||
       groupsQuery.isFetching,
+    isError: userQuery.isError || transactionsQuery.isError,
+    error: userQuery.error || transactionsQuery.error,
     refetchAll: async () => {
       await queryClient.invalidateQueries({ refetchType: 'all' });
       await Promise.allSettled([
