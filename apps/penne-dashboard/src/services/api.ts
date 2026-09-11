@@ -378,15 +378,41 @@ export class PenneApiClient {
       headers['Authorization'] = `Bearer ${tokenToUse}`;
     }
 
+    const REQUEST_TIMEOUT_MS = 20000; // 20 seconds maximum per request
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+    if (options.signal) {
+      options.signal.addEventListener('abort', () => controller.abort());
+    }
+
     console.log(`[Penne API Request] ${method} ${API_BASE_URL}${endpoint}`);
 
     let res: Response;
     try {
       res = await fetch(`${API_BASE_URL}${endpoint}`, {
         ...options,
-        headers
+        headers,
+        signal: controller.signal
       });
     } catch (networkErr: any) {
+      clearTimeout(timeoutId);
+      if (networkErr.name === 'AbortError' || controller.signal.aborted) {
+        console.warn(`[Penne API Timeout] Request to ${API_BASE_URL}${endpoint} timed out after 20s`);
+        this.notifyApiResult({
+          endpoint,
+          method,
+          statusCode: 'TIMEOUT',
+          type: 'warning',
+          title: 'Request Timed Out (20s)',
+          message: `Request to ${endpoint} timed out after 20 seconds.`,
+          isMock: false
+        });
+        const timeoutError: any = new Error(`Request to ${endpoint} timed out after 20 seconds.`);
+        timeoutError.name = 'TimeoutError';
+        throw timeoutError;
+      }
+
       console.warn(`[Penne API Network Error] Backend unreachable at ${API_BASE_URL}${endpoint}`, networkErr);
       const errMsg = `Backend server unreachable at ${API_BASE_URL}. Ensure backend is running.`;
       this.notifyApiResult({
@@ -399,6 +425,8 @@ export class PenneApiClient {
         isMock: false
       });
       throw new Error(`Failed to fetch from backend at ${API_BASE_URL}. Ensure backend server is running and CORS is enabled.`);
+    } finally {
+      clearTimeout(timeoutId);
     }
 
     if (!res.ok) {

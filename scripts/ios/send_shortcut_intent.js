@@ -128,6 +128,7 @@ async function main() {
   try {
     const req = new Request(endpoint);
     req.method = "POST";
+    req.timeoutInterval = 20; // 20 seconds max timeout
     req.headers = {
       "Content-Type": "application/json",
       "Authorization": `Bearer ${token}`,
