@@ -11,6 +11,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { EnvelopeMonogramBadge } from '../utils/envelopeVisuals';
+import { calculateSafeDailySpend } from '../utils/cadence';
 import { BudgetOverviewSkeleton, CategoryListSkeleton } from './Skeleton';
 
 interface BudgetPageProps {
@@ -321,6 +322,7 @@ export const BudgetPage: React.FC<BudgetPageProps> = ({
             const isWarning = pct >= 80 && pct <= 100;
             const isOver = pct > 100;
             const isExpanded = expandedEnvId === env.id;
+            const { safeDaily, daysRemaining } = calculateSafeDailySpend(remaining, env.cadence);
 
             const mappedTxns = safeTxns.filter((t) => t && t.envelope_id === env.id && t.txn_type === 'debit');
 
@@ -384,7 +386,11 @@ export const BudgetPage: React.FC<BudgetPageProps> = ({
                   </div>
                   <div className="flex justify-between text-[10px] font-mono text-slate-400">
                     <span>{pct}% allocated burn</span>
-                    <span>Safe: ~{formatINR(Math.round(Math.max(0, remaining) / 22))}/day</span>
+                    <span
+                      title={`${formatINR(Math.max(0, remaining))} remaining across ${daysRemaining} day${daysRemaining === 1 ? '' : 's'} in this ${env.cadence || 'monthly'} cadence`}
+                    >
+                      Safe: ~{formatINR(safeDaily)}/day
+                    </span>
                   </div>
                 </div>
 

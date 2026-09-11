@@ -13,6 +13,7 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { EnvelopeMonogramBadge, getEnvelopeMonogram } from '../utils/envelopeVisuals';
+import { calculateSafeDailySpend } from '../utils/cadence';
 import { StatCardsSkeleton, PaymentLimitsSkeleton, TransactionListSkeleton } from './Skeleton';
 
 interface HomePageProps {
@@ -158,6 +159,11 @@ export const HomePage: React.FC<HomePageProps> = ({
   const totalIncomeAmount = e5ToAmount(totalIncomeE5);
   const totalSpentAmount = e5ToAmount(totalSpentE5);
 
+  const { safeDaily: monthlySafeDaily, daysRemaining: monthlyDaysRemaining } = calculateSafeDailySpend(
+    totalRemainingAmount,
+    'monthly'
+  );
+
   const cardPct = cardLimit > 0 ? Math.min(Math.round((cardSpentAmount / cardLimit) * 100), 100) : 0;
   const bankPct = bankLimit > 0 ? Math.min(Math.round((bankSpentAmount / bankLimit) * 100), 100) : 0;
 
@@ -242,8 +248,11 @@ export const HomePage: React.FC<HomePageProps> = ({
                 <span>Split / Record</span>
                 <ArrowUpRight className="w-3.5 h-3.5 text-[#FBD8B3]" />
               </button>
-              <div className="px-2.5 py-1 rounded-lg bg-indigo-950/10 text-[10px] font-mono text-indigo-950 font-semibold">
-                ~{formatINR(Math.round(totalRemainingAmount / 22))}/day safe
+              <div
+                className="px-2.5 py-1 rounded-lg bg-indigo-950/10 text-[10px] font-mono text-indigo-950 font-semibold"
+                title={`${formatINR(Math.max(0, totalRemainingAmount))} left across ${monthlyDaysRemaining} day${monthlyDaysRemaining === 1 ? '' : 's'} remaining this month`}
+              >
+                ~{formatINR(monthlySafeDaily)}/day safe
               </div>
             </div>
           </div>
