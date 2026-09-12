@@ -48,8 +48,6 @@ export function useDashboardData(isAuthenticated: boolean) {
     staleTime: 0,
     refetchOnMount: 'always',
     refetchOnWindowFocus: true,
-    refetchInterval: 10000, // 10-second gentle background sync for new backend transactions
-    refetchIntervalInBackground: false,
   });
 
   const summaryQuery = useQuery({
@@ -59,8 +57,6 @@ export function useDashboardData(isAuthenticated: boolean) {
     staleTime: 0,
     refetchOnMount: 'always',
     refetchOnWindowFocus: true,
-    refetchInterval: 10000,
-    refetchIntervalInBackground: false,
   });
 
   const categoriesQuery = useQuery({
