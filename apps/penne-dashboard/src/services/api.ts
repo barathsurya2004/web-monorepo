@@ -378,6 +378,12 @@ export class PenneApiClient {
       headers['Authorization'] = `Bearer ${tokenToUse}`;
     }
 
+    // Explicitly prevent browser, WebKit, and intermediary HTTP caching for GET queries
+    if (method === 'GET') {
+      headers['Cache-Control'] = 'no-cache, no-store, must-revalidate';
+      headers['Pragma'] = 'no-cache';
+    }
+
     const REQUEST_TIMEOUT_MS = 20000; // 20 seconds maximum per request
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
@@ -388,13 +394,19 @@ export class PenneApiClient {
 
     console.log(`[Penne API Request] ${method} ${API_BASE_URL}${endpoint}`);
 
+    const fetchOptions: RequestInit = {
+      ...options,
+      headers,
+      signal: controller.signal
+    };
+
+    if (method === 'GET') {
+      fetchOptions.cache = 'no-store';
+    }
+
     let res: Response;
     try {
-      res = await fetch(`${API_BASE_URL}${endpoint}`, {
-        ...options,
-        headers,
-        signal: controller.signal
-      });
+      res = await fetch(`${API_BASE_URL}${endpoint}`, fetchOptions);
     } catch (networkErr: any) {
       clearTimeout(timeoutId);
       if (networkErr.name === 'AbortError' || controller.signal.aborted) {
@@ -831,6 +843,7 @@ export class PenneApiClient {
     if (lastTransactionID) {
       url += `&lastTransactionID=${encodeURIComponent(lastTransactionID)}`;
     }
+    url += `&_t=${Date.now()}`;
 
     const res = await this.request<Transaction[]>(url, { method: 'GET' });
     const list = Array.isArray(res) ? res : [];
@@ -1127,7 +1140,7 @@ export class PenneApiClient {
     }
 
     try {
-      const res = await this.request<DashboardSummary>(`/api/dashboard-summary?user_uuid=${this.userUUID}`, { method: 'GET' });
+      const res = await this.request<DashboardSummary>(`/api/dashboard-summary?user_uuid=${this.userUUID}&_t=${Date.now()}`, { method: 'GET' });
       if (res && typeof res.total_expense_e5 === 'number') {
         return res;
       }

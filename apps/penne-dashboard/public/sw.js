@@ -38,8 +38,23 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // Allow API requests to go through to network or be handled by React Query offline cache
-  if (url.pathname.startsWith('/api') || event.request.method !== 'GET') {
+  // Allow API requests, cross-origin requests, or authenticated data requests to go through to network.
+  // React Query handles client-side offline persistence for data authoritatively.
+  if (
+    event.request.method !== 'GET' ||
+    url.origin !== self.location.origin ||
+    url.pathname.startsWith('/api') ||
+    url.pathname.startsWith('/transactions') ||
+    url.pathname.startsWith('/transaction') ||
+    url.pathname.startsWith('/dashboard-summary') ||
+    url.pathname.startsWith('/envelopes') ||
+    url.pathname.startsWith('/envelope') ||
+    url.pathname.startsWith('/categories') ||
+    url.pathname.startsWith('/user') ||
+    url.searchParams.has('user_uuid') ||
+    url.searchParams.has('_t') ||
+    event.request.headers.has('Authorization')
+  ) {
     return;
   }
 
