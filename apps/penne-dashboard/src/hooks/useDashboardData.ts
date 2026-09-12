@@ -42,16 +42,7 @@ export function useDashboardData(isAuthenticated: boolean) {
     queryKey: QUERY_KEYS.transactions,
     queryFn: async () => {
       const fresh = await api.getTransactions();
-      const freshList = Array.isArray(fresh) ? fresh : [];
-      const currentCache = queryClient.getQueryData<Transaction[]>(QUERY_KEYS.transactions);
-      if (!currentCache || currentCache.length === 0) {
-        return freshList;
-      }
-      // freshList contains authoritative latest transactions from backend.
-      // Retain older paginated items (loaded beyond initial page) that are not in freshList.
-      const freshIdSet = new Set(freshList.map((t) => t && t.id).filter(Boolean));
-      const olderPaginated = currentCache.filter((t) => t && t.id && !freshIdSet.has(t.id));
-      return [...freshList, ...olderPaginated];
+      return Array.isArray(fresh) ? fresh : [];
     },
     enabled: isAuthenticated,
     staleTime: 0,
@@ -224,7 +215,14 @@ export function useDashboardData(isAuthenticated: boolean) {
     isError: userQuery.isError || transactionsQuery.isError,
     error: userQuery.error || transactionsQuery.error,
     refetchAll: async () => {
-      await queryClient.invalidateQueries({ refetchType: 'active' });
+      await Promise.allSettled([
+        queryClient.refetchQueries({ queryKey: QUERY_KEYS.user, exact: true }),
+        queryClient.refetchQueries({ queryKey: QUERY_KEYS.transactions, exact: true }),
+        queryClient.refetchQueries({ queryKey: QUERY_KEYS.dashboardSummary, exact: true }),
+        queryClient.refetchQueries({ queryKey: QUERY_KEYS.categories, exact: true }),
+        queryClient.refetchQueries({ queryKey: QUERY_KEYS.envelopes, exact: true }),
+        queryClient.refetchQueries({ queryKey: QUERY_KEYS.envelopeGroups, exact: true }),
+      ]);
     },
     createTxnMutation,
   };

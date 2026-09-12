@@ -20,10 +20,10 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       client={queryClient}
       persistOptions={persistOptions}
       onSuccess={() => {
-        // Trigger background invalidation after hydration from localStorage
+        // Trigger background hard refetch after hydration from localStorage
         // Defer by one tick so isRestoring becomes false and active queries refetch immediately
         setTimeout(() => {
-          queryClient.invalidateQueries({ refetchType: 'active' });
+          queryClient.refetchQueries({ type: 'active' });
         }, 0);
       }}
     >

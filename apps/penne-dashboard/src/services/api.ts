@@ -392,7 +392,13 @@ export class PenneApiClient {
       options.signal.addEventListener('abort', () => controller.abort());
     }
 
-    console.log(`[Penne API Request] ${method} ${API_BASE_URL}${endpoint}`);
+    let requestUrl = `${API_BASE_URL}${endpoint}`;
+    if (method === 'GET' && !requestUrl.includes('_t=')) {
+      const sep = requestUrl.includes('?') ? '&' : '?';
+      requestUrl += `${sep}_t=${Date.now()}`;
+    }
+
+    console.log(`[Penne API Request] ${method} ${requestUrl}`);
 
     const fetchOptions: RequestInit = {
       ...options,
@@ -406,7 +412,7 @@ export class PenneApiClient {
 
     let res: Response;
     try {
-      res = await fetch(`${API_BASE_URL}${endpoint}`, fetchOptions);
+      res = await fetch(requestUrl, fetchOptions);
     } catch (networkErr: any) {
       clearTimeout(timeoutId);
       if (networkErr.name === 'AbortError' || controller.signal.aborted) {
@@ -843,7 +849,6 @@ export class PenneApiClient {
     if (lastTransactionID) {
       url += `&lastTransactionID=${encodeURIComponent(lastTransactionID)}`;
     }
-    url += `&_t=${Date.now()}`;
 
     const res = await this.request<Transaction[]>(url, { method: 'GET' });
     const list = Array.isArray(res) ? res : [];
@@ -1140,7 +1145,7 @@ export class PenneApiClient {
     }
 
     try {
-      const res = await this.request<DashboardSummary>(`/api/dashboard-summary?user_uuid=${this.userUUID}&_t=${Date.now()}`, { method: 'GET' });
+      const res = await this.request<DashboardSummary>(`/api/dashboard-summary?user_uuid=${this.userUUID}`, { method: 'GET' });
       if (res && typeof res.total_expense_e5 === 'number') {
         return res;
       }
