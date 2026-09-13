@@ -3,6 +3,9 @@ import { useApp } from '@/context/AppContext';
 import { Category, GoalType, ColorTheme, FrequencyType } from '@/types';
 import { Modal, Input, Button } from '@packages/ui';
 
+import { HABIT_ICON_OPTIONS } from '@/components/HabitIcon';
+import { Plus, Check, Sprout } from 'lucide-react';
+
 interface AddHabitModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -36,7 +39,6 @@ const COLOR_THEMES: { id: ColorTheme; label: string; bg: string }[] = [
   { id: 'river', label: 'River Mist', bg: '#4C7285' },
   { id: 'plum', label: 'Wild Plum', bg: '#835B74' },
 ];
-const EMOJIS = ['🌱', '✏️', '🎹', '📖', '💻', '🧘', '🌿', '📓', '🍵', '🎨', '🏃', '💧'];
 
 export const AddHabitModal: React.FC<AddHabitModalProps> = ({ isOpen, onClose }) => {
   const { addHabit } = useApp();
@@ -47,7 +49,7 @@ export const AddHabitModal: React.FC<AddHabitModalProps> = ({ isOpen, onClose })
   const [customDays, setCustomDays] = useState<number[]>([1, 3, 5]); // Mon, Wed, Fri
   const [targetValue, setTargetValue] = useState('30');
   const [colorTheme, setColorTheme] = useState<ColorTheme>('clay');
-  const [selectedEmoji, setSelectedEmoji] = useState('🌱');
+  const [selectedIcon, setSelectedIcon] = useState('sprout');
   const [notes, setNotes] = useState('');
 
   const toggleDay = (day: number) => {
@@ -72,7 +74,7 @@ export const AddHabitModal: React.FC<AddHabitModalProps> = ({ isOpen, onClose })
       targetValue: parsedTarget,
       unit,
       colorTheme,
-      icon: selectedEmoji,
+      icon: selectedIcon,
       notes: notes.trim(),
     });
 
@@ -83,7 +85,7 @@ export const AddHabitModal: React.FC<AddHabitModalProps> = ({ isOpen, onClose })
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Cultivate a Mindful Habit 🌱">
+    <Modal isOpen={isOpen} onClose={onClose} title="Cultivate a Mindful Habit">
       <form onSubmit={handleSubmit} className="flex flex-col gap-4 text-left">
         {/* Habit Name */}
         <Input
@@ -100,34 +102,38 @@ export const AddHabitModal: React.FC<AddHabitModalProps> = ({ isOpen, onClose })
             Stone Pebble Accent & Icon
           </label>
           <div className="flex items-center gap-2 overflow-x-auto pb-1">
-            {EMOJIS.map((emoji) => (
-              <button
-                key={emoji}
-                type="button"
-                onClick={() => setSelectedEmoji(emoji)}
-                className={`w-9 h-9 rounded-xl flex items-center justify-center text-lg transition-transform cursor-pointer shrink-0 ${
-                  selectedEmoji === emoji
-                    ? 'bg-white/20 border-2 border-[var(--clay-terracotta)] scale-110'
-                    : 'hover:bg-white/10'
-                }`}
-              >
-                {emoji}
-              </button>
-            ))}
+            {HABIT_ICON_OPTIONS.map((item) => {
+              const IconComp = item.Icon;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  title={item.label}
+                  onClick={() => setSelectedIcon(item.id)}
+                  className={`w-9 h-9 rounded-xl flex items-center justify-center transition-transform cursor-pointer shrink-0 ${
+                    selectedIcon === item.id
+                      ? 'bg-white/25 border-2 border-[var(--clay-terracotta)] scale-110 text-white shadow-sm'
+                      : 'text-slate-300 hover:bg-white/10 hover:text-white'
+                  }`}
+                >
+                  <IconComp className="w-4 h-4" />
+                </button>
+              );
+            })}
           </div>
 
-          <div className="flex items-center gap-2 mt-1">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 mt-1">
             {COLOR_THEMES.map((theme) => (
               <button
                 key={theme.id}
                 type="button"
                 onClick={() => setColorTheme(theme.id)}
-                className={`flex-1 py-1.5 px-2 rounded-xl text-xs font-mono font-semibold text-white transition-all cursor-pointer flex items-center justify-center gap-1 border ${
-                  colorTheme === theme.id ? 'ring-2 ring-white/50 border-white scale-[1.02]' : 'border-transparent opacity-75'
+                className={`py-1.5 px-2 rounded-xl text-xs font-mono font-semibold text-white transition-all cursor-pointer flex items-center justify-center gap-1 border ${
+                  colorTheme === theme.id ? 'ring-2 ring-white/50 border-white scale-[1.02]' : 'border-transparent opacity-85'
                 }`}
                 style={{ backgroundColor: theme.bg }}
               >
-                {colorTheme === theme.id && '✓'} {theme.label}
+                {colorTheme === theme.id && <Check className="w-3.5 h-3.5 shrink-0" />} {theme.label}
               </button>
             ))}
           </div>
@@ -255,9 +261,10 @@ export const AddHabitModal: React.FC<AddHabitModalProps> = ({ isOpen, onClose })
           <Button
             type="submit"
             variant="pastelTerracotta"
-            className="flex-1 !rounded-2xl !min-h-[46px] font-mono text-sm uppercase tracking-wider"
+            className="flex-1 !rounded-2xl !min-h-[46px] font-mono text-sm uppercase tracking-wider flex items-center justify-center gap-1.5"
           >
-            Plant Habit 🌱
+            <span>Plant Habit</span>
+            <Sprout className="w-4 h-4" />
           </Button>
           <Button
             type="button"

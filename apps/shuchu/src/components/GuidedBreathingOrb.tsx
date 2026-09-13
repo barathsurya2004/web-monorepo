@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Wind, Lightbulb } from 'lucide-react';
 
 export const GuidedBreathingOrb: React.FC = () => {
   // Breathing phases: Inhale (4s), Hold (4s), Exhale (4s), Rest (2s)
@@ -77,7 +78,7 @@ export const GuidedBreathingOrb: React.FC = () => {
               : 'scale-85 shadow-md'
           }`}
         >
-          <span className="text-2xl mb-0.5">🍃</span>
+          <Wind className="w-6 h-6 mb-1 text-white" />
           <span className="font-mono text-[11px] uppercase tracking-widest font-black">
             {phase.toUpperCase()}
           </span>
@@ -95,8 +96,9 @@ export const GuidedBreathingOrb: React.FC = () => {
       </div>
 
       {/* Mindful Pause Tip */}
-      <div className="bg-[var(--surface-warm)] border border-[var(--border)] rounded-2xl px-4 py-3 text-xs text-[var(--fg-soft)] font-serif italic max-w-xs shadow-sm">
-        💡 {tips[tipIndex]}
+      <div className="bg-[var(--surface-warm)] border border-[var(--border)] rounded-2xl px-4 py-3 text-xs text-[var(--fg-soft)] font-serif italic max-w-xs shadow-sm flex items-start gap-2 text-left">
+        <Lightbulb className="w-3.5 h-3.5 text-[var(--ochre-seed)] shrink-0 mt-0.5" />
+        <span>{tips[tipIndex]}</span>
       </div>
     </div>
   );

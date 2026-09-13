@@ -2,7 +2,8 @@ import React from 'react';
 import { useApp } from '@/context/AppContext';
 import { EmptyToday } from '@/views/EmptyToday';
 import { Badge, Button } from '@packages/ui';
-import { Coffee } from 'lucide-react';
+import { Coffee, Flame, Snowflake, Sparkles, Check, Timer, ArrowRight } from 'lucide-react';
+import { HabitIcon } from '@/components/HabitIcon';
 
 interface TodayDashboardProps {
   onOpenAddModal?: () => void;
@@ -115,7 +116,7 @@ export const TodayDashboard: React.FC<TodayDashboardProps> = ({ onOpenAddModal }
       {/* Mindful Greeting */}
       <div>
         <div className="flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-wider text-[#5C5347] dark:text-[var(--muted)] font-semibold mb-1">
-          <span className="text-[var(--matcha-leaf)]">✦</span>
+          <Sparkles className="w-3.5 h-3.5 text-[var(--matcha-leaf)]" />
           <span>{formattedToday} • {timeOfDayTag}</span>
         </div>
         <h1 className="font-display text-2xl sm:text-3xl font-medium leading-tight text-[var(--fg)]">
@@ -143,8 +144,9 @@ export const TodayDashboard: React.FC<TodayDashboardProps> = ({ onOpenAddModal }
               </div>
             </div>
           </div>
-          <Button variant="outline" size="sm" className="!rounded-xl text-xs font-mono !min-h-[32px] !text-[#383028] !border-[#CFC3B3] hover:!bg-black/5 dark:!text-slate-200 dark:!border-white/15">
-            Resume ➔
+          <Button variant="outline" size="sm" className="!rounded-xl text-xs font-mono !min-h-[32px] !text-[#383028] !border-[#CFC3B3] hover:!bg-black/5 dark:!text-slate-200 dark:!border-white/15 gap-1">
+            <span>Resume</span>
+            <ArrowRight className="w-3.5 h-3.5" />
           </Button>
         </div>
       )}
@@ -211,7 +213,7 @@ export const TodayDashboard: React.FC<TodayDashboardProps> = ({ onOpenAddModal }
                   : 'bg-[var(--surface)] border border-[var(--border)] text-[#7A7063] dark:text-[var(--muted)]'
               }`}
             >
-              {item.isCurrent ? item.stat : item.isDone ? '✓' : '—'}
+              {item.isCurrent ? item.stat : item.isDone ? <Check className="w-3.5 h-3.5 text-[var(--matcha-leaf)]" /> : '—'}
             </div>
           </div>
         ))}
@@ -244,19 +246,20 @@ export const TodayDashboard: React.FC<TodayDashboardProps> = ({ onOpenAddModal }
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
                   <div
-                    className={`w-11 h-11 rounded-2xl border flex items-center justify-center text-xl shrink-0 ${getBlobClass(
+                    className={`w-11 h-11 rounded-2xl border flex items-center justify-center shrink-0 ${getBlobClass(
                       habit.colorTheme
                     )}`}
                   >
-                    {habit.icon}
+                    <HabitIcon icon={habit.icon} className="w-5 h-5 text-current" />
                   </div>
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <Badge variant={getBadgeVariant(habit.colorTheme)} className="!text-[9px] !py-0.5 !px-2">
                         {habit.category}
                       </Badge>
-                      <span className="font-mono text-[11px] font-bold text-[var(--ochre-seed)]">
-                        🔥 {habit.streak}d
+                      <span className="font-mono text-[11px] font-bold text-[var(--ochre-seed)] flex items-center gap-0.5">
+                        <Flame className="w-3 h-3 text-[var(--ochre-seed)] inline" />
+                        {habit.streak}d
                       </span>
                       {habit.frequencyType && habit.frequencyType !== 'daily' && (
                         <span className="font-mono text-[9px] font-semibold px-1.5 py-0.5 rounded bg-[var(--surface-warm)] border border-[#CFC3B3] dark:border-[var(--border)] text-[#5C5347] dark:text-[var(--muted)] capitalize">
@@ -264,12 +267,14 @@ export const TodayDashboard: React.FC<TodayDashboardProps> = ({ onOpenAddModal }
                         </span>
                       )}
                       {habit.freezesUsed?.includes(new Date().toISOString().split('T')[0]) ? (
-                        <span className="font-mono text-[9px] font-bold px-2 py-0.5 rounded-full bg-cyan-100 dark:bg-cyan-950/60 text-cyan-900 dark:text-cyan-300 border border-cyan-400">
-                          ❄️ Protected
+                        <span className="font-mono text-[9px] font-bold px-2 py-0.5 rounded-full bg-cyan-100 dark:bg-cyan-950/60 text-cyan-900 dark:text-cyan-300 border border-cyan-400 flex items-center gap-1">
+                          <Snowflake className="w-3 h-3 text-cyan-600 dark:text-cyan-400" />
+                          Protected
                         </span>
                       ) : !isHabitScheduledToday(habit) ? (
-                        <span className="font-mono text-[9px] font-bold px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-300 border border-amber-400">
-                          🍃 Rest Day
+                        <span className="font-mono text-[9px] font-bold px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-300 border border-amber-400 flex items-center gap-1">
+                          <Coffee className="w-3 h-3 text-amber-600 dark:text-amber-400" />
+                          Rest Day
                         </span>
                       ) : null}
                     </div>
@@ -297,13 +302,13 @@ export const TodayDashboard: React.FC<TodayDashboardProps> = ({ onOpenAddModal }
                           ? 'Streak freeze active for today'
                           : `Protect streak with freeze (${habit.streakFreezesAvailable ?? 2} available)`
                       }
-                      className={`px-2.5 py-1 rounded-xl text-[11px] font-mono font-bold transition-all cursor-pointer border flex items-center gap-1 ${
+                      className={`px-2.5 py-1 rounded-xl text-[11px] font-mono font-bold transition-all cursor-pointer border flex items-center gap-1.5 ${
                         habit.freezesUsed?.includes(new Date().toISOString().split('T')[0])
                           ? 'bg-cyan-100 dark:bg-cyan-950 text-cyan-900 dark:text-cyan-300 border-cyan-400 shadow-sm'
                           : 'bg-[var(--surface-warm)] text-[#544B40] border-[#CFC3B3] hover:border-cyan-500 hover:text-cyan-800 dark:border-[var(--border)] dark:text-[var(--muted)]'
                       }`}
                     >
-                      <span>❄️</span>
+                      <Snowflake className="w-3.5 h-3.5" />
                       <span className="hidden sm:inline">
                         {habit.freezesUsed?.includes(new Date().toISOString().split('T')[0])
                           ? 'Frozen'
@@ -322,13 +327,13 @@ export const TodayDashboard: React.FC<TodayDashboardProps> = ({ onOpenAddModal }
                       toggleHabitCompletion(habit.id);
                     }}
                     title={isDone ? 'Mark uncompleted' : 'Mark completed'}
-                    className={`!w-9 !h-9 !min-h-[36px] !p-0 !rounded-full text-sm font-bold shrink-0 transition-all ${
+                    className={`!w-9 !h-9 !min-h-[36px] !p-0 !rounded-full text-sm font-bold shrink-0 transition-all flex items-center justify-center ${
                       isDone
                         ? '!bg-[var(--matcha-leaf)] !text-white !border-[var(--matcha-leaf)] shadow-sm'
                         : '!border-2 !border-[#B5A795] dark:!border-white/25 !text-transparent hover:!border-[var(--matcha-leaf)] hover:!bg-[var(--matcha-soft)]'
                     }`}
                   >
-                    ✓
+                    <Check className={`w-4 h-4 ${isDone ? 'text-white' : 'text-transparent'}`} />
                   </Button>
                 </div>
               </div>
@@ -339,7 +344,7 @@ export const TodayDashboard: React.FC<TodayDashboardProps> = ({ onOpenAddModal }
                   <div className="flex justify-between font-mono text-xs text-[#5C5347] dark:text-[var(--muted)] font-medium">
                     <span>Target: {habit.targetValue} {habit.unit}</span>
                     <strong className={isDone ? 'text-[var(--matcha-leaf)] font-bold' : 'text-[var(--fg)] font-bold'}>
-                      {isDone ? `${habit.currentValue} / ${habit.targetValue} ${habit.unit} ✓` : `${habit.currentValue} / ${habit.targetValue} ${habit.unit}`}
+                      {habit.currentValue} / {habit.targetValue} {habit.unit}
                     </strong>
                   </div>
                   <div className="h-2 bg-[var(--surface-pebble)] border border-[var(--border-subtle)] rounded-full overflow-hidden">
@@ -362,13 +367,13 @@ export const TodayDashboard: React.FC<TodayDashboardProps> = ({ onOpenAddModal }
                     e.stopPropagation();
                     startFocusSession(habit.id, habit.goalType === 'duration' ? habit.targetValue : 25);
                   }}
-                  className={`!rounded-xl text-xs font-mono font-bold shrink-0 !min-h-[34px] px-3 gap-1 ${
+                  className={`!rounded-xl text-xs font-mono font-bold shrink-0 !min-h-[34px] px-3 gap-1.5 ${
                     isDone
                       ? '!text-[#383028] !border-[#CFC3B3] hover:!bg-black/5 dark:!text-slate-200 dark:!border-white/20'
                       : ''
                   }`}
                 >
-                  <span>⏱</span>
+                  <Timer className="w-3.5 h-3.5" />
                   <span>{isDone ? '+ Flow' : 'Focus'}</span>
                 </Button>
               </div>

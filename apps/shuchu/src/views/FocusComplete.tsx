@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '@/context/AppContext';
-import { Button, Input } from '@packages/ui';
+import { Button } from '@packages/ui';
+import { Sparkles, Check, ArrowRight } from 'lucide-react';
 
 export const FocusComplete: React.FC = () => {
   const { lastCompletedSession, activeHabit, setScreen } = useApp();
@@ -25,8 +26,8 @@ export const FocusComplete: React.FC = () => {
     <div className="max-w-lg mx-auto my-auto animate-soft-fade">
       <div className="bg-[var(--surface)] border border-[var(--border)] rounded-3xl p-6 sm:p-8 text-center shadow-lg relative">
         {/* Blooming flower icon */}
-        <div className="w-16 h-16 rounded-full bg-[var(--matcha-soft)] border-2 border-[var(--matcha-border)] text-[var(--matcha-leaf)] text-4xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-[var(--matcha-glow)] animate-gentle-float">
-          🌸
+        <div className="w-16 h-16 rounded-full bg-[var(--matcha-soft)] border-2 border-[var(--matcha-border)] text-[var(--matcha-leaf)] flex items-center justify-center mx-auto mb-4 shadow-lg shadow-[var(--matcha-glow)] animate-gentle-float">
+          <Sparkles className="w-8 h-8 text-[var(--clay-terracotta)]" />
         </div>
 
         <h2 className="font-display text-2xl sm:text-3xl font-medium text-[var(--fg)] mb-1">
@@ -51,15 +52,16 @@ export const FocusComplete: React.FC = () => {
             <div className="font-mono text-[10px] uppercase font-bold text-[var(--muted)] mb-1">
               Total Today
             </div>
-            <div className="font-display text-xl font-bold text-[var(--matcha-leaf)]">
-              {totalToday} {activeHabit?.unit || 'min'} ✓
+            <div className="font-display text-xl font-bold text-[var(--matcha-leaf)] flex items-center gap-1.5">
+              <span>{totalToday} {activeHabit?.unit || 'min'}</span>
+              <Check className="w-4 h-4 text-[var(--matcha-leaf)]" />
             </div>
           </div>
         </div>
 
         {/* Target vs Overtime Bonus Callout */}
         <div className="bg-[var(--ochre-soft)] border border-[var(--ochre-border)] rounded-2xl p-3.5 text-left text-xs text-[var(--fg-soft)] mb-6 flex items-start gap-3">
-          <span className="text-lg text-[var(--ochre-seed)] shrink-0">✦</span>
+          <Sparkles className="w-5 h-5 text-[var(--ochre-seed)] shrink-0 mt-0.5" />
           <div>
             <strong className="text-[var(--fg)] block font-bold mb-0.5">
               Target Completed {overtime > 0 ? `+ ${overtime}m Bonus Flow` : ''}
@@ -91,8 +93,8 @@ export const FocusComplete: React.FC = () => {
             </Button>
           </div>
           {savedToast && (
-            <span className="text-xs text-[var(--matcha-leaf)] font-mono block">
-              ✓ Reflection recorded to timeline
+            <span className="text-xs text-[var(--matcha-leaf)] font-mono flex items-center gap-1">
+              <Check className="w-3.5 h-3.5" /> Reflection recorded to timeline
             </span>
           )}
         </div>
@@ -109,9 +111,10 @@ export const FocusComplete: React.FC = () => {
           <Button
             variant="ghost"
             onClick={() => setScreen('analytics')}
-            className="!rounded-full font-mono text-xs !min-h-[44px] px-5 !text-[#5C5347] hover:!text-[#1F1B17] dark:!text-slate-400 dark:hover:!text-white font-semibold"
+            className="!rounded-full font-mono text-xs !min-h-[44px] px-5 !text-[#5C5347] hover:!text-[#1F1B17] dark:!text-slate-400 dark:hover:!text-white font-semibold flex items-center justify-center gap-1"
           >
-            View Garden ➔
+            <span>View Garden</span>
+            <ArrowRight className="w-3.5 h-3.5" />
           </Button>
         </div>
       </div>

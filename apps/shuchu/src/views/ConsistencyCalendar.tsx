@@ -1,6 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '@/context/AppContext';
 import { Badge, Button } from '@packages/ui';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { HabitIcon } from '@/components/HabitIcon';
 import { FocusSession } from '@/types';
 
 export const ConsistencyCalendar: React.FC = () => {
@@ -127,33 +129,33 @@ export const ConsistencyCalendar: React.FC = () => {
             size="sm"
             onClick={handlePrevMonth}
             title="Previous Month"
-            className="!w-8 !h-8 !p-0 !min-h-0 text-sm font-bold !text-[#383028] !border-[#CFC3B3] hover:!bg-black/5 dark:!text-slate-200 dark:!border-white/15"
+            className="!w-8 !h-8 !p-0 !min-h-0 text-sm font-bold !text-[#383028] !border-[#CFC3B3] hover:!bg-black/5 dark:!text-slate-200 dark:!border-white/15 flex items-center justify-center"
           >
-            ‹
+            <ChevronLeft className="w-4 h-4" />
           </Button>
           <Button
             variant="outline"
             size="sm"
             onClick={handleNextMonth}
             title="Next Month"
-            className="!w-8 !h-8 !p-0 !min-h-0 text-sm font-bold !text-[#383028] !border-[#CFC3B3] hover:!bg-black/5 dark:!text-slate-200 dark:!border-white/15"
+            className="!w-8 !h-8 !p-0 !min-h-0 text-sm font-bold !text-[#383028] !border-[#CFC3B3] hover:!bg-black/5 dark:!text-slate-200 dark:!border-white/15 flex items-center justify-center"
           >
-            ›
+            <ChevronRight className="w-4 h-4" />
           </Button>
         </div>
       </div>
 
       {/* 7-Day Clean Heatmap Grid */}
       <div className="space-y-2">
-        <div className="grid grid-cols-7 gap-2 text-center font-mono text-[11px] text-[var(--muted)] font-bold">
+        <div className="grid grid-cols-7 gap-1 sm:gap-2 text-center font-mono text-[11px] text-[var(--muted)] font-bold">
           {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => (
-            <div key={i} className="py-1">
+            <div key={i} className="py-0.5 sm:py-1">
               {d}
             </div>
           ))}
         </div>
 
-        <div className="grid grid-cols-7 gap-2">
+        <div className="grid grid-cols-7 gap-1 sm:gap-2">
           {/* Empty cells before month begins */}
           {Array.from({ length: offsetDays }).map((_, i) => (
             <div key={`empty-${i}`} className="aspect-square opacity-0 pointer-events-none" />
@@ -225,7 +227,7 @@ export const ConsistencyCalendar: React.FC = () => {
                 >
                   <div className="flex items-center justify-between">
                     <span className="flex items-center gap-2 text-[var(--fg)] font-semibold">
-                      <span>{matchedHabit?.icon || '⏱'}</span>
+                      <HabitIcon icon={matchedHabit?.icon || 'timer'} className="w-4 h-4 text-current shrink-0" />
                       <span>{sess.habitTitle}</span>
                     </span>
                     <span className="font-mono text-[11px] text-[var(--matcha-leaf)] font-bold">

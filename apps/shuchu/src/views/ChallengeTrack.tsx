@@ -1,6 +1,7 @@
 import React from 'react';
 import { useApp } from '@/context/AppContext';
 import { Badge, Button } from '@packages/ui';
+import { Check, Lock, ArrowRight } from 'lucide-react';
 
 export const ChallengeTrack: React.FC = () => {
   const { challenges, setScreen } = useApp();
@@ -29,29 +30,28 @@ export const ChallengeTrack: React.FC = () => {
           52-Week Creative Challenge
         </h2>
         <p className="text-xs sm:text-sm text-[var(--fg-soft)] font-serif italic leading-relaxed">
-          A gentle year-long curriculum to cultivate intuitive visual thinking through weekly themed practices.
+          One creative experiment every week. Cultivate consistency and creative confidence through weekly mindful prompts.
         </p>
 
-        {/* Year Progress */}
-        <div className="space-y-1.5 pt-1">
-          <div className="flex justify-between text-[11px] font-mono text-[var(--muted)]">
-            <span>Overall Journey</span>
-            <span>{progressPercent}% Completed ({totalCompletedSessions}/{totalTargetSessions} sessions)</span>
+        {/* Progress Bar */}
+        <div className="space-y-1.5 pt-2">
+          <div className="flex justify-between font-mono text-xs font-semibold text-[var(--fg-soft)]">
+            <span>Overall Path Progress</span>
+            <span>{totalCompletedSessions} of {totalTargetSessions} Sessions</span>
           </div>
-          <div className="h-2 bg-[var(--surface-pebble)] rounded-full overflow-hidden border border-[var(--border-subtle)]">
-            <div className="h-full bg-[var(--accent)] rounded-full transition-all duration-500" style={{ width: `${progressPercent}%` }} />
+          <div className="h-2 bg-[var(--surface)] rounded-full overflow-hidden border border-[var(--clay-border)]">
+            <div
+              className="h-full bg-[var(--clay-terracotta)] rounded-full transition-all duration-500"
+              style={{ width: `${progressPercent}%` }}
+            />
           </div>
         </div>
       </div>
 
-      {/* Curriculum Weeks Header */}
-      <div className="flex justify-between items-baseline">
-        <h3 className="font-display text-lg font-semibold text-[var(--fg)]">Curriculum Milestones</h3>
-        <span className="font-mono text-xs text-[var(--muted)]">Structured Growth</span>
-      </div>
+      {/* Week Grid / List */}
+      <div className="space-y-3">
+        <h3 className="font-display text-lg font-semibold text-[var(--fg)]">Quest Milestones</h3>
 
-      {/* Milestone Stones List */}
-      <div className="flex flex-col gap-3">
         {challenges.map((item) => (
           <div
             key={item.weekNumber}
@@ -60,22 +60,22 @@ export const ChallengeTrack: React.FC = () => {
                 setScreen('challenge-detail');
               }
             }}
-            className={`bg-[var(--surface)] border border-[var(--border)] p-4 sm:p-5 rounded-2xl flex items-center justify-between gap-3 transition-all cursor-pointer shadow-sm ${
+            className={`border rounded-2xl p-4 flex items-center justify-between gap-4 transition-all cursor-pointer ${
               item.isCurrent
-                ? 'border-[var(--accent)] bg-[var(--accent-soft)] shadow-md shadow-[var(--clay-glow)] scale-[1.01]'
-                : item.isLocked
-                ? 'opacity-60 cursor-not-allowed'
-                : 'hover:border-[var(--accent)] hover:translate-x-1'
+                ? 'bg-[var(--surface)] border-[var(--accent)] shadow-md'
+                : item.completedSessions >= item.targetSessions
+                ? 'bg-[var(--surface-warm)] border-[var(--matcha-border)] opacity-85'
+                : 'bg-[var(--surface-warm)] border-[var(--border-subtle)] opacity-60'
             }`}
           >
             <div className="space-y-1 min-w-0">
               <div className="flex items-center gap-2">
-                <span className="font-mono text-xs font-bold text-[var(--accent)]">
+                <span className="font-mono text-xs font-bold text-[var(--muted)]">
                   Week {item.weekNumber}
                 </span>
                 {item.isCurrent && (
                   <Badge variant="terracotta" className="!text-[9px] !py-0 !px-1.5">
-                    Active Track
+                    Active This Week
                   </Badge>
                 )}
               </div>
@@ -92,14 +92,21 @@ export const ChallengeTrack: React.FC = () => {
                 <Button
                   variant="pastelTerracotta"
                   size="sm"
-                  className="!min-h-[32px] !py-1 !px-3 font-mono text-xs font-bold"
+                  className="!min-h-[32px] !py-1 !px-3 font-mono text-xs font-bold gap-1"
                 >
-                  Explore ➔
+                  <span>Explore</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
                 </Button>
               ) : item.completedSessions >= item.targetSessions ? (
-                <span className="text-[var(--matcha-leaf)] font-bold">✓ Complete</span>
+                <span className="text-[var(--matcha-leaf)] font-bold flex items-center gap-1">
+                  <Check className="w-3.5 h-3.5" />
+                  <span>Complete</span>
+                </span>
               ) : (
-                <span className="text-[var(--muted)]">Locked 🔒</span>
+                <span className="text-[var(--muted)] flex items-center gap-1">
+                  <span>Locked</span>
+                  <Lock className="w-3 h-3" />
+                </span>
               )}
             </div>
           </div>

@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { useApp } from '@/context/AppContext';
 import { Category } from '@/types';
 import { Badge, Button } from '@packages/ui';
-import { Search, Plus } from 'lucide-react';
+import { Search, Plus, Flame, ArrowRight } from 'lucide-react';
+import { HabitIcon } from '@/components/HabitIcon';
 
 interface HabitsLibraryProps {
   onOpenAddModal: () => void;
@@ -95,8 +96,8 @@ export const HabitsLibrary: React.FC<HabitsLibraryProps> = ({ onOpenAddModal }) 
               className="bg-[var(--surface)] hover:bg-[var(--surface-warm)] border border-[var(--border)] p-4 rounded-2xl flex items-center justify-between gap-3 cursor-pointer transition-all hover:scale-[1.01] shadow-sm group"
             >
               <div className="flex items-center gap-3 min-w-0">
-                <div className="w-10 h-10 rounded-xl bg-[var(--surface-pebble)] border border-[var(--border)] flex items-center justify-center text-xl shrink-0">
-                  {habit.icon}
+                <div className="w-10 h-10 rounded-xl bg-[var(--surface-pebble)] border border-[var(--border)] flex items-center justify-center shrink-0">
+                  <HabitIcon icon={habit.icon} className="w-5 h-5 text-current" />
                 </div>
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
@@ -114,12 +115,11 @@ export const HabitsLibrary: React.FC<HabitsLibraryProps> = ({ onOpenAddModal }) 
               </div>
 
               <div className="flex items-center gap-2 shrink-0">
-                <span className="font-mono text-xs font-bold text-[var(--ochre-seed)] bg-[var(--ochre-soft)] border border-[var(--ochre-border)] px-2.5 py-0.5 rounded-full">
-                  🔥 {habit.streak}d
+                <span className="font-mono text-xs font-bold text-[var(--ochre-seed)] bg-[var(--ochre-soft)] border border-[var(--ochre-border)] px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                  <Flame className="w-3 h-3 text-[var(--ochre-seed)] inline" />
+                  <span>{habit.streak}d</span>
                 </span>
-                <span className="text-[#695F52] dark:text-[var(--muted)] text-xs group-hover:text-[var(--accent)] transition-colors">
-                  ➔
-                </span>
+                <ArrowRight className="w-3.5 h-3.5 text-[#695F52] dark:text-[var(--muted)] group-hover:text-[var(--accent)] transition-colors" />
               </div>
             </div>
           ))

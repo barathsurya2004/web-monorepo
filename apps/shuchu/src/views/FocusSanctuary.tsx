@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '@/context/AppContext';
-import { Sparkles, RotateCcw, Coffee, Brain } from 'lucide-react';
+import { Sparkles, RotateCcw, Coffee, Brain, ArrowLeft, ArrowRight, Play, Pause, Wind, Sun, Moon } from 'lucide-react';
 import { Button } from '@packages/ui';
 import { GuidedBreathingOrb } from '@/components/GuidedBreathingOrb';
 
@@ -21,6 +21,7 @@ export const FocusSanctuary: React.FC = () => {
     finishCurrentSession,
     setScreen,
     theme,
+    toggleTheme,
   } = useApp();
 
   const [sanctuaryMode, setSanctuaryMode] = useState<'stone' | 'hearth'>('stone');
@@ -46,12 +47,12 @@ export const FocusSanctuary: React.FC = () => {
 
   return (
     <div
-      className={`min-h-[640px] sm:min-h-[690px] rounded-3xl p-5 sm:p-8 flex flex-col justify-between relative overflow-hidden shadow-xl transition-all duration-300 select-none animate-soft-fade ${
+      className={`h-[100dvh] max-h-[100dvh] w-full flex flex-col justify-between relative overflow-hidden select-none animate-soft-fade px-4 sm:px-8 pt-[max(calc(env(safe-area-inset-top,0px)+1rem),1.75rem)] pb-[max(calc(env(safe-area-inset-bottom,0px)+1.25rem),2rem)] max-w-2xl mx-auto transition-all duration-300 ${
         isBreakMode
-          ? 'bg-gradient-to-br from-[#EEF5F1] via-[#E4EFE8] to-[#D5E6DC] dark:from-[#17241C] dark:via-[#131C16] dark:to-[#0E1510] text-[#1E3B29] dark:text-[#E2F0E7] border border-[#C6DFD0]/60 dark:border-[#2D4C38]/50'
+          ? 'bg-gradient-to-br from-[#EEF5F1] via-[#E4EFE8] to-[#D5E6DC] dark:from-[#17241C] dark:via-[#131C16] dark:to-[#0E1510] text-[#1E3B29] dark:text-[#E2F0E7]'
           : isHearthTheme
-          ? 'sanctuary-hearth-theme shadow-stone-950/40 text-white'
-          : 'sanctuary-stone-theme shadow-stone-900/10 text-[#24201D]'
+          ? 'sanctuary-hearth-theme text-white'
+          : 'sanctuary-stone-theme text-[#24201D]'
       }`}
       style={{
         background: isBreakMode
@@ -74,25 +75,26 @@ export const FocusSanctuary: React.FC = () => {
         }`}
       />
 
-      {/* Top Header Navigation */}
-      <div className="flex items-center justify-between gap-2 relative z-20 flex-wrap">
+      {/* Top Header Navigation - Single-Line Mobile Adaptive */}
+      <div className="flex items-center justify-between gap-1.5 sm:gap-2 relative z-20 shrink-0">
         <Button
           variant={isHearthTheme ? 'outline' : 'secondary'}
           size="sm"
           onClick={() => setScreen('today')}
-          className="!rounded-full text-xs font-semibold gap-1.5 !min-h-[38px] px-4"
+          className="!rounded-full text-xs font-semibold gap-1 !min-h-[34px] sm:!min-h-[38px] px-2.5 sm:px-4 shrink-0"
         >
-          <span>←</span>
-          <span>Back to Today</span>
+          <ArrowLeft className="w-4 h-4" />
+          <span className="hidden sm:inline">Back to Today</span>
+          <span className="sm:hidden text-[11px]">Today</span>
         </Button>
 
         {/* Mode Pill Toggle (Focus vs Rest Break) */}
-        <div className="flex items-center gap-1 bg-black/10 dark:bg-white/10 p-1 rounded-2xl border border-black/10 dark:border-white/10 text-xs font-mono">
+        <div className="flex items-center gap-0.5 sm:gap-1 bg-black/10 dark:bg-white/10 p-0.5 sm:p-1 rounded-2xl border border-black/10 dark:border-white/10 text-xs font-mono shrink-0">
           <Button
             size="sm"
             variant={!isBreakMode ? (isHearthTheme ? 'apple' : 'pastelTerracotta') : 'ghost'}
             onClick={() => switchTimerMode('focus')}
-            className="!min-h-[30px] !py-0.5 !px-3 font-bold text-xs gap-1"
+            className="!min-h-[28px] sm:!min-h-[30px] !py-0.5 !px-2.5 sm:!px-3 font-bold text-[11px] sm:text-xs gap-1"
           >
             <Brain className="w-3 h-3" />
             <span>Focus</span>
@@ -101,42 +103,65 @@ export const FocusSanctuary: React.FC = () => {
             size="sm"
             variant={isBreakMode ? 'pastelSage' : 'ghost'}
             onClick={() => switchTimerMode('shortBreak')}
-            className="!min-h-[30px] !py-0.5 !px-3 font-bold text-xs gap-1"
+            className="!min-h-[28px] sm:!min-h-[30px] !py-0.5 !px-2.5 sm:!px-3 font-bold text-[11px] sm:text-xs gap-1"
           >
             <Coffee className="w-3 h-3" />
             <span>Break</span>
           </Button>
         </div>
 
-        {/* Top Right Action Button */}
-        {!isBreakMode ? (
-          <Button
-            variant={isHearthTheme ? 'apple' : 'pastelTerracotta'}
-            size="sm"
-            onClick={() => finishCurrentSession(0)}
-            className="!rounded-full text-xs font-bold gap-1.5 !min-h-[38px] px-4 shadow-sm"
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Finish Session</span>
-          </Button>
-        ) : (
+        {/* Top Right Actions */}
+        <div className="flex items-center gap-1.5 shrink-0">
           <Button
             variant="outline"
             size="sm"
-            onClick={skipBreak}
-            className="!rounded-full text-xs font-bold gap-1.5 !min-h-[38px] px-4 shadow-sm !text-[#383028] !border-[#CFC3B3] hover:!bg-black/5 dark:!text-slate-200 dark:!border-white/15"
+            onClick={toggleTheme}
+            title={theme === 'dawn' ? 'Switch to Moss (Dark)' : 'Switch to Dawn (Light)'}
+            className={`!w-8 !h-8 sm:!w-9 sm:!h-9 !p-0 !min-h-0 shrink-0 ${
+              isHearthTheme
+                ? '!border-white/20 !text-white hover:!bg-white/10'
+                : '!border-[#CFC3B3] dark:!border-white/15 !text-[var(--fg)] hover:!bg-black/5'
+            }`}
           >
-            <span>Skip Break ➔</span>
+            {theme === 'dawn' ? (
+              <Sun className="w-3.5 h-3.5 text-[var(--ochre-seed)]" />
+            ) : (
+              <Moon className="w-3.5 h-3.5 text-[var(--matcha-leaf)]" />
+            )}
           </Button>
-        )}
+
+          {!isBreakMode ? (
+            <Button
+              variant={isHearthTheme ? 'apple' : 'pastelTerracotta'}
+              size="sm"
+              onClick={() => finishCurrentSession(0)}
+              className="!rounded-full text-xs font-bold gap-1 !min-h-[34px] sm:!min-h-[38px] px-2.5 sm:px-4 shadow-sm shrink-0"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Finish</span>
+              <span className="sm:hidden text-[11px]">End</span>
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={skipBreak}
+              className="!rounded-full text-xs font-bold gap-1 !min-h-[34px] sm:!min-h-[38px] px-2.5 sm:px-4 shadow-sm shrink-0 !text-[#383028] !border-[#CFC3B3] hover:!bg-black/5 dark:!text-slate-200 dark:!border-white/15"
+            >
+              <span className="text-[11px] sm:text-xs flex items-center gap-1">
+                Skip <ArrowRight className="w-3.5 h-3.5" />
+              </span>
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Central Vessel: Focus vs Rest Break */}
-      <div className="relative z-20 flex flex-col items-center text-center my-auto py-2">
+      <div className="relative z-20 flex flex-col items-center text-center my-auto py-1 shrink min-h-0 w-full overflow-hidden">
         {/* Cycle & Status Kicker */}
-        <div className="flex items-center gap-2 mb-1">
+        <div className="flex items-center gap-2 mb-0.5 sm:mb-1 shrink-0">
           <span
-            className={`font-mono text-xs uppercase tracking-widest font-bold ${
+            className={`font-mono text-[10px] sm:text-xs uppercase tracking-widest font-bold flex items-center gap-1.5 ${
               isBreakMode
                 ? 'text-[var(--matcha-leaf)] font-black'
                 : isHearthTheme
@@ -144,22 +169,25 @@ export const FocusSanctuary: React.FC = () => {
                 : 'text-[#5C5347] dark:text-[#A89F93]'
             }`}
           >
-            {isBreakMode
-              ? timerMode === 'longBreak'
-                ? '☕ RESTORATIVE LONG BREAK'
-                : '☕ REFRESHING SHORT BREAK'
-              : activeHabit?.category
-              ? `${activeHabit.category.toUpperCase()} PRACTICE`
-              : 'DEEP FLOW'}
+            {isBreakMode ? (
+              <>
+                <Coffee className="w-3 h-3" />
+                {timerMode === 'longBreak' ? 'LONG BREAK' : 'SHORT BREAK'}
+              </>
+            ) : activeHabit?.category ? (
+              `${activeHabit.category.toUpperCase()} PRACTICE`
+            ) : (
+              'DEEP FLOW'
+            )}
           </span>
-          <span className="font-mono text-[11px] px-2 py-0.5 rounded-full bg-black/10 dark:bg-white/10 font-bold">
-            Pomodoro {timerCycle} of 4
+          <span className="font-mono text-[10px] sm:text-[11px] px-2 py-0.5 rounded-full bg-black/10 dark:bg-white/10 font-bold">
+            Pomo {timerCycle}/4
           </span>
         </div>
 
         {/* Main Title */}
         <h2
-          className={`font-display text-2xl sm:text-4xl font-semibold tracking-tight mb-4 ${
+          className={`font-display text-lg sm:text-2xl md:text-3xl font-semibold tracking-tight mb-2 sm:mb-3 truncate max-w-[280px] sm:max-w-md shrink-0 ${
             isBreakMode
               ? 'text-[var(--matcha-leaf)] dark:text-[#A8E6CF]'
               : isHearthTheme
@@ -172,26 +200,26 @@ export const FocusSanctuary: React.FC = () => {
 
         {/* Content Body: Guided Breathing Orb or Countdown Ring */}
         {isBreakMode && breakViewMode === 'orb' ? (
-          <div className="my-2">
+          <div className="my-1 shrink min-h-0">
             <GuidedBreathingOrb />
             <div className="flex items-center justify-center gap-2 mt-2">
-              <span className="font-mono text-sm font-bold opacity-80">
+              <span className="font-mono text-xs font-bold opacity-80">
                 Break remaining: {formatTimer()}
               </span>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => setBreakViewMode('timer')}
-                className="!min-h-[28px] text-[11px] font-mono underline"
+                className="!min-h-[26px] text-[11px] font-mono underline"
               >
                 View Clock Ring
               </Button>
             </div>
           </div>
         ) : (
-          <div className="flex flex-col items-center">
-            {/* Circular Countdown Ring */}
-            <div className="relative w-56 h-56 sm:w-64 sm:h-64 flex items-center justify-center mb-5">
+          <div className="flex flex-col items-center shrink min-h-0">
+            {/* Circular Countdown Ring - Compact Responsive */}
+            <div className="relative w-44 h-44 sm:w-52 sm:h-52 md:w-56 md:h-56 flex items-center justify-center mb-2 sm:mb-3 shrink-0">
               <svg className="w-full h-full -rotate-90" viewBox="0 0 240 240">
                 {/* Background Track */}
                 <circle
@@ -239,7 +267,7 @@ export const FocusSanctuary: React.FC = () => {
               {/* Inner Digital Clock */}
               <div className="absolute flex flex-col items-center">
                 <span
-                  className={`font-mono text-5xl sm:text-6xl font-black tracking-tight ${
+                  className={`font-mono text-4xl sm:text-5xl md:text-6xl font-black tracking-tight ${
                     isBreakMode
                       ? 'text-[var(--matcha-leaf)] dark:text-white'
                       : isHearthTheme
@@ -250,7 +278,7 @@ export const FocusSanctuary: React.FC = () => {
                   {formatTimer()}
                 </span>
                 <span
-                  className={`text-xs sm:text-sm font-serif italic mt-1 ${
+                  className={`text-[11px] sm:text-xs font-serif italic mt-0.5 ${
                     isBreakMode
                       ? 'text-[var(--matcha-leaf)] opacity-80'
                       : isHearthTheme
@@ -268,9 +296,10 @@ export const FocusSanctuary: React.FC = () => {
                 variant="ghost"
                 size="sm"
                 onClick={() => setBreakViewMode('orb')}
-                className="!min-h-[28px] text-[11px] font-mono underline -mt-2 mb-3"
+                className="!min-h-[26px] text-[11px] font-mono underline -mt-1 mb-2 inline-flex items-center gap-1.5"
               >
-                Guided Breathing Orb 🍃
+                <span>Guided Breathing Orb</span>
+                <Wind className="w-3.5 h-3.5 text-[var(--matcha-leaf)]" />
               </Button>
             )}
           </div>
@@ -278,7 +307,7 @@ export const FocusSanctuary: React.FC = () => {
 
         {/* Duration Presets Row */}
         <div
-          className={`flex items-center gap-1.5 p-1.5 rounded-2xl mb-4 max-w-xs border ${
+          className={`flex items-center gap-1 sm:gap-1.5 p-1 sm:p-1.5 rounded-2xl mb-1 sm:mb-2 max-w-xs border shrink-0 ${
             isBreakMode
               ? 'bg-[#E4EFE8] dark:bg-[#1E2C24] border-[#C3DFC9] dark:border-[#2D4C38]'
               : isHearthTheme
@@ -300,26 +329,25 @@ export const FocusSanctuary: React.FC = () => {
                   : 'ghost'
               }
               onClick={() => setTimerDuration(mins)}
-              className="!min-h-[32px] !py-1 !px-3.5 text-xs font-mono font-bold"
+              className="!min-h-[28px] sm:!min-h-[32px] !py-0.5 sm:!py-1 !px-2.5 sm:!px-3.5 text-xs font-mono font-bold"
             >
               {mins}m
             </Button>
           ))}
         </div>
-
       </div>
 
       {/* Tactile Controls reusing @packages/ui Button */}
-      <div className="flex items-center justify-center gap-3 sm:gap-4 relative z-20 pt-2">
+      <div className="flex items-center justify-center gap-3 sm:gap-4 relative z-20 pt-1 pb-1 shrink-0">
         {/* Reset Button */}
         <Button
           variant={isHearthTheme ? 'outline' : 'secondary'}
           size="md"
           onClick={resetTimer}
           title="Restart Timer"
-          className="!rounded-full !w-12 !h-12 !p-0 !min-h-[48px] !min-w-[48px] shadow-sm"
+          className="!rounded-full !w-11 !h-11 sm:!w-12 sm:!h-12 !p-0 !min-h-[44px] !min-w-[44px] sm:!min-h-[48px] sm:!min-w-[48px] shadow-sm"
         >
-          <RotateCcw className="w-5 h-5" />
+          <RotateCcw className="w-4 h-4 sm:w-5 sm:h-5" />
         </Button>
 
         {/* Primary Play / Pause Button */}
@@ -333,9 +361,13 @@ export const FocusSanctuary: React.FC = () => {
           }
           size="lg"
           onClick={toggleTimer}
-          className="!rounded-full px-8 sm:px-10 !min-h-[50px] shadow-xl font-mono text-sm tracking-wider uppercase gap-2"
+          className="!rounded-full px-7 sm:px-10 !min-h-[46px] sm:!min-h-[50px] shadow-xl font-mono text-xs sm:text-sm tracking-wider uppercase gap-2 flex items-center justify-center"
         >
-          <span className="text-base">{isTimerRunning ? '❚❚' : '▶'}</span>
+          {isTimerRunning ? (
+            <Pause className="w-4 h-4 fill-current" />
+          ) : (
+            <Play className="w-4 h-4 fill-current ml-0.5" />
+          )}
           <span>
             {isTimerRunning
               ? isBreakMode
@@ -353,7 +385,7 @@ export const FocusSanctuary: React.FC = () => {
           size="md"
           onClick={addFiveMinutes}
           title="Add 5 Minutes"
-          className="!rounded-full !w-12 !h-12 !p-0 !min-h-[48px] !min-w-[48px] font-mono font-bold text-xs shadow-sm"
+          className="!rounded-full !w-11 !h-11 sm:!w-12 sm:!h-12 !p-0 !min-h-[44px] !min-w-[44px] sm:!min-h-[48px] sm:!min-w-[48px] font-mono font-bold text-xs shadow-sm"
         >
           +5m
         </Button>

@@ -1,7 +1,8 @@
 import React from 'react';
 import { useApp } from '@/context/AppContext';
 import { Button, Badge } from '@packages/ui';
-import { Trash2, Play } from 'lucide-react';
+import { Trash2, Play, Flame, ArrowLeft } from 'lucide-react';
+import { HabitIcon } from '@/components/HabitIcon';
 
 export const HabitDetail: React.FC = () => {
   const { activeHabit, focusSessions, startFocusSession, deleteHabit, setScreen } = useApp();
@@ -30,9 +31,10 @@ export const HabitDetail: React.FC = () => {
           variant="outline"
           size="sm"
           onClick={() => setScreen('today')}
-          className="!rounded-full text-xs font-semibold !min-h-[36px] px-4 !text-[#383028] !border-[#CFC3B3] hover:!bg-black/5 dark:!text-slate-200 dark:!border-white/15"
+          className="!rounded-full text-xs font-semibold !min-h-[36px] px-4 !text-[#383028] !border-[#CFC3B3] hover:!bg-black/5 dark:!text-slate-200 dark:!border-white/15 gap-1.5"
         >
-          ← Back to Today
+          <ArrowLeft className="w-3.5 h-3.5" />
+          <span>Back to Today</span>
         </Button>
 
         <Button
@@ -56,13 +58,16 @@ export const HabitDetail: React.FC = () => {
           <Badge variant="terracotta" className="!text-[10px]">
             {activeHabit.category}
           </Badge>
-          <span className="font-mono text-xs font-bold text-[var(--ochre-seed)] bg-[var(--ochre-soft)] border border-[var(--ochre-border)] px-3 py-0.5 rounded-full">
-            🔥 {activeHabit.streak} Days Consistency
+          <span className="font-mono text-xs font-bold text-[var(--ochre-seed)] bg-[var(--ochre-soft)] border border-[var(--ochre-border)] px-3 py-0.5 rounded-full flex items-center gap-1">
+            <Flame className="w-3.5 h-3.5 text-[var(--ochre-seed)] inline" />
+            <span>{activeHabit.streak} Days Consistency</span>
           </span>
         </div>
 
         <div className="flex items-center gap-3 my-2">
-          <span className="text-3xl">{activeHabit.icon}</span>
+          <div className="w-12 h-12 rounded-2xl bg-[var(--surface-pebble)] border border-[var(--border)] flex items-center justify-center shrink-0">
+            <HabitIcon icon={activeHabit.icon} className="w-6 h-6 text-current" />
+          </div>
           <h2 className="font-display text-2xl sm:text-3xl font-medium text-[var(--fg)]">
             {activeHabit.title}
           </h2>

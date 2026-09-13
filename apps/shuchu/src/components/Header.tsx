@@ -1,7 +1,7 @@
 import React from 'react';
 import { useApp } from '@/context/AppContext';
 import { Button } from '@packages/ui';
-import { Plus, Sun, Moon, Settings } from 'lucide-react';
+import { Plus, Sun, Moon, Settings, Sparkles } from 'lucide-react';
 
 interface HeaderProps {
   onOpenAddModal: () => void;
@@ -34,7 +34,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAddModal }) => {
   ];
 
   return (
-    <header className="sticky top-0 z-40 bg-[var(--surface-floating)] backdrop-blur-xl border-b border-[var(--border)] px-4 sm:px-6 pt-[max(env(safe-area-inset-top,0px),0.75rem)] pb-3 flex items-center justify-between gap-3 select-none transition-colors duration-300">
+    <header className="sticky top-0 z-40 bg-[var(--surface-floating)] backdrop-blur-xl border-b border-[var(--border)] px-4 sm:px-6 pt-[max(calc(env(safe-area-inset-top,0px)+0.75rem),1.5rem)] pb-3.5 flex items-center justify-between gap-3 select-none transition-colors duration-300">
       {/* Brand logo & title */}
       <div className="flex items-center gap-6">
         <button
@@ -47,8 +47,8 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAddModal }) => {
           }}
           className="flex items-center gap-2.5 text-left group cursor-pointer"
         >
-          <div className="w-8 h-8 rounded-full bg-[var(--clay-terracotta)] flex items-center justify-center text-white text-base shadow-sm shadow-[var(--clay-glow)] transition-transform group-hover:scale-105">
-            ✦
+          <div className="w-8 h-8 rounded-full bg-[var(--clay-terracotta)] flex items-center justify-center text-white shadow-sm shadow-[var(--clay-glow)] transition-transform group-hover:scale-105">
+            <Sparkles className="w-4 h-4 text-white" />
           </div>
           <span className="font-display text-xl sm:text-2xl font-semibold tracking-tight text-[var(--fg)]">
             Shuchu <em className="not-italic font-normal opacity-70 text-base sm:text-lg">集中</em>

@@ -1,6 +1,7 @@
 import React from 'react';
 import { useApp } from '@/context/AppContext';
 import { Button, Badge } from '@packages/ui';
+import { ArrowLeft, Timer, Check } from 'lucide-react';
 
 export const ChallengeDetail: React.FC = () => {
   const { challenges, toggleChallengePrompt, startFocusSession, setScreen, activeHabit, habits } = useApp();
@@ -16,9 +17,10 @@ export const ChallengeDetail: React.FC = () => {
         variant="outline"
         size="sm"
         onClick={() => setScreen('challenge')}
-        className="!rounded-full text-xs font-semibold !min-h-[36px] px-4 !text-[#383028] !border-[#CFC3B3] hover:!bg-black/5 dark:!text-slate-200 dark:!border-white/15"
+        className="!rounded-full text-xs font-semibold !min-h-[36px] px-4 !text-[#383028] !border-[#CFC3B3] hover:!bg-black/5 dark:!text-slate-200 dark:!border-white/15 gap-1.5"
       >
-        ← Back to Challenge Track
+        <ArrowLeft className="w-3.5 h-3.5" />
+        <span>Back to Challenge Track</span>
       </Button>
 
       {/* Week Banner */}
@@ -40,9 +42,10 @@ export const ChallengeDetail: React.FC = () => {
         <Button
           variant="pastelTerracotta"
           onClick={() => startFocusSession(activeHabit?.id || habits[0]?.id || '', 30)}
-          className="w-full sm:w-auto !rounded-full font-mono text-xs font-bold !min-h-[42px] px-6 mt-2"
+          className="w-full sm:w-auto !rounded-full font-mono text-xs font-bold !min-h-[42px] px-6 mt-2 gap-2 flex items-center justify-center"
         >
-          ⏱ Start Week {currentWeek.weekNumber} Focus Session (30m)
+          <Timer className="w-4 h-4" />
+          <span>Start Week {currentWeek.weekNumber} Focus Session (30m)</span>
         </Button>
       </div>
 
@@ -77,7 +80,7 @@ export const ChallengeDetail: React.FC = () => {
                     : 'border-[var(--border)] text-transparent'
                 }`}
               >
-                ✓
+                {prompt.completed && <Check className="w-3.5 h-3.5 text-white" />}
               </div>
             </div>
           ))}

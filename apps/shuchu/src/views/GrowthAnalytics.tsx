@@ -2,7 +2,8 @@ import React from 'react';
 import { useApp } from '@/context/AppContext';
 import { Category } from '@/types';
 import { Badge, Button } from '@packages/ui';
-import { Sparkles, Compass, Clock, BookOpen, Flame, Sunrise, Sun, Sunset, Moon } from 'lucide-react';
+import { Sparkles, Compass, Clock, BookOpen, Flame, Sunrise, Sun, Sunset, Moon, LineChart, Scale, Sprout, Timer } from 'lucide-react';
+import { HabitIcon } from '@/components/HabitIcon';
 
 interface GrowthAnalyticsProps {
   onOpenAddModal?: () => void;
@@ -168,7 +169,7 @@ export const GrowthAnalytics: React.FC<GrowthAnalyticsProps> = ({ onOpenAddModal
       {/* Title & Philosophy */}
       <div>
         <div className="flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-wider text-[#5C5347] dark:text-[var(--muted)] font-semibold mb-1">
-          <span className="text-[var(--matcha-leaf)]">✦</span>
+          <Sparkles className="w-3.5 h-3.5 text-[var(--matcha-leaf)]" />
           <span>Mindful Insights • 集中 分析</span>
         </div>
         <h1 className="font-display text-2xl sm:text-3xl font-medium leading-tight text-[var(--fg)]">
@@ -229,8 +230,8 @@ export const GrowthAnalytics: React.FC<GrowthAnalyticsProps> = ({ onOpenAddModal
       {isCleanSlate && (
         <div className="bg-[var(--surface)] border-2 border-dashed border-[var(--border)] rounded-2xl p-5 sm:p-6 space-y-4 shadow-sm">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[var(--matcha-soft)] border border-[var(--matcha-border)] text-[var(--matcha-leaf)] flex items-center justify-center text-xl shrink-0">
-              🌱
+            <div className="w-10 h-10 rounded-xl bg-[var(--matcha-soft)] border border-[var(--matcha-border)] text-[var(--matcha-leaf)] flex items-center justify-center shrink-0">
+              <Sprout className="w-5 h-5 text-[var(--matcha-leaf)]" />
             </div>
             <div>
               <h3 className="font-display text-base sm:text-lg font-semibold text-[var(--fg)]">
@@ -249,7 +250,7 @@ export const GrowthAnalytics: React.FC<GrowthAnalyticsProps> = ({ onOpenAddModal
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
             <div className="bg-[var(--surface-warm)] p-3 rounded-xl border border-[var(--border-subtle)] space-y-1">
               <div className="text-xs font-semibold text-[var(--fg)] flex items-center gap-1.5">
-                <span>📈</span> Weekly Flow
+                <LineChart className="w-3.5 h-3.5 text-[var(--matcha-leaf)]" /> Weekly Flow
               </div>
               <p className="text-[11px] text-[var(--muted)] leading-normal">
                 Daily hours distribution from Mon to Sun with active highlights.
@@ -258,7 +259,7 @@ export const GrowthAnalytics: React.FC<GrowthAnalyticsProps> = ({ onOpenAddModal
 
             <div className="bg-[var(--surface-warm)] p-3 rounded-xl border border-[var(--border-subtle)] space-y-1">
               <div className="text-xs font-semibold text-[var(--fg)] flex items-center gap-1.5">
-                <span>⚖️</span> Category Harmony
+                <Scale className="w-3.5 h-3.5 text-[var(--clay-terracotta)]" /> Category Harmony
               </div>
               <p className="text-[11px] text-[var(--muted)] leading-normal">
                 Understand how you balance creative, learning, and mindfulness habits.
@@ -267,7 +268,7 @@ export const GrowthAnalytics: React.FC<GrowthAnalyticsProps> = ({ onOpenAddModal
 
             <div className="bg-[var(--surface-warm)] p-3 rounded-xl border border-[var(--border-subtle)] space-y-1">
               <div className="text-xs font-semibold text-[var(--fg)] flex items-center gap-1.5">
-                <span>🌅</span> Peak Rhythm
+                <Sunrise className="w-3.5 h-3.5 text-[var(--ochre-seed)]" /> Peak Rhythm
               </div>
               <p className="text-[11px] text-[var(--muted)] leading-normal">
                 Discover whether you thrive in dawn, midday, or twilight hours.
@@ -282,15 +283,17 @@ export const GrowthAnalytics: React.FC<GrowthAnalyticsProps> = ({ onOpenAddModal
               onClick={onOpenAddModal}
               className="font-mono text-xs font-bold gap-1.5 !min-h-[34px]"
             >
-              <span>🌱</span> Plant First Habit
+              <Sprout className="w-3.5 h-3.5" />
+              <span>Plant First Habit</span>
             </Button>
             <Button
               variant="outline"
               size="sm"
               onClick={() => setScreen('focus')}
-              className="font-mono text-xs !min-h-[34px] !text-[#383028] !border-[#CFC3B3] hover:!bg-black/5 dark:!text-slate-200 dark:!border-white/15"
+              className="font-mono text-xs !min-h-[34px] !text-[#383028] !border-[#CFC3B3] hover:!bg-black/5 dark:!text-slate-200 dark:!border-white/15 gap-1.5"
             >
-              <span>⏱</span> Start Sanctuary Focus
+              <Timer className="w-3.5 h-3.5" />
+              <span>Start Sanctuary Focus</span>
             </Button>
           </div>
         </div>
@@ -479,7 +482,7 @@ export const GrowthAnalytics: React.FC<GrowthAnalyticsProps> = ({ onOpenAddModal
                   <span className="font-mono text-xs font-bold text-[var(--muted)] shrink-0">
                     #{index + 1}
                   </span>
-                  <span className="text-xl shrink-0">{habit.icon}</span>
+                  <HabitIcon icon={habit.icon} className="w-5 h-5 text-current shrink-0" />
                   <div className="min-w-0">
                     <span className="font-medium text-xs sm:text-sm text-[var(--fg)] truncate block">
                       {habit.title}
@@ -492,13 +495,20 @@ export const GrowthAnalytics: React.FC<GrowthAnalyticsProps> = ({ onOpenAddModal
 
                 <div className="shrink-0 text-right">
                   <span
-                    className={`font-mono text-xs font-bold px-3 py-1 rounded-full border ${
+                    className={`font-mono text-xs font-bold px-3 py-1 rounded-full border flex items-center gap-1 ${
                       habit.streak > 0
                         ? 'text-[var(--ochre-seed)] bg-[var(--ochre-soft)] border-[var(--ochre-border)]'
                         : 'text-[var(--muted)] bg-[var(--surface)] border-[var(--border)]'
                     }`}
                   >
-                    {habit.streak > 0 ? `🔥 ${habit.streak}d streak` : '0d (Ready)'}
+                    {habit.streak > 0 ? (
+                      <>
+                        <Flame className="w-3.5 h-3.5 text-[var(--ochre-seed)]" />
+                        <span>{habit.streak}d streak</span>
+                      </>
+                    ) : (
+                      '0d (Ready)'
+                    )}
                   </span>
                 </div>
               </div>

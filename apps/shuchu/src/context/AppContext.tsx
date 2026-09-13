@@ -371,8 +371,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem(STORAGE_KEYS.timer, JSON.stringify(stateToSave));
   }, [isTimerRunning, timerTargetEndTime, timerRemainingSeconds, timerDurationMinutes, timerMode, activeHabitId, timerCycle]);
 
-  // Sync Theme to HTML class
+  // Sync Theme to HTML class & meta theme-color
   useEffect(() => {
+    const metaThemeColors = document.querySelectorAll('meta[name="theme-color"]');
+    const color = theme === 'moss' ? '#141715' : '#FAF7F2';
     if (theme === 'moss') {
       document.documentElement.classList.add('dark');
       document.documentElement.setAttribute('data-theme', 'dark');
@@ -380,6 +382,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       document.documentElement.classList.remove('dark');
       document.documentElement.removeAttribute('data-theme');
     }
+    metaThemeColors.forEach((el) => el.setAttribute('content', color));
   }, [theme]);
 
   // Daily Rollover: Reset daily counts and evaluate streaks

@@ -57,18 +57,31 @@ export const AppContent: React.FC = () => {
     }
   };
 
+  // Fullscreen, non-scrolling Focus Sanctuary
+  if (activeScreen === 'focus') {
+    return (
+      <div className="h-[100dvh] max-h-[100dvh] w-full overflow-hidden bg-[var(--bg)] text-[var(--fg)] transition-colors duration-300 flex flex-col justify-center">
+        <FocusSanctuary />
+        <AddHabitModal
+          isOpen={isAddModalOpen}
+          onClose={() => setIsAddModalOpen(false)}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-[100dvh] flex flex-col bg-[var(--bg)] text-[var(--fg)] transition-colors duration-300">
       {/* Top App Header */}
       <Header onOpenAddModal={() => setIsAddModalOpen(true)} />
 
-      {/* Main Responsive App Canvas with generous bottom padding on mobile to clear the floating dock */}
-      <main className="flex-1 w-full max-w-3xl mx-auto px-4 sm:px-6 pt-3 sm:pt-6 pb-36 md:pb-12">
+      {/* Main Responsive App Canvas with adaptive padding */}
+      <main className="flex-1 w-full max-w-3xl mx-auto px-3.5 sm:px-6 pt-2 sm:pt-6 pb-32 md:pb-12">
         {renderActiveView()}
       </main>
 
-      {/* Fixed Floating Bottom Navigation (Mobile View - hidden in Focus Sanctuary for total immersion) */}
-      {activeScreen !== 'focus' && <DockNav />}
+      {/* Fixed Floating Bottom Navigation (Mobile View) */}
+      <DockNav />
 
       {/* Add Habit Modal Sheet */}
       <AddHabitModal

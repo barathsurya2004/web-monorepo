@@ -1,6 +1,7 @@
 import React from 'react';
 import { useApp } from '@/context/AppContext';
 import { Button } from '@packages/ui';
+import { Sprout } from 'lucide-react';
 
 interface EmptyTodayProps {
   onOpenAddModal: () => void;
@@ -11,8 +12,8 @@ export const EmptyToday: React.FC<EmptyTodayProps> = ({ onOpenAddModal }) => {
 
   return (
     <div className="p-8 sm:p-12 text-center max-w-md mx-auto my-auto flex flex-col items-center justify-center space-y-5 animate-soft-fade">
-      <div className="w-16 h-16 rounded-2xl bg-[var(--matcha-soft)] border-2 border-[var(--matcha-border)] text-[var(--matcha-leaf)] flex items-center justify-center text-3xl shadow-md">
-        🌱
+      <div className="w-16 h-16 rounded-2xl bg-[var(--matcha-soft)] border-2 border-[var(--matcha-border)] text-[var(--matcha-leaf)] flex items-center justify-center shadow-md">
+        <Sprout className="w-8 h-8 text-[var(--matcha-leaf)]" />
       </div>
 
       <div className="space-y-2">

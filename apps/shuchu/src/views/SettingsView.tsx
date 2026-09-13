@@ -1,6 +1,7 @@
 import React from 'react';
 import { useApp } from '@/context/AppContext';
 import { Button } from '@packages/ui';
+import { Check, Bell, Smartphone, Sun, Moon, Trash2 } from 'lucide-react';
 
 export const SettingsView: React.FC = () => {
   const {
@@ -112,9 +113,19 @@ export const SettingsView: React.FC = () => {
             onClick={async () => {
               await requestNotifications();
             }}
-            className="!min-h-[34px] px-3.5 font-mono text-xs font-bold"
+            className="!min-h-[34px] px-3.5 font-mono text-xs font-bold gap-1.5"
           >
-            {isNotificationsEnabled ? '✓ Enabled' : 'Enable Alerts 🔔'}
+            {isNotificationsEnabled ? (
+              <>
+                <Check className="w-3.5 h-3.5" />
+                <span>Enabled</span>
+              </>
+            ) : (
+              <>
+                <span>Enable Alerts</span>
+                <Bell className="w-3.5 h-3.5" />
+              </>
+            )}
           </Button>
         </div>
 
@@ -128,9 +139,10 @@ export const SettingsView: React.FC = () => {
             variant={isHapticsEnabled ? 'pastelTerracotta' : 'outline'}
             size="sm"
             onClick={() => setHaptics(!isHapticsEnabled)}
-            className="!min-h-[34px] px-3.5 font-mono text-xs font-bold"
+            className="!min-h-[34px] px-3.5 font-mono text-xs font-bold gap-1.5"
           >
-            {isHapticsEnabled ? '📳 Haptics On' : 'Haptics Off'}
+            <Smartphone className="w-3.5 h-3.5" />
+            <span>{isHapticsEnabled ? 'Haptics On' : 'Haptics Off'}</span>
           </Button>
         </div>
 
@@ -145,9 +157,19 @@ export const SettingsView: React.FC = () => {
             variant="outline"
             size="sm"
             onClick={toggleTheme}
-            className="!min-h-[34px] px-3.5 font-mono text-xs font-bold !text-[#383028] !border-[#CFC3B3] hover:!bg-black/5 dark:!text-slate-200 dark:!border-white/15"
+            className="!min-h-[34px] px-3.5 font-mono text-xs font-bold !text-[#383028] !border-[#CFC3B3] hover:!bg-black/5 dark:!text-slate-200 dark:!border-white/15 gap-1.5"
           >
-            {theme === 'dawn' ? '☀️ Dawn Mode' : '🌙 Moss Mode'}
+            {theme === 'dawn' ? (
+              <>
+                <Sun className="w-3.5 h-3.5" />
+                <span>Dawn Mode</span>
+              </>
+            ) : (
+              <>
+                <Moon className="w-3.5 h-3.5" />
+                <span>Moss Mode</span>
+              </>
+            )}
           </Button>
         </div>
 
@@ -167,9 +189,10 @@ export const SettingsView: React.FC = () => {
                 resetAllData();
               }
             }}
-            className="font-mono text-xs !min-h-[34px] px-3.5"
+            className="font-mono text-xs !min-h-[34px] px-3.5 gap-1.5"
           >
-            🗑 Clear Data
+            <Trash2 className="w-3.5 h-3.5" />
+            <span>Clear Data</span>
           </Button>
         </div>
       </div>
