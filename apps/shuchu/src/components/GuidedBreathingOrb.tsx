@@ -49,9 +49,9 @@ export const GuidedBreathingOrb: React.FC = () => {
   const currentInst = getPhaseInstruction();
 
   return (
-    <div className="flex flex-col items-center justify-center my-3 max-w-sm mx-auto text-center space-y-5">
+    <div className="flex flex-col items-center justify-center my-1 sm:my-2 max-w-sm mx-auto text-center space-y-3 sm:space-y-4">
       {/* Animated Concentric Breathing Orb */}
-      <div className="relative w-48 h-48 sm:w-56 sm:h-56 flex items-center justify-center">
+      <div className="relative w-40 h-40 sm:w-48 sm:h-48 flex items-center justify-center">
         {/* Outer Glow Halo */}
         <div
           className={`absolute inset-0 rounded-full border-2 border-[var(--matcha-border)] transition-all duration-[4000ms] ease-in-out ${
@@ -63,7 +63,7 @@ export const GuidedBreathingOrb: React.FC = () => {
 
         {/* Middle Resonance Ring */}
         <div
-          className={`absolute w-36 h-36 sm:w-44 sm:h-44 rounded-full border border-[var(--matcha-leaf)]/40 transition-all duration-[4000ms] ease-in-out ${
+          className={`absolute w-32 h-32 sm:w-36 sm:h-36 rounded-full border border-[var(--matcha-leaf)]/40 transition-all duration-[4000ms] ease-in-out ${
             phase === 'inhale' || phase === 'hold'
               ? 'scale-95 opacity-80'
               : 'scale-65 opacity-30'
@@ -72,14 +72,14 @@ export const GuidedBreathingOrb: React.FC = () => {
 
         {/* Core Vessel Orb */}
         <div
-          className={`relative z-10 w-28 h-28 sm:w-32 sm:h-32 rounded-full bg-[var(--matcha-leaf)] text-white flex flex-col items-center justify-center shadow-lg transition-all duration-[4000ms] ease-in-out ${
+          className={`relative z-10 w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-[var(--matcha-leaf)] text-white flex flex-col items-center justify-center shadow-lg transition-all duration-[4000ms] ease-in-out ${
             phase === 'inhale' || phase === 'hold'
               ? 'scale-110 shadow-[var(--matcha-glow)] shadow-2xl'
               : 'scale-85 shadow-md'
           }`}
         >
-          <Wind className="w-6 h-6 mb-1 text-white" />
-          <span className="font-mono text-[11px] uppercase tracking-widest font-black">
+          <Wind className="w-5 h-5 mb-1 text-white" />
+          <span className="font-mono text-[10px] sm:text-[11px] uppercase tracking-widest font-black">
             {phase.toUpperCase()}
           </span>
         </div>

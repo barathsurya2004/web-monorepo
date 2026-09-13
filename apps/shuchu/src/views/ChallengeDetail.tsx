@@ -7,7 +7,23 @@ export const ChallengeDetail: React.FC = () => {
   const { challenges, toggleChallengePrompt, startFocusSession, setScreen, activeHabit, habits } = useApp();
   const currentWeek = challenges.find((c) => c.isCurrent) || challenges[0];
 
-  const prompts = currentWeek ? currentWeek.prompts : [];
+  if (!currentWeek) {
+    return (
+      <div className="p-8 text-center space-y-4 max-w-md mx-auto my-auto animate-soft-fade">
+        <p className="text-sm text-[var(--muted)] font-serif italic">No challenge selected.</p>
+        <Button
+          variant="pastelTerracotta"
+          size="sm"
+          onClick={() => setScreen('today')}
+          className="font-mono text-xs font-bold !min-h-[36px]"
+        >
+          Return to Dashboard
+        </Button>
+      </div>
+    );
+  }
+
+  const prompts = currentWeek.prompts || [];
   const completedCount = prompts.filter((p) => p.completed).length;
 
   return (

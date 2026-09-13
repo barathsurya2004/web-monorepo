@@ -90,7 +90,7 @@ export const AddHabitModal: React.FC<AddHabitModalProps> = ({ isOpen, onClose })
         {/* Habit Name */}
         <Input
           label="Habit Name"
-          placeholder="e.g. Figure Drawing, Morning Tea, C Programming..."
+          placeholder="e.g. Morning Meditation, Reading, Deep Work..."
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           required

@@ -439,26 +439,33 @@ export const GrowthAnalytics: React.FC<GrowthAnalyticsProps> = ({ onOpenAddModal
           <span className="font-mono text-xs text-[var(--muted)]">Focus Windows</span>
         </div>
 
-        <div className="bg-[var(--surface-warm)] border border-[var(--border-subtle)] rounded-xl p-4 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-[var(--surface)] border border-[var(--border)] flex items-center justify-center shrink-0 shadow-sm">
-            {peakRhythm.icon}
-          </div>
-          <div className="space-y-1 min-w-0">
-            <div className="flex items-center gap-2">
-              <span className="font-mono text-xs font-bold text-[var(--accent)] uppercase tracking-wider">
-                {peakRhythm.label}
-              </span>
-              {peakRhythm.minutes > 0 && (
+        {peakRhythm.minutes > 0 ? (
+          <div className="bg-[var(--surface-warm)] border border-[var(--border-subtle)] rounded-xl p-4 flex items-center gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-[var(--surface)] border border-[var(--border)] flex items-center justify-center shrink-0 shadow-sm">
+              {peakRhythm.icon}
+            </div>
+            <div className="space-y-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-xs font-bold text-[var(--accent)] uppercase tracking-wider">
+                  {peakRhythm.label}
+                </span>
                 <Badge variant="sage" className="!text-[9px] !py-0">
                   {peakRhythm.minutes}m Flow
                 </Badge>
-              )}
+              </div>
+              <p className="text-xs text-[var(--fg-soft)] font-serif leading-relaxed">
+                {peakRhythm.desc}
+              </p>
             </div>
-            <p className="text-xs text-[var(--fg-soft)] font-serif leading-relaxed">
-              {peakRhythm.desc}
+          </div>
+        ) : (
+          <div className="text-center py-6 bg-[var(--surface-warm)] rounded-xl border border-dashed border-[var(--border-subtle)] space-y-1">
+            <p className="text-xs text-[var(--fg)] font-medium">No rhythm detected yet</p>
+            <p className="text-[11px] text-[var(--muted)] font-serif italic">
+              Log focus sessions at different times of day to uncover your peak biological focus window.
             </p>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Consistency Champions */}

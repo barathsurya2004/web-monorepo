@@ -47,7 +47,7 @@ export const FocusSanctuary: React.FC = () => {
 
   return (
     <div
-      className={`h-[100dvh] max-h-[100dvh] w-full flex flex-col justify-between relative overflow-hidden select-none animate-soft-fade px-4 sm:px-8 pt-[max(calc(env(safe-area-inset-top,0px)+1rem),1.75rem)] pb-[max(calc(env(safe-area-inset-bottom,0px)+1.25rem),2rem)] max-w-2xl mx-auto transition-all duration-300 ${
+      className={`h-[100dvh] max-h-[100dvh] w-full relative overflow-hidden select-none animate-soft-fade transition-all duration-300 ${
         isBreakMode
           ? 'bg-gradient-to-br from-[#EEF5F1] via-[#E4EFE8] to-[#D5E6DC] dark:from-[#17241C] dark:via-[#131C16] dark:to-[#0E1510] text-[#1E3B29] dark:text-[#E2F0E7]'
           : isHearthTheme
@@ -75,9 +75,11 @@ export const FocusSanctuary: React.FC = () => {
         }`}
       />
 
-      {/* Top Header Navigation - Single-Line Mobile Adaptive */}
-      <div className="flex items-center justify-between gap-1.5 sm:gap-2 relative z-20 shrink-0">
-        <Button
+      {/* Content Container constrained to max-w-2xl with responsive safe-area and status bar padding */}
+      <div className="h-full w-full max-w-2xl mx-auto flex flex-col justify-between relative z-10 px-5 sm:px-8 pt-[max(calc(env(safe-area-inset-top,0px)+1.5rem),3.25rem)] pb-[max(calc(env(safe-area-inset-bottom,0px)+1.5rem),2.75rem)]">
+        {/* Top Header Navigation - Single-Line Mobile Adaptive */}
+        <div className="flex items-center justify-between gap-1.5 sm:gap-2 relative z-20 shrink-0 mb-1 sm:mb-2">
+          <Button
           variant={isHearthTheme ? 'outline' : 'secondary'}
           size="sm"
           onClick={() => setScreen('today')}
@@ -195,7 +197,7 @@ export const FocusSanctuary: React.FC = () => {
               : 'text-[#24201D]'
           }`}
         >
-          {isBreakMode ? 'Mindful Rest & Renewal' : activeHabit?.title || 'Figure Drawing'}
+          {isBreakMode ? 'Mindful Rest & Renewal' : activeHabit?.title || 'Mindful Flow'}
         </h2>
 
         {/* Content Body: Guided Breathing Orb or Countdown Ring */}
@@ -338,7 +340,7 @@ export const FocusSanctuary: React.FC = () => {
       </div>
 
       {/* Tactile Controls reusing @packages/ui Button */}
-      <div className="flex items-center justify-center gap-3 sm:gap-4 relative z-20 pt-1 pb-1 shrink-0">
+      <div className="flex items-center justify-center gap-3 sm:gap-4 relative z-20 pt-2 sm:pt-3 pb-0.5 sm:pb-1 shrink-0">
         {/* Reset Button */}
         <Button
           variant={isHearthTheme ? 'outline' : 'secondary'}
@@ -391,5 +393,6 @@ export const FocusSanctuary: React.FC = () => {
         </Button>
       </div>
     </div>
+  </div>
   );
 };

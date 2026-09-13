@@ -22,92 +22,15 @@ import {
   requestNotificationPermission,
 } from '@/utils/notifications';
 
-const FRESH_CHALLENGES: ChallengeWeek[] = [
-  {
-    weekNumber: 1,
-    title: 'Gesture & Contour Foundations',
-    subtitle: 'Continuous line flow, silhouette sensitivity, and rhythm',
-    targetSessions: 5,
-    completedSessions: 0,
-    isCurrent: true,
-    isLocked: false,
-    prompts: [
-      { id: 'w1-1', text: '30-second blind contour hands & everyday tools', completed: false },
-      { id: 'w1-2', text: '1-minute figure gesture lines of action', completed: false },
-      { id: 'w1-3', text: 'Silhouette block-ins without interior lines', completed: false },
-      { id: 'w1-4', text: 'Continuous pen line without lifting off page', completed: false },
-      { id: 'w1-5', text: 'Weekly reflection on mark confidence and looseness', completed: false },
-    ],
-  },
-  {
-    weekNumber: 2,
-    title: 'Primitive Volumes & Cross-Contours',
-    subtitle: 'Spheres, cylinders, and boxes with curved cross-sections',
-    targetSessions: 5,
-    completedSessions: 0,
-    isCurrent: false,
-    isLocked: false,
-    prompts: [
-      { id: 'w2-1', text: 'Cylinder rotation series through 3D space', completed: false },
-      { id: 'w2-2', text: 'Contour wireframe spheres with equator belts', completed: false },
-      { id: 'w2-3', text: 'Interlocking boxes with foreshortened planes', completed: false },
-      { id: 'w2-4', text: 'Cross-contour wrapping around organic egg shapes', completed: false },
-    ],
-  },
-  {
-    weekNumber: 3,
-    title: 'Light, Core Shadows & Ambient Occlusion',
-    subtitle: 'Single directional light source value structures',
-    targetSessions: 5,
-    completedSessions: 0,
-    isCurrent: false,
-    isLocked: true,
-    prompts: [
-      { id: 'w3-1', text: '5-value graphite gradient bar matching reference', completed: false },
-      { id: 'w3-2', text: 'Sphere with terminator core shadow & bounced light', completed: false },
-      { id: 'w3-3', text: 'Corner ambient occlusion shadow crevices', completed: false },
-      { id: 'w3-4', text: 'Cast shadow sharpness vs blur based on distance', completed: false },
-    ],
-  },
-  {
-    weekNumber: 4,
-    title: 'Linear Perspective & Depth',
-    subtitle: '1-point and 2-point perspective depth construction',
-    targetSessions: 5,
-    completedSessions: 0,
-    isCurrent: false,
-    isLocked: true,
-    prompts: [
-      { id: 'w4-1', text: 'Grid room tiles converging to single eye-level point', completed: false },
-      { id: 'w4-2', text: 'Exterior street corner with dual vanishing points', completed: false },
-      { id: 'w4-3', text: 'Floating cubes rotated on multiple axes', completed: false },
-    ],
-  },
-  {
-    weekNumber: 5,
-    title: 'Organic Botanical Contours',
-    subtitle: 'Leaves, branches, bark textures, and natural rhythms',
-    targetSessions: 5,
-    completedSessions: 0,
-    isCurrent: false,
-    isLocked: true,
-    prompts: [
-      { id: 'w5-1', text: 'Bonsai tree silhouette and negative space study', completed: false },
-      { id: 'w5-2', text: 'Pine needle textures and overlapping branch hierarchy', completed: false },
-      { id: 'w5-3', text: 'Smooth river stones with wet specular highlights', completed: false },
-    ],
-  },
-];
-
 const STORAGE_KEYS = {
-  habits: 'shuchu_habits_v2',
-  sessions: 'shuchu_sessions_v2',
-  challenges: 'shuchu_challenges_v2',
-  timer: 'shuchu_timer_state_v2',
-  theme: 'shuchu_theme_v2',
-  shortBreak: 'shuchu_short_break_v2',
-  longBreak: 'shuchu_long_break_v2',
-  lastActiveDate: 'shuchu_last_active_date_v2',
+  habits: 'shuchu_habits_v3',
+  sessions: 'shuchu_sessions_v3',
+  challenges: 'shuchu_challenges_v3',
+  timer: 'shuchu_timer_state_v3',
+  theme: 'shuchu_theme_v3',
+  shortBreak: 'shuchu_short_break_v3',
+  longBreak: 'shuchu_long_break_v3',
+  lastActiveDate: 'shuchu_last_active_date_v3',
 };
 
 interface AppContextType {
@@ -167,8 +90,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // --- Data Persistence ---
   const [habits, setHabits] = useState<Habit[]>(() => {
     try {
+      localStorage.removeItem('shuchu_habits_v2');
+      localStorage.removeItem('shuchu_habits');
+
       const stored = localStorage.getItem(STORAGE_KEYS.habits);
-      return stored ? JSON.parse(stored) : [];
+      if (!stored) return [];
+      const parsed: Habit[] = JSON.parse(stored);
+      // Filter out any prototype mock habit titles/IDs
+      const mockIds = new Set(['drawing', 'piano', 'reading', 'coding', 'health']);
+      return parsed.filter(
+        (h) =>
+          !mockIds.has(h.id) &&
+          h.title !== 'Figure Drawing' &&
+          h.title !== 'Practice Piano' &&
+          h.title !== 'Read 20 Pages' &&
+          h.title !== 'Study C Systems' &&
+          h.title !== 'Strength & Mobility'
+      );
     } catch {
       return [];
     }
@@ -176,8 +114,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [focusSessions, setFocusSessions] = useState<FocusSession[]>(() => {
     try {
+      localStorage.removeItem('shuchu_sessions_v2');
+      localStorage.removeItem('shuchu_sessions');
+
       const stored = localStorage.getItem(STORAGE_KEYS.sessions);
-      return stored ? JSON.parse(stored) : [];
+      if (!stored) return [];
+      const parsed: FocusSession[] = JSON.parse(stored);
+      const mockSessIds = new Set(['sess-1', 'sess-2', 'sess-3']);
+      return parsed.filter(
+        (s) =>
+          !mockSessIds.has(s.id) &&
+          s.habitTitle !== 'Figure Drawing' &&
+          s.habitTitle !== 'Practice Piano' &&
+          s.habitTitle !== 'Study C Systems'
+      );
     } catch {
       return [];
     }
@@ -185,10 +135,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [challenges, setChallenges] = useState<ChallengeWeek[]>(() => {
     try {
+      localStorage.removeItem('shuchu_challenges_v2');
+      localStorage.removeItem('shuchu_challenges');
+
       const stored = localStorage.getItem(STORAGE_KEYS.challenges);
-      return stored ? JSON.parse(stored) : FRESH_CHALLENGES;
+      return stored ? JSON.parse(stored) : [];
     } catch {
-      return FRESH_CHALLENGES;
+      return [];
     }
   });
 
@@ -851,12 +804,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const resetAllData = () => {
     hapticNotice();
-    localStorage.removeItem(STORAGE_KEYS.habits);
-    localStorage.removeItem(STORAGE_KEYS.sessions);
-    localStorage.removeItem(STORAGE_KEYS.challenges);
-    localStorage.removeItem(STORAGE_KEYS.timer);
-    localStorage.removeItem(STORAGE_KEYS.lastActiveDate);
-    // Purge any legacy keys
+    Object.values(STORAGE_KEYS).forEach((k) => localStorage.removeItem(k));
+    // Purge all legacy and v2 keys
+    localStorage.removeItem('shuchu_habits_v2');
+    localStorage.removeItem('shuchu_sessions_v2');
+    localStorage.removeItem('shuchu_challenges_v2');
+    localStorage.removeItem('shuchu_timer_state_v2');
+    localStorage.removeItem('shuchu_last_active_date_v2');
     localStorage.removeItem('shuchu_habits');
     localStorage.removeItem('shuchu_sessions');
     localStorage.removeItem('shuchu_challenges');
@@ -864,7 +818,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     setHabits([]);
     setFocusSessions([]);
-    setChallenges(FRESH_CHALLENGES);
+    setChallenges([]);
     setTimerMode('focus');
     setTimerDurationMinutes(25);
     setTimerRemainingSeconds(25 * 60);
