@@ -48,6 +48,7 @@ interface AppContextType {
   timerRemainingSeconds: number;
   isTimerRunning: boolean;
   timerCycle: number;
+  plannedSessions: number;  // total planned pomodoros for this session chain
   shortBreakDurationMinutes: number;
   longBreakDurationMinutes: number;
   lastCompletedSession: FocusSession | null;
@@ -59,7 +60,8 @@ interface AppContextType {
   toggleDesktopMode: () => void;
   toggleHabitCompletion: (id: string) => void;
   selectHabitForDetail: (id: string) => void;
-  startFocusSession: (habitId?: string, durationMinutes?: number) => void;
+  startFocusSession: (habitId?: string, durationMinutes?: number, sessions?: number) => void;
+  clearFocusSession: () => void;
   toggleTimer: () => void;
   resetTimer: () => void;
   addFiveMinutes: () => void;
@@ -267,6 +269,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch {}
     return 1;
   });
+
+  // Number of planned pomodoro sessions for the current focus chain (not persisted; resets on new session)
+  const [plannedSessions, setPlannedSessions] = useState<number>(4);
 
   const [lastCompletedSession, setLastCompletedSession] = useState<FocusSession | null>(null);
 
@@ -547,17 +552,36 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     scrollToTop();
   };
 
-  const startFocusSession = (habitId?: string, durationMinutes = 25) => {
+  const startFocusSession = (habitId?: string, durationMinutes = 25, sessions = 4) => {
     if (habitId) {
       setActiveHabitId(habitId);
+    } else {
+      // No habit — clear the active habit so focus runs as open flow
+      setActiveHabitId('');
     }
     setTimerMode('focus');
     setTimerDurationMinutes(durationMinutes);
     setTimerRemainingSeconds(durationMinutes * 60);
     setIsTimerRunning(false);
     setTimerTargetEndTime(null);
+    // Always reset cycle to 1 when starting a fresh session chain
+    setTimerCycle(1);
+    setPlannedSessions(sessions);
     setActiveScreen('focus');
     scrollToTop();
+  };
+
+  const clearFocusSession = () => {
+    hapticLight();
+    setIsTimerRunning(false);
+    setTimerTargetEndTime(null);
+    setTimerMode('focus');
+    setTimerDurationMinutes(25);
+    setTimerRemainingSeconds(25 * 60);
+    setTimerCycle(1);
+    setPlannedSessions(4);
+    setActiveHabitId('');
+    setActiveScreen('today');
   };
 
   // --- Timer Controls ---
@@ -899,6 +923,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setTimerRemainingSeconds(25 * 60);
     setIsTimerRunning(false);
     setTimerTargetEndTime(null);
+    setTimerCycle(1);
+    setPlannedSessions(4);
     setActiveHabitId('');
     setActiveScreen('today');
   };
@@ -918,6 +944,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         timerRemainingSeconds,
         isTimerRunning,
         timerCycle,
+        plannedSessions,
         shortBreakDurationMinutes,
         longBreakDurationMinutes,
         lastCompletedSession,
@@ -928,6 +955,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         toggleHabitCompletion,
         selectHabitForDetail,
         startFocusSession,
+        clearFocusSession,
         toggleTimer,
         resetTimer,
         addFiveMinutes,

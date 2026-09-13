@@ -1,7 +1,7 @@
 import React from 'react';
 import { useApp } from '@/context/AppContext';
 import { Button, Badge } from '@packages/ui';
-import { Trash2, Play, Flame, ArrowLeft } from 'lucide-react';
+import { Trash2, Play, Flame, ArrowLeft, Check, TrendingUp } from 'lucide-react';
 import { HabitIcon } from '@/components/HabitIcon';
 
 export const HabitDetail: React.FC = () => {
@@ -53,17 +53,15 @@ export const HabitDetail: React.FC = () => {
   const daysCompleted = weekDays.filter((d) => !d.isFuture && d.minutes > 0).length;
   const totalPastDays = weekDays.filter((d) => !d.isFuture).length;
 
-  // Consistency: days with at least one session in last 30 days
-  const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setDate(today.getDate() - 30);
-  const daysWith30 = new Set(
-    habitSessions
-      .filter((s) => new Date(s.timestamp) >= thirtyDaysAgo)
-      .map((s) => s.timestamp.split('T')[0])
-  ).size;
+  // This-week consistency %
   const consistencyPct = totalPastDays > 0
     ? Math.round((daysCompleted / totalPastDays) * 100)
     : 0;
+
+  // Best streak: max streak ever recorded — use current streak as best if no separate tracking
+  // We derive it as: max(currentStreak, all-time sessions unique-day count)
+  const uniqueSessionDays = new Set(habitSessions.map((s) => s.timestamp.split('T')[0])).size;
+  const bestStreak = Math.max(activeHabit.streak, uniqueSessionDays > 0 ? uniqueSessionDays : 0);
 
   return (
     <div className="space-y-6 max-w-2xl mx-auto animate-soft-fade">
@@ -119,8 +117,8 @@ export const HabitDetail: React.FC = () => {
           {activeHabit.notes || `Daily practice target: ${activeHabit.targetValue} ${activeHabit.unit}.`}
         </p>
 
-        {/* Stats Cluster */}
-        <div className="grid grid-cols-3 gap-2 text-center">
+        {/* Stats Cluster — 4 cards now with Best Streak */}
+        <div className="grid grid-cols-2 gap-2 text-center">
           <div className="bg-[var(--surface)] border border-[var(--border-subtle)] p-3 rounded-2xl">
             <div className="font-mono text-[9px] uppercase font-bold text-[var(--muted)]">Total Sessions</div>
             <div className="font-display text-lg sm:text-xl font-bold text-[var(--fg)] mt-0.5">
@@ -141,6 +139,15 @@ export const HabitDetail: React.FC = () => {
               {consistencyPct}%
             </div>
           </div>
+
+          <div className="bg-[var(--surface)] border border-[var(--ochre-border)] p-3 rounded-2xl bg-[var(--ochre-soft)]">
+            <div className="font-mono text-[9px] uppercase font-bold text-[var(--ochre-seed)] flex items-center justify-center gap-1">
+              <TrendingUp className="w-3 h-3" /> Best Streak
+            </div>
+            <div className="font-display text-lg sm:text-xl font-bold text-[var(--ochre-seed)] mt-0.5">
+              {bestStreak}d
+            </div>
+          </div>
         </div>
       </div>
 
@@ -156,22 +163,31 @@ export const HabitDetail: React.FC = () => {
         <div className="flex items-center justify-between gap-1.5 p-2.5 bg-[var(--surface-warm)] border border-[var(--border-subtle)] rounded-2xl">
           {weekDays.map((item, i) => {
             const hasData = item.minutes > 0;
-            const label = item.minutes > 0 ? `${item.minutes}m` : '—';
+            // For past completed days show a checkmark; for today show minutes or dash; future dims
+            const cellContent = item.isFuture
+              ? '·'
+              : item.isToday
+              ? hasData ? `${item.minutes}m` : '·'
+              : hasData
+              ? <Check className="w-3.5 h-3.5" />
+              : '·';
             return (
               <div key={i} className="flex-1 flex flex-col items-center gap-1">
                 <span className="text-[10px] font-mono text-[var(--muted)]">{item.label}</span>
                 <div
-                  className={`w-full py-2 rounded-xl text-center font-mono text-[11px] font-bold transition-colors ${
+                  className={`w-full py-2 rounded-xl text-center font-mono text-[11px] font-bold transition-colors flex items-center justify-center ${
                     item.isToday
-                      ? 'border-2 border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]'
+                      ? hasData
+                        ? 'border-2 border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]'
+                        : 'border-2 border-dashed border-[var(--accent)]/50 bg-[var(--accent-soft)]/40 text-[var(--accent)]/60'
                       : item.isFuture
-                      ? 'bg-[var(--surface-pebble)] border border-[var(--border-subtle)] text-[var(--muted)] opacity-40'
+                      ? 'bg-[var(--surface-pebble)] border border-[var(--border-subtle)] text-[var(--muted)] opacity-30'
                       : hasData
                       ? 'bg-[var(--matcha-soft)] border border-[var(--matcha-border)] text-[var(--matcha-leaf)]'
-                      : 'bg-[var(--surface-pebble)] border border-[var(--border-subtle)] text-[var(--muted)] opacity-60'
+                      : 'bg-[var(--surface-pebble)] border border-[var(--border-subtle)] text-[var(--muted)] opacity-50'
                   }`}
                 >
-                  {label}
+                  {cellContent}
                 </div>
               </div>
             );

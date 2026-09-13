@@ -2,8 +2,20 @@ import React from 'react';
 import { useApp } from '@/context/AppContext';
 import { EmptyToday } from '@/views/EmptyToday';
 import { Badge, Button } from '@packages/ui';
-import { Coffee, Flame, Snowflake, Sparkles, Check, Timer, ArrowRight } from 'lucide-react';
+import { Coffee, Flame, Snowflake, Sparkles, Check, Timer, ArrowRight, Trophy } from 'lucide-react';
 import { HabitIcon } from '@/components/HabitIcon';
+
+const MINDFUL_QUOTES = [
+  { text: 'Small steps become meaning.', attr: 'wabi-sabi' },
+  { text: 'The present moment is enough.', attr: 'zen' },
+  { text: 'One breath at a time.', attr: 'mindfulness' },
+  { text: 'Imperfect and alive.', attr: 'wabi-sabi' },
+  { text: 'Ritual is remembrance.', attr: 'practice' },
+  { text: 'Rest is also practice.', attr: 'stillness' },
+  { text: 'Consistency over intensity.', attr: 'growth' },
+];
+
+const STREAK_MILESTONES = [7, 14, 30, 60, 100];
 
 interface TodayDashboardProps {
   onOpenAddModal?: () => void;
@@ -22,6 +34,25 @@ export const TodayDashboard: React.FC<TodayDashboardProps> = ({ onOpenAddModal }
     timerRemainingSeconds,
     setScreen,
   } = useApp();
+
+  const [milestoneToast, setMilestoneToast] = React.useState<{ title: string; streak: number } | null>(null);
+  const prevStreaksRef = React.useRef<Record<string, number>>({});
+
+  // Watch for streak milestones
+  React.useEffect(() => {
+    habits.forEach((h) => {
+      const prev = prevStreaksRef.current[h.id] ?? h.streak;
+      if (h.streak !== prev && STREAK_MILESTONES.includes(h.streak)) {
+        setMilestoneToast({ title: h.title, streak: h.streak });
+        setTimeout(() => setMilestoneToast(null), 4000);
+      }
+      prevStreaksRef.current[h.id] = h.streak;
+    });
+  }, [habits]);
+
+  // Daily rotating quote seeded by day of year
+  const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000);
+  const quote = MINDFUL_QUOTES[dayOfYear % MINDFUL_QUOTES.length];
 
   // Completed count and percentage
   const totalCount = habits.length;
@@ -113,7 +144,20 @@ export const TodayDashboard: React.FC<TodayDashboardProps> = ({ onOpenAddModal }
   };
 
   return (
-    <div className="space-y-6 max-w-2xl mx-auto animate-soft-fade">
+    <div className="space-y-6 max-w-2xl mx-auto animate-soft-fade relative">
+      {/* Streak Milestone Toast */}
+      {milestoneToast && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 animate-toast-in">
+          <div className="bg-[var(--fg)] text-[var(--bg)] px-4 py-3 rounded-2xl shadow-xl flex items-center gap-3 font-mono text-sm font-bold max-w-[300px]">
+            <Trophy className="w-5 h-5 text-[var(--ochre-seed)] shrink-0" />
+            <div>
+              <div className="text-xs font-bold opacity-70 uppercase tracking-wide">Milestone!</div>
+              <div>{milestoneToast.streak}-day streak • {milestoneToast.title}</div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Mindful Greeting */}
       <div>
         <div className="flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-wider text-[#5C5347] dark:text-[var(--muted)] font-semibold mb-1">
@@ -122,7 +166,7 @@ export const TodayDashboard: React.FC<TodayDashboardProps> = ({ onOpenAddModal }
         </div>
         <h1 className="font-display text-2xl sm:text-3xl font-medium leading-tight text-[var(--fg)]">
           {greeting}<br />
-          <em className="italic text-[var(--clay-terracotta)]">Small steps become meaning.</em>
+          <em className="italic text-[var(--clay-terracotta)]">{quote.text}</em>
         </h1>
       </div>
 

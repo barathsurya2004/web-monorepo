@@ -73,6 +73,7 @@ export type ActiveScreen =
   | 'today'
   | 'empty-today'
   | 'focus'
+  | 'focus-setup'
   | 'focus-complete'
   | 'detail'
   | 'library'

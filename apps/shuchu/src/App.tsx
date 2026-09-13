@@ -8,6 +8,7 @@ import { AddHabitModal } from '@/components/AddHabitModal';
 import { TodayDashboard } from '@/views/TodayDashboard';
 import { EmptyToday } from '@/views/EmptyToday';
 import { FocusSanctuary } from '@/views/FocusSanctuary';
+import { FocusSetup } from '@/views/FocusSetup';
 import { FocusComplete } from '@/views/FocusComplete';
 import { HabitDetail } from '@/views/HabitDetail';
 import { HabitsLibrary } from '@/views/HabitsLibrary';
@@ -36,6 +37,8 @@ export const AppContent: React.FC = () => {
         return <EmptyToday onOpenAddModal={() => setIsAddModalOpen(true)} />;
       case 'focus':
         return <FocusSanctuary />;
+      case 'focus-setup':
+        return <FocusSetup />;
       case 'focus-complete':
         return <FocusComplete />;
       case 'detail':
@@ -57,11 +60,11 @@ export const AppContent: React.FC = () => {
     }
   };
 
-  // Fullscreen, non-scrolling Focus Sanctuary
-  if (activeScreen === 'focus') {
+  // Fullscreen, non-scrolling Focus Sanctuary and Setup
+  if (activeScreen === 'focus' || activeScreen === 'focus-setup') {
     return (
       <div className="h-[100dvh] max-h-[100dvh] w-full overflow-hidden bg-[var(--bg)] text-[var(--fg)] transition-colors duration-300 flex flex-col justify-center">
-        <FocusSanctuary />
+        {activeScreen === 'focus' ? <FocusSanctuary /> : <FocusSetup />}
         <AddHabitModal
           isOpen={isAddModalOpen}
           onClose={() => setIsAddModalOpen(false)}

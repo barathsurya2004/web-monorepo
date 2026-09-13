@@ -7,11 +7,13 @@ import { GuidedBreathingOrb } from '@/components/GuidedBreathingOrb';
 export const FocusSanctuary: React.FC = () => {
   const {
     activeHabit,
+    habits,
     timerMode,
     timerDurationMinutes,
     timerRemainingSeconds,
     isTimerRunning,
     timerCycle,
+    plannedSessions,
     toggleTimer,
     resetTimer,
     addFiveMinutes,
@@ -19,6 +21,8 @@ export const FocusSanctuary: React.FC = () => {
     switchTimerMode,
     skipBreak,
     finishCurrentSession,
+    startFocusSession,
+    clearFocusSession,
     setScreen,
     theme,
     toggleTheme,
@@ -183,8 +187,22 @@ export const FocusSanctuary: React.FC = () => {
             )}
           </span>
           <span className="font-mono text-[10px] sm:text-[11px] px-2 py-0.5 rounded-full bg-black/10 dark:bg-white/10 font-bold">
-            Pomo {timerCycle}/4
+            Pomo {timerCycle}/{plannedSessions}
           </span>
+
+          {/* End Session button — clear the timer and go to setup */}
+          {!isTimerRunning && (
+            <button
+              onClick={clearFocusSession}
+              className={`font-mono text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full border cursor-pointer transition-all ${
+                isHearthTheme
+                  ? 'border-white/20 text-white/60 hover:bg-white/10'
+                  : 'border-[var(--border)] text-[var(--muted)] hover:text-[var(--fg)] hover:bg-black/5'
+              }`}
+            >
+              End
+            </button>
+          )}
         </div>
 
         {/* Main Title */}
@@ -199,6 +217,25 @@ export const FocusSanctuary: React.FC = () => {
         >
           {isBreakMode ? 'Mindful Rest & Renewal' : activeHabit?.title || 'Mindful Flow'}
         </h2>
+
+        {/* Habit Selector — shown when no habit is active in focus mode */}
+        {!isBreakMode && !activeHabit && habits.length > 0 && (
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 mb-1 max-w-xs shrink-0">
+            {habits.slice(0, 5).map((h) => (
+              <button
+                key={h.id}
+                onClick={() => startFocusSession(h.id, h.targetValue)}
+                className={`px-3 py-1 rounded-full text-[10px] font-mono font-bold whitespace-nowrap shrink-0 border transition-all cursor-pointer ${
+                  isHearthTheme
+                    ? 'bg-white/15 border-white/20 text-white hover:bg-white/25'
+                    : 'bg-[var(--surface-warm)] border-[var(--border)] text-[var(--muted)] hover:text-[var(--fg)] hover:border-[var(--accent)]'
+                }`}
+              >
+                {h.title}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Content Body: Guided Breathing Orb or Countdown Ring */}
         {isBreakMode && breakViewMode === 'orb' ? (
