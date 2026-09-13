@@ -1,0 +1,280 @@
+/* ==========================================================================
+   ORGANIC DESIGN SYSTEM: BOTANICAL, WABI-SABI, PEBBLE & FLUID AESTHETIC
+   Integrating with @packages/ui and Tailwind CSS
+   ========================================================================== */
+
+:root {
+  /* Dawn Linen & Raw Clay Palette */
+  --bg: #F7F4EE;
+  --bg-mesh: radial-gradient(at 15% 15%, #FFFDF9 0%, transparent 60%),
+             radial-gradient(at 85% 20%, #F1ECE0 0%, transparent 50%),
+             radial-gradient(at 50% 85%, #EBE4D5 0%, transparent 60%),
+             #F7F4EE;
+  --surface: #FFFFFF;
+  --surface-warm: #FAF7F2;
+  --surface-pebble: #F2EDE2;
+  --surface-floating: rgba(255, 255, 255, 0.92);
+  
+  --fg: #24201D;
+  --fg-soft: #3D3630;
+  --muted: #5C5347;
+  --muted-light: #E0D7C9;
+  --border: rgba(206, 194, 178, 0.85);
+  --border-subtle: rgba(218, 208, 194, 0.6);
+  
+  /* Organic Botanical Accents - Enhanced Contrast for Light Mode */
+  --clay-terracotta: #B8472E;
+  --clay-soft: #FBF0EB;
+  --clay-border: #F0C4B8;
+  --clay-glow: rgba(184, 71, 46, 0.22);
+
+  --matcha-leaf: #2A6642;
+  --matcha-soft: #EEF5F1;
+  --matcha-border: #BDDEC8;
+  --matcha-glow: rgba(42, 102, 66, 0.22);
+
+  --ochre-seed: #9E5B0E;
+  --ochre-soft: #FAF4E8;
+  --ochre-border: #E8D3AB;
+  --ochre-glow: rgba(158, 91, 14, 0.22);
+
+  --river-mist: #2E5C70;
+  --river-soft: #EFF5F8;
+  --river-border: #BCD7E3;
+  --river-glow: rgba(46, 92, 112, 0.22);
+
+  --wild-plum: #6D3D5D;
+  --wild-soft: #F7EFF5;
+  --wild-border: #DFC4D7;
+  --wild-glow: rgba(109, 61, 93, 0.22);
+
+  --accent: var(--clay-terracotta);
+  --accent-soft: var(--clay-soft);
+  --accent-border: var(--clay-border);
+
+  /* Clean Modern Radii */
+  --radius-card: 20px;
+  --radius-button: 16px;
+  --radius-pill: 9999px;
+  --radius-pebble-1: 20px;
+  --radius-pebble-2: 20px;
+  --radius-pebble-3: 20px;
+  --radius-fluid: 9999px;
+  --radius-fluid-alt: 9999px;
+
+  /* Organic Ambient Shadows */
+  --shadow-pebble: 0 14px 32px -8px rgba(50, 42, 36, 0.07), 0 3px 10px -2px rgba(50, 42, 36, 0.04);
+  --shadow-hover: 0 20px 42px -10px rgba(50, 42, 36, 0.12), 0 6px 14px -3px rgba(50, 42, 36, 0.06);
+  --shadow-inner-clay: inset 0 2px 4px rgba(255, 255, 255, 0.8), inset 0 -2px 4px rgba(60, 48, 40, 0.03);
+
+  /* Typography */
+  --font-display: 'Newsreader', 'Charter', Georgia, serif;
+  --font-body: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  /* Focus Sanctuary Light Mode Defaults */
+  --focus-backdrop: radial-gradient(circle at 50% 25%, #DE6D53 0%, #C45B43 45%, #9E402B 100%);
+  --focus-text: #FFFFFF;
+
+  --spring: cubic-bezier(0.18, 1, 0.28, 1);
+}
+
+.dark, [data-theme="dark"] {
+  --bg: #141715;
+  --bg-mesh: radial-gradient(at 15% 15%, #1B211D 0%, transparent 60%),
+             radial-gradient(at 85% 20%, #161A17 0%, transparent 50%),
+             radial-gradient(at 50% 85%, #0F1210 0%, transparent 60%),
+             #141715;
+  --surface: #1C221E;
+  --surface-warm: #222924;
+  --surface-pebble: #27302A;
+  --surface-floating: rgba(28, 34, 30, 0.92);
+
+  --fg: #F2EDE4;
+  --fg-soft: #D3CBC0;
+  --muted: #968F83;
+  --muted-light: #38423B;
+  --border: rgba(72, 85, 77, 0.4);
+  --border-subtle: rgba(56, 68, 61, 0.3);
+
+  --clay-terracotta: #E37B62;
+  --clay-soft: #2E1F1A;
+  --clay-border: #523027;
+  --clay-glow: rgba(227, 123, 98, 0.25);
+
+  --matcha-leaf: #6FAF82;
+  --matcha-soft: #1B2C21;
+  --matcha-border: #2D4C38;
+  --matcha-glow: rgba(111, 175, 130, 0.25);
+
+  --ochre-seed: #DBA458;
+  --ochre-soft: #2C2417;
+  --ochre-border: #4D3C23;
+  --ochre-glow: rgba(219, 164, 88, 0.25);
+
+  --river-mist: #6DA4BD;
+  --river-soft: #1B2931;
+  --river-border: #2C4755;
+  --river-glow: rgba(109, 164, 189, 0.25);
+
+  --wild-plum: #B885A5;
+  --wild-soft: #2F1E2A;
+  --wild-border: #503146;
+  --wild-glow: rgba(184, 133, 165, 0.25);
+
+  --shadow-pebble: 0 16px 36px -8px rgba(0, 0, 0, 0.5), 0 4px 12px rgba(0, 0, 0, 0.3);
+  --shadow-hover: 0 24px 48px -10px rgba(0, 0, 0, 0.65);
+  --shadow-inner-clay: inset 0 1px 2px rgba(255, 255, 255, 0.06);
+
+  --focus-backdrop: radial-gradient(circle at 50% 25%, #2D1813 0%, #1F100D 50%, #120907 100%);
+  --focus-text: #F8EDE9;
+}
+
+/* Explicit Sanctuary Classes for 100% Reliable Gradient Rendering */
+.sanctuary-hearth-theme {
+  background: radial-gradient(circle at 50% 25%, #DE6D53 0%, #C45B43 45%, #9E402B 100%) !important;
+  color: #FFFFFF !important;
+}
+
+.dark .sanctuary-hearth-theme,
+[data-theme="dark"] .sanctuary-hearth-theme {
+  background: radial-gradient(circle at 50% 25%, #2D1813 0%, #1F100D 50%, #120907 100%) !important;
+  color: #F8EDE9 !important;
+}
+
+.sanctuary-stone-theme {
+  background: linear-gradient(145deg, #FAF7F2 0%, #F3EDE2 50%, #EAE2D2 100%) !important;
+  color: #24201D !important;
+  border: 1px solid rgba(218, 208, 194, 0.75) !important;
+}
+
+.dark .sanctuary-stone-theme,
+[data-theme="dark"] .sanctuary-stone-theme {
+  background: linear-gradient(145deg, #222924 0%, #1C221E 50%, #161B17 100%) !important;
+  color: #F2EDE4 !important;
+  border: 1px solid rgba(72, 85, 77, 0.5) !important;
+}
+
+/* Animations */
+@keyframes waveRotate {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes gentleFloat {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(-3px); }
+}
+
+@keyframes islandGlow {
+  0%, 100% { transform: scale(1); opacity: 0.8; }
+  50% { transform: scale(1.3); opacity: 1; box-shadow: 0 0 8px var(--clay-terracotta); }
+}
+
+@keyframes ambientBreathe {
+  0% { transform: translateX(-50%) scale(0.9); opacity: 0.45; }
+  100% { transform: translateX(-50%) scale(1.2); opacity: 0.8; }
+}
+
+@keyframes softFadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-wave-rotate {
+  animation: waveRotate 5s linear infinite;
+}
+
+.animate-gentle-float {
+  animation: gentleFloat 6s ease-in-out infinite alternate;
+}
+
+.animate-island-pulse {
+  animation: islandGlow 2s infinite ease-in-out;
+}
+
+.animate-ambient-breathe {
+  animation: ambientBreathe 6s ease-in-out infinite alternate;
+}
+
+.animate-soft-fade {
+  animation: softFadeIn 0.3s var(--spring) forwards;
+}
+
+/* ==========================================================================
+   HIGH-CONTRAST DAWN (LIGHT) MODE ADAPTATIONS
+   Ensures WCAG AA/AAA readability on cream and linen surfaces
+   ========================================================================== */
+
+/* Badges: Transform light pastel text into rich botanical pigments in Light Mode */
+:root:not(.dark) span[class*="text-[#FBD8B3]"] {
+  color: #96361E !important;
+  background-color: #FBEBE6 !important;
+  border-color: #F0BCAD !important;
+  font-weight: 700 !important;
+}
+
+:root:not(.dark) span[class*="text-[#A8E6CF]"] {
+  color: #1E633F !important;
+  background-color: #E1F6EB !important;
+  border-color: #B4E5CB !important;
+  font-weight: 700 !important;
+}
+
+:root:not(.dark) span[class*="text-[#FFB5A7]"] {
+  color: #9C2237 !important;
+  background-color: #FDEDF0 !important;
+  border-color: #F8BFC8 !important;
+  font-weight: 700 !important;
+}
+
+:root:not(.dark) span[class*="text-[#FDE2B8]"] {
+  color: #87550C !important;
+  background-color: #FCF1DD !important;
+  border-color: #F4DBA8 !important;
+  font-weight: 700 !important;
+}
+
+:root:not(.dark) span[class*="text-[#C8B6FF]"] {
+  color: #4A2E8B !important;
+  background-color: #EFE7FD !important;
+  border-color: #D2C1F9 !important;
+  font-weight: 700 !important;
+}
+
+:root:not(.dark) span[class*="text-slate-300"] {
+  color: #433B31 !important;
+  background-color: #ECE4D8 !important;
+  border-color: #D4C6B7 !important;
+  font-weight: 700 !important;
+}
+
+/* Reused Buttons: Transform transparent/white-outline & ghost buttons into crisp ink in Light Mode */
+:root:not(.dark) button[class*="border-white/15"],
+:root:not(.dark) button[class*="text-slate-200"] {
+  color: #2E2721 !important;
+  border-color: #CFC3B3 !important;
+}
+
+:root:not(.dark) button[class*="border-white/15"]:hover,
+:root:not(.dark) button[class*="text-slate-200"]:hover {
+  background-color: rgba(36, 32, 29, 0.06) !important;
+  color: #1A1714 !important;
+}
+
+:root:not(.dark) button[class*="text-slate-400"] {
+  color: #5C5347 !important;
+}
+
+:root:not(.dark) button[class*="text-slate-400"]:hover {
+  color: #1A1714 !important;
+  background-color: rgba(36, 32, 29, 0.06) !important;
+}
+
+/* Form Placeholders: Ensure crisp readable tone */
+:root:not(.dark) input::placeholder,
+:root:not(.dark) textarea::placeholder {
+  color: #7A7063 !important;
+  opacity: 1 !important;
+}
+

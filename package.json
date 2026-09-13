@@ -4,8 +4,9 @@
   "version": "1.0.0",
   "scripts": {
     "dev": "pnpm --filter @apps/penne-dashboard dev",
-    "build": "pnpm --filter \"@packages/*\" build && pnpm --filter @apps/penne-dashboard build",
-    "typecheck": "pnpm --filter \"@packages/*\" typecheck && pnpm --filter @apps/penne-dashboard typecheck"
+    "dev:shuchu": "pnpm --filter @apps/shuchu dev",
+    "build": "pnpm --filter \"@packages/*\" build && pnpm --filter @apps/penne-dashboard build && pnpm --filter @apps/shuchu build",
+    "typecheck": "pnpm --filter \"@packages/*\" typecheck && pnpm --filter @apps/penne-dashboard typecheck && pnpm --filter @apps/shuchu typecheck"
   },
   "devDependencies": {
     "typescript": "^5.3.3"
