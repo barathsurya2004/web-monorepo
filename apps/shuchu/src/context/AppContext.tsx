@@ -23,14 +23,14 @@ import {
 } from '@/utils/notifications';
 
 const STORAGE_KEYS = {
-  habits: 'shuchu_habits_v3',
+  habits: 'shuchu_habits_v4',
   sessions: 'shuchu_sessions_v3',
   challenges: 'shuchu_challenges_v3',
   timer: 'shuchu_timer_state_v3',
   theme: 'shuchu_theme_v3',
   shortBreak: 'shuchu_short_break_v3',
   longBreak: 'shuchu_long_break_v3',
-  lastActiveDate: 'shuchu_last_active_date_v3',
+  lastActiveDate: 'shuchu_last_active_date_v4',
 };
 
 interface AppContextType {
@@ -90,8 +90,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // --- Data Persistence ---
   const [habits, setHabits] = useState<Habit[]>(() => {
     try {
+      // Clean up all previous versions with corrupted streak data
+      localStorage.removeItem('shuchu_habits_v3');
       localStorage.removeItem('shuchu_habits_v2');
       localStorage.removeItem('shuchu_habits');
+      // Clean up old lastActiveDate so rollover recalculates cleanly
+      localStorage.removeItem('shuchu_last_active_date_v3');
 
       const stored = localStorage.getItem(STORAGE_KEYS.habits);
       if (!stored) return [];
@@ -344,14 +348,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const lastActive = localStorage.getItem(STORAGE_KEYS.lastActiveDate);
 
     if (lastActive && lastActive !== todayStr) {
+      // Calculate yesterday's date string to verify streak continuity
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayStr = yesterday.toISOString().split('T')[0];
+
       setHabits((prev) =>
         prev.map((h) => {
-          const wasDone = h.isCompleted;
+          // A habit's streak is preserved only if it was completed yesterday
+          // (or the last active date was yesterday and the habit was completed)
+          const completedYesterday = h.lastCompletedDate === yesterdayStr || h.lastCompletedDate === lastActive;
           const wasFrozen = h.freezesUsed?.includes(lastActive);
 
           let newStreak = h.streak;
-          // If not completed and not frozen, reset streak
-          if (!wasDone && !wasFrozen) {
+          // If not completed yesterday and not frozen, reset streak
+          if (!completedYesterday && !wasFrozen) {
             newStreak = 0;
           }
 
@@ -426,16 +437,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       // Update habit progress if attached to a habit
       if (currentHabit) {
+        const todayStr = new Date().toISOString().split('T')[0];
         setHabits((prev) =>
           prev.map((h) => {
             if (h.id === currentHabit.id) {
               const nextVal = (h.currentValue || 0) + currentDuration;
               const isDone = nextVal >= h.targetValue;
+              // Only increment streak if completing for the first time today
+              const alreadyCountedToday = h.lastCompletedDate === todayStr;
+              const shouldIncrementStreak = isDone && !h.isCompleted && !alreadyCountedToday;
               return {
                 ...h,
                 currentValue: nextVal,
                 isCompleted: isDone,
-                streak: isDone && !h.isCompleted ? h.streak + 1 : h.streak,
+                streak: shouldIncrementStreak ? h.streak + 1 : h.streak,
+                lastCompletedDate: isDone ? todayStr : h.lastCompletedDate,
               };
             }
             return h;
@@ -655,16 +671,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // Update habit progress and completion
     if (habit) {
+      const todayStr = new Date().toISOString().split('T')[0];
       setHabits((prev) =>
         prev.map((h) => {
           if (h.id === habit.id) {
             const nextVal = (h.currentValue || 0) + loggedMins;
             const isDone = nextVal >= h.targetValue;
+            // Only increment streak if completing for the first time today
+            const alreadyCountedToday = h.lastCompletedDate === todayStr;
+            const shouldIncrementStreak = isDone && !h.isCompleted && !alreadyCountedToday;
             return {
               ...h,
               currentValue: nextVal,
               isCompleted: isDone,
-              streak: isDone && !h.isCompleted ? h.streak + 1 : h.streak,
+              streak: shouldIncrementStreak ? h.streak + 1 : h.streak,
+              lastCompletedDate: isDone ? todayStr : h.lastCompletedDate,
             };
           }
           return h;
@@ -679,6 +700,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // --- Habit Completion & Streak Freeze ---
   const toggleHabitCompletion = (id: string) => {
+    const todayStr = new Date().toISOString().split('T')[0];
     setHabits((prev) =>
       prev.map((h) => {
         if (h.id === id) {
@@ -688,11 +710,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           } else {
             hapticLight();
           }
+          // Only increment streak when marking complete AND not already counted today
+          const alreadyCountedToday = h.lastCompletedDate === todayStr;
+          let newStreak = h.streak;
+          if (nextCompleted && !alreadyCountedToday) {
+            newStreak = h.streak + 1;
+          } else if (!nextCompleted && h.lastCompletedDate === todayStr) {
+            // Un-completing a same-day toggle: revert the streak increment
+            newStreak = Math.max(0, h.streak - 1);
+          }
           return {
             ...h,
             isCompleted: nextCompleted,
             currentValue: nextCompleted ? h.targetValue : Math.floor(h.targetValue * 0.5),
-            streak: nextCompleted ? h.streak + 1 : Math.max(0, h.streak - 1),
+            streak: newStreak,
+            lastCompletedDate: nextCompleted ? todayStr : (h.lastCompletedDate === todayStr ? undefined : h.lastCompletedDate),
           };
         }
         return h;
@@ -765,9 +797,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const newHabit: Habit = {
       ...data,
       id: `habit-${Date.now()}`,
-      streak: 1,
+      streak: 0, // Start at 0 — streak begins after the first completed day
       isCompleted: false,
       currentValue: 0,
+      lastCompletedDate: undefined,
       frequencyType: data.frequencyType || 'daily',
       customDays: data.customDays || [1, 2, 3, 4, 5],
       streakFreezesAvailable: 2,
