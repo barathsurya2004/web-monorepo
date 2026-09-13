@@ -23,6 +23,48 @@ export const HabitDetail: React.FC = () => {
   const totalDuration = habitSessions.reduce((acc, s) => acc + s.durationMinutes, 0);
   const totalHours = (totalDuration / 60).toFixed(1);
 
+  // Build this week's journey from real session data
+  const today = new Date();
+  const todayStr = today.toISOString().split('T')[0];
+  const dayOfWeek = today.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+  // Build Mon–Sun week
+  const startOfWeek = new Date(today);
+  const daysSinceMon = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+  startOfWeek.setDate(today.getDate() - daysSinceMon);
+  startOfWeek.setHours(0, 0, 0, 0);
+
+  const DAY_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+  const weekDays = DAY_LABELS.map((label, i) => {
+    const d = new Date(startOfWeek);
+    d.setDate(startOfWeek.getDate() + i);
+    const dateStr = d.toISOString().split('T')[0];
+    // Use string comparison for accurate date-only logic (not datetime)
+    const isToday = dateStr === todayStr;
+    const isFuture = dateStr > todayStr;
+
+    // Sum minutes from sessions on this day
+    const dayMinutes = habitSessions
+      .filter((s) => s.timestamp.startsWith(dateStr))
+      .reduce((acc, s) => acc + s.durationMinutes, 0);
+
+    return { label, dateStr, isToday, isFuture, minutes: dayMinutes };
+  });
+
+  const daysCompleted = weekDays.filter((d) => !d.isFuture && d.minutes > 0).length;
+  const totalPastDays = weekDays.filter((d) => !d.isFuture).length;
+
+  // Consistency: days with at least one session in last 30 days
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(today.getDate() - 30);
+  const daysWith30 = new Set(
+    habitSessions
+      .filter((s) => new Date(s.timestamp) >= thirtyDaysAgo)
+      .map((s) => s.timestamp.split('T')[0])
+  ).size;
+  const consistencyPct = totalPastDays > 0
+    ? Math.round((daysCompleted / totalPastDays) * 100)
+    : 0;
+
   return (
     <div className="space-y-6 max-w-2xl mx-auto animate-soft-fade">
       {/* Top Navigation */}
@@ -82,7 +124,7 @@ export const HabitDetail: React.FC = () => {
           <div className="bg-[var(--surface)] border border-[var(--border-subtle)] p-3 rounded-2xl">
             <div className="font-mono text-[9px] uppercase font-bold text-[var(--muted)]">Total Sessions</div>
             <div className="font-display text-lg sm:text-xl font-bold text-[var(--fg)] mt-0.5">
-              {Math.max(habitSessions.length, 12)}
+              {habitSessions.length}
             </div>
           </div>
 
@@ -94,9 +136,9 @@ export const HabitDetail: React.FC = () => {
           </div>
 
           <div className="bg-[var(--surface)] border border-[var(--border-subtle)] p-3 rounded-2xl">
-            <div className="font-mono text-[9px] uppercase font-bold text-[var(--muted)]">Consistency</div>
+            <div className="font-mono text-[9px] uppercase font-bold text-[var(--muted)]">This Week</div>
             <div className="font-display text-lg sm:text-xl font-bold text-[var(--matcha-leaf)] mt-0.5">
-              94%
+              {consistencyPct}%
             </div>
           </div>
         </div>
@@ -106,32 +148,34 @@ export const HabitDetail: React.FC = () => {
       <div className="space-y-3">
         <div className="flex justify-between items-baseline">
           <h3 className="font-display text-lg font-semibold text-[var(--fg)]">This Week's Journey</h3>
-          <span className="font-mono text-xs text-[var(--muted)]">6 of 7 days completed</span>
+          <span className="font-mono text-xs text-[var(--muted)]">
+            {daysCompleted} of {totalPastDays} days logged
+          </span>
         </div>
 
         <div className="flex items-center justify-between gap-1.5 p-2.5 bg-[var(--surface-warm)] border border-[var(--border-subtle)] rounded-2xl">
-          {[
-            { day: 'M', val: '30m', done: true },
-            { day: 'T', val: '45m', done: true },
-            { day: 'W', val: '25m', done: true },
-            { day: 'T', val: '35m', done: true },
-            { day: 'F', val: '30m', done: true },
-            { day: 'S', val: '60m', done: true },
-            { day: 'S', val: `${activeHabit.currentValue}m`, current: true },
-          ].map((item, i) => (
-            <div key={i} className="flex-1 flex flex-col items-center gap-1">
-              <span className="text-[10px] font-mono text-[var(--muted)]">{item.day}</span>
-              <div
-                className={`w-full py-2 rounded-xl text-center font-mono text-[11px] font-bold ${
-                  item.current
-                    ? 'border-2 border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]'
-                    : 'bg-[var(--matcha-soft)] border border-[var(--matcha-border)] text-[var(--matcha-leaf)]'
-                }`}
-              >
-                {item.val}
+          {weekDays.map((item, i) => {
+            const hasData = item.minutes > 0;
+            const label = item.minutes > 0 ? `${item.minutes}m` : '—';
+            return (
+              <div key={i} className="flex-1 flex flex-col items-center gap-1">
+                <span className="text-[10px] font-mono text-[var(--muted)]">{item.label}</span>
+                <div
+                  className={`w-full py-2 rounded-xl text-center font-mono text-[11px] font-bold transition-colors ${
+                    item.isToday
+                      ? 'border-2 border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]'
+                      : item.isFuture
+                      ? 'bg-[var(--surface-pebble)] border border-[var(--border-subtle)] text-[var(--muted)] opacity-40'
+                      : hasData
+                      ? 'bg-[var(--matcha-soft)] border border-[var(--matcha-border)] text-[var(--matcha-leaf)]'
+                      : 'bg-[var(--surface-pebble)] border border-[var(--border-subtle)] text-[var(--muted)] opacity-60'
+                  }`}
+                >
+                  {label}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
@@ -150,27 +194,34 @@ export const HabitDetail: React.FC = () => {
           </Button>
         </div>
 
-        <div className="flex flex-col gap-2.5">
-          {habitSessions.map((session) => (
-            <div
-              key={session.id}
-              className="bg-[var(--surface)] border border-[var(--border)] p-3.5 sm:p-4 rounded-2xl flex items-center justify-between gap-3 shadow-sm"
-            >
-              <div className="space-y-0.5 min-w-0">
-                <div className="font-semibold text-xs sm:text-sm text-[var(--fg)] truncate">
-                  {session.note || 'Mindful focus practice'}
+        {habitSessions.length === 0 ? (
+          <div className="bg-[var(--surface-warm)] border border-dashed border-[var(--border)] rounded-2xl p-6 text-center space-y-1.5">
+            <p className="font-display text-sm text-[var(--fg)] opacity-70">No sessions yet</p>
+            <p className="font-mono text-xs text-[var(--muted)]">Start your first flow to begin tracking.</p>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2.5">
+            {habitSessions.map((session) => (
+              <div
+                key={session.id}
+                className="bg-[var(--surface)] border border-[var(--border)] p-3.5 sm:p-4 rounded-2xl flex items-center justify-between gap-3 shadow-sm"
+              >
+                <div className="space-y-0.5 min-w-0">
+                  <div className="font-semibold text-xs sm:text-sm text-[var(--fg)] truncate">
+                    {session.note || 'Mindful focus practice'}
+                  </div>
+                  <div className="font-mono text-[10px] text-[var(--muted)]">
+                    {new Date(session.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} •{' '}
+                    {new Date(session.timestamp).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                  </div>
                 </div>
-                <div className="font-mono text-[10px] text-[var(--muted)]">
-                  {new Date(session.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} •{' '}
-                  {new Date(session.timestamp).toLocaleDateString([], { month: 'short', day: 'numeric' })}
-                </div>
+                <span className="font-mono text-xs font-bold text-[var(--accent)] bg-[var(--accent-soft)] px-2.5 py-1 rounded-full shrink-0">
+                  {session.durationMinutes} min
+                </span>
               </div>
-              <span className="font-mono text-xs font-bold text-[var(--accent)] bg-[var(--accent-soft)] px-2.5 py-1 rounded-full shrink-0">
-                {session.durationMinutes} min
-              </span>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

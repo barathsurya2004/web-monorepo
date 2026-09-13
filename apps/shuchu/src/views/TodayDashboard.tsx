@@ -51,8 +51,9 @@ export const TodayDashboard: React.FC<TodayDashboardProps> = ({ onOpenAddModal }
       const d = new Date(monday);
       d.setDate(monday.getDate() + i);
       const dateStr = d.toISOString().split('T')[0];
+      // Use string comparison — avoids time-of-day contamination
       const isCurrent = dateStr === todayStr;
-      const isPast = d < now && !isCurrent;
+      const isPast = dateStr < todayStr;
       const hasSessions = focusSessions.some((s) => s.timestamp.startsWith(dateStr));
       const isDone = isPast && hasSessions;
 

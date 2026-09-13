@@ -101,25 +101,28 @@ export const AddHabitModal: React.FC<AddHabitModalProps> = ({ isOpen, onClose })
           <label className="text-[11px] font-bold font-mono tracking-wider text-slate-300 uppercase">
             Stone Pebble Accent & Icon
           </label>
-          <div className="flex items-center gap-2 overflow-x-auto pb-1">
-            {HABIT_ICON_OPTIONS.map((item) => {
-              const IconComp = item.Icon;
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  title={item.label}
-                  onClick={() => setSelectedIcon(item.id)}
-                  className={`w-9 h-9 rounded-xl flex items-center justify-center transition-transform cursor-pointer shrink-0 ${
-                    selectedIcon === item.id
-                      ? 'bg-white/25 border-2 border-[var(--clay-terracotta)] scale-110 text-white shadow-sm'
-                      : 'text-slate-300 hover:bg-white/10 hover:text-white'
-                  }`}
-                >
-                  <IconComp className="w-4 h-4" />
-                </button>
-              );
-            })}
+          {/* Outer div is overflow-visible so scale-110 isn't clipped; inner div scrolls */}
+          <div className="overflow-visible py-1">
+            <div className="flex items-center gap-2 overflow-x-auto px-1">
+              {HABIT_ICON_OPTIONS.map((item) => {
+                const IconComp = item.Icon;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    title={item.label}
+                    onClick={() => setSelectedIcon(item.id)}
+                    className={`w-9 h-9 rounded-xl flex items-center justify-center transition-transform cursor-pointer shrink-0 ${
+                      selectedIcon === item.id
+                        ? 'bg-white/25 border-2 border-[var(--clay-terracotta)] scale-110 text-white shadow-sm'
+                        : 'text-slate-300 hover:bg-white/10 hover:text-white'
+                    }`}
+                  >
+                    <IconComp className="w-4 h-4" />
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 mt-1">

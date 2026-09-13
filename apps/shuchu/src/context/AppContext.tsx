@@ -701,6 +701,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // --- Habit Completion & Streak Freeze ---
   const toggleHabitCompletion = (id: string) => {
     const todayStr = new Date().toISOString().split('T')[0];
+
+    // Find the habit to act on
     setHabits((prev) =>
       prev.map((h) => {
         if (h.id === id) {
@@ -710,6 +712,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           } else {
             hapticLight();
           }
+
           // Only increment streak when marking complete AND not already counted today
           const alreadyCountedToday = h.lastCompletedDate === todayStr;
           let newStreak = h.streak;
@@ -719,18 +722,57 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             // Un-completing a same-day toggle: revert the streak increment
             newStreak = Math.max(0, h.streak - 1);
           }
+
           return {
             ...h,
             isCompleted: nextCompleted,
-            currentValue: nextCompleted ? h.targetValue : Math.floor(h.targetValue * 0.5),
+            currentValue: nextCompleted ? h.targetValue : 0,
             streak: newStreak,
-            lastCompletedDate: nextCompleted ? todayStr : (h.lastCompletedDate === todayStr ? undefined : h.lastCompletedDate),
+            lastCompletedDate: nextCompleted
+              ? todayStr
+              : h.lastCompletedDate === todayStr
+              ? undefined
+              : h.lastCompletedDate,
           };
         }
         return h;
       })
     );
+
+    // Sync a FocusSession so all session-based views (weekly journey, analytics, focus time) stay accurate.
+    // We read habits from the closure (pre-toggle state) to determine intent.
+    setFocusSessions((prevSessions) => {
+      const habitSnapshot = habits.find((h) => h.id === id);
+      if (!habitSnapshot) return prevSessions;
+
+      const wasCompleted = habitSnapshot.isCompleted;
+      const isNowCompleted = !wasCompleted;
+
+      if (isNowCompleted) {
+        // Create a session representing manual completion
+        const autoSession: FocusSession = {
+          id: `auto-${id}-${todayStr}`,
+          habitId: id,
+          habitTitle: habitSnapshot.title,
+          category: habitSnapshot.category,
+          durationMinutes: habitSnapshot.targetValue,
+          targetMinutes: habitSnapshot.targetValue,
+          isBonusFlow: false,
+          timestamp: new Date().toISOString(),
+          note: 'Completed ✓',
+        };
+        // Avoid duplicate auto-sessions for the same habit+day
+        const alreadyHasAutoSession = prevSessions.some(
+          (s) => s.id === `auto-${id}-${todayStr}`
+        );
+        return alreadyHasAutoSession ? prevSessions : [autoSession, ...prevSessions];
+      } else {
+        // Remove the auto-session for this habit today
+        return prevSessions.filter((s) => s.id !== `auto-${id}-${todayStr}`);
+      }
+    });
   };
+
 
   const toggleStreakFreeze = (habitId: string) => {
     const today = new Date().toISOString().split('T')[0];
