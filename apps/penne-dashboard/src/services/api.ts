@@ -1187,3 +1187,171 @@ export class PenneApiClient {
 
 export const api = new PenneApiClient();
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Wishlist API Types
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface WishlistItem {
+  id: string;
+  user_uuid: string;
+  title: string;
+  target_amount_e5: number;
+  saved_amount_e5: number;
+  priority: number;   // 1–5
+  urgency: number;    // 1–5
+  item_type: string;  // 'want' | 'need' | 'investment'
+  status: string;     // 'active' | 'fulfilled' | 'paused'
+  target_date?: string;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ItemForecast {
+  item_id: string;
+  item_title: string;
+  target_amount_e5: number;
+  saved_amount_e5: number;
+  remaining_amount_e5: number;
+  priority: number;
+  urgency: number;
+  weight: number;
+  monthly_contribution_e5: number;
+  estimated_months: number;
+  estimated_date?: string;
+  progress_percentage: number;
+}
+
+export interface WishlistForecastSummary {
+  cycle_start_date: string;
+  cycle_end_date: string;
+  monthly_budget_e5: number;
+  cycle_expenses_e5: number;
+  projected_surplus_e5: number;
+  savings_rate_percent: number;
+  items: ItemForecast[];
+}
+
+export interface ItemAllocationSimulation {
+  item_id: string;
+  item_title: string;
+  allocated_e5: number;
+  previous_saved_e5: number;
+  new_saved_e5: number;
+  target_amount_e5: number;
+  is_fulfilled: boolean;
+  weight: number;
+}
+
+export interface CreateWishlistItemPayload {
+  title: string;
+  target_amount_e5: number;
+  priority: number;
+  urgency: number;
+  item_type: string;
+  notes?: string;
+  target_date?: string;
+}
+
+export interface UpdateWishlistItemPayload extends Partial<CreateWishlistItemPayload> {
+  id: string;
+  status?: string;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Wishlist API Client (standalone, uses same base URL + auth token)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const WISHLIST_BASE = (import.meta.env && import.meta.env.VITE_API_BASE_URL)
+  ? import.meta.env.VITE_API_BASE_URL.replace(/\/+$/, '')
+  : '/api';
+
+async function wishlistFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const token = localStorage.getItem('penne_auth_token');
+  const userUUID = localStorage.getItem('penne_user_uuid');
+
+  // Append user_uuid and cache-bust as query params
+  const sep = path.includes('?') ? '&' : '?';
+  const fullPath = `${path}${userUUID ? `${sep}user_uuid=${userUUID}` : ''}`;
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'ngrok-skip-browser-warning': 'true',
+    ...(options.headers as Record<string, string>),
+  };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
+  const res = await fetch(fullPath, { ...options, headers });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(text || `HTTP ${res.status}`);
+  }
+  return res.json() as Promise<T>;
+}
+
+export const wishlistApi = {
+  getWishlists(): Promise<WishlistForecastSummary> {
+    return wishlistFetch<WishlistForecastSummary>('/api/wishlists');
+  },
+  getForecast(): Promise<WishlistForecastSummary> {
+    return wishlistFetch<WishlistForecastSummary>('/api/wishlist/forecast');
+  },
+  createItem(payload: CreateWishlistItemPayload): Promise<WishlistItem> {
+    return wishlistFetch<WishlistItem>('/api/wishlist', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+  updateItem(payload: UpdateWishlistItemPayload): Promise<{ message: string }> {
+    return wishlistFetch<{ message: string }>(`/api/wishlist?id=${payload.id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+  },
+  deleteItem(itemId: string): Promise<{ message: string }> {
+    return wishlistFetch<{ message: string }>(`/api/wishlist?id=${itemId}`, {
+      method: 'DELETE',
+    });
+  },
+  distributeSurplus(): Promise<{ message: string; allocations: ItemAllocationSimulation[] }> {
+    return wishlistFetch<{ message: string; allocations: ItemAllocationSimulation[] }>('/api/wishlist/distribute', {
+      method: 'POST',
+    });
+  },
+  updateBudgetSettings(monthlyBudgetE5: number, salaryDay: number): Promise<{ message: string }> {
+    return wishlistFetch<{ message: string }>('/api/user/budget-settings', {
+      method: 'PUT',
+      body: JSON.stringify({ monthly_budget_e5: monthlyBudgetE5, salary_day: salaryDay }),
+    });
+  },
+};
+
+// Helpers
+export function e5ToINR(e5: number): string {
+  const amount = e5 / 100000;
+  if (amount >= 100000) return `₹${(amount / 100000).toFixed(1)}L`;
+  if (amount >= 1000) return `₹${(amount / 1000).toFixed(1)}K`;
+  return `₹${Math.round(amount).toLocaleString('en-IN')}`;
+}
+
+export function inrToE5(inr: number): number {
+  return Math.round(inr * 100000);
+}
+
+export function formatWishlistMonths(months: number): string {
+  if (months <= 0) return 'Fulfilled';
+  if (months < 1) return `~${Math.round(months * 30)}d`;
+  if (months < 12) return `~${Math.ceil(months)}mo`;
+  const yrs = Math.floor(months / 12);
+  const mo = Math.ceil(months % 12);
+  return mo > 0 ? `~${yrs}y ${mo}mo` : `~${yrs}y`;
+}
+
+export const PRIORITY_LABELS: Record<number, string> = {
+  1: 'Very Low', 2: 'Low', 3: 'Medium', 4: 'High', 5: 'Critical',
+};
+export const URGENCY_LABELS: Record<number, string> = {
+  1: 'Whenever', 2: 'Eventually', 3: 'This Year', 4: 'This Quarter', 5: 'This Month',
+};
+
+
