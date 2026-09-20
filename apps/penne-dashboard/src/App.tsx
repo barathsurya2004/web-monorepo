@@ -11,6 +11,7 @@ import { HomePage } from './components/HomePage';
 import { TransactionsPage } from './components/TransactionsPage';
 import { BudgetPage } from './components/BudgetPage';
 import { AccountView } from './components/AccountView';
+import { WishlistPage } from './components/WishlistPage';
 import { BottomTabBar, NavTab } from './components/BottomTabBar';
 import { NewTxnModal, NewCategoryModal, EditTxnModal, EditCategoryModal, EditGroupModal } from './components/Modals';
 import { ToastProvider, useToast } from './components/AlertBanner';
@@ -660,6 +661,8 @@ const AppInner: React.FC = () => {
             isLoadingSummary={loadingState.summary}
           />
         )}
+
+        {activeTab === 'wishlist' && <WishlistPage />}
       </main>
 
       {/* Mobile Fixed Bottom Navigation Bar */}
