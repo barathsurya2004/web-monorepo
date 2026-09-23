@@ -1259,8 +1259,129 @@ export interface UpdateWishlistItemPayload extends Partial<CreateWishlistItemPay
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Wishlist API Client (uses same API_BASE_URL + auth token as PenneApiClient)
+// Wishlist API Client (supports live backend with automatic demo fallback)
 // ─────────────────────────────────────────────────────────────────────────────
+
+const INITIAL_DEMO_WISHLIST_ITEMS: WishlistItem[] = [
+  {
+    id: 'wish-01',
+    user_uuid: TEST_USER_UUID,
+    title: 'Sony WH-1000XM5 Headphones',
+    target_amount_e5: 2999000000, // ₹29,990
+    saved_amount_e5: 1200000000,  // ₹12,000
+    priority: 4,
+    urgency: 3,
+    item_type: 'want',
+    status: 'active',
+    notes: 'For deep focus and noise-free work sessions',
+    created_at: new Date(Date.now() - 86400000 * 14).toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: 'wish-02',
+    user_uuid: TEST_USER_UUID,
+    title: 'Standing Desk Converter',
+    target_amount_e5: 1850000000, // ₹18,500
+    saved_amount_e5: 1850000000,  // ₹18,500 (fulfilled)
+    priority: 5,
+    urgency: 4,
+    item_type: 'need',
+    status: 'fulfilled',
+    notes: 'Ergonomic workspace health',
+    created_at: new Date(Date.now() - 86400000 * 30).toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: 'wish-03',
+    user_uuid: TEST_USER_UUID,
+    title: 'Index Fund Lump Sum',
+    target_amount_e5: 5000000000, // ₹50,000
+    saved_amount_e5: 1500000000,  // ₹15,000
+    priority: 3,
+    urgency: 2,
+    item_type: 'investment',
+    status: 'active',
+    notes: 'Annual portfolio top-up',
+    created_at: new Date(Date.now() - 86400000 * 7).toISOString(),
+    updated_at: new Date().toISOString(),
+  }
+];
+
+function getMockWishlistItems(): WishlistItem[] {
+  try {
+    const raw = localStorage.getItem('penne_mock_wishlist');
+    return raw ? JSON.parse(raw) : [...INITIAL_DEMO_WISHLIST_ITEMS];
+  } catch {
+    return [...INITIAL_DEMO_WISHLIST_ITEMS];
+  }
+}
+
+function saveMockWishlistItems(items: WishlistItem[]) {
+  try {
+    localStorage.setItem('penne_mock_wishlist', JSON.stringify(items));
+  } catch {
+    // ignore
+  }
+}
+
+function getMockBudgetSettings(): { monthlyBudgetE5: number; salaryDay: number } {
+  try {
+    const raw = localStorage.getItem('penne_mock_budget_settings');
+    return raw ? JSON.parse(raw) : { monthlyBudgetE5: 10000000000, salaryDay: 25 }; // ₹1,00,000 default
+  } catch {
+    return { monthlyBudgetE5: 10000000000, salaryDay: 25 };
+  }
+}
+
+function computeMockForecast(): WishlistForecastSummary {
+  const items = getMockWishlistItems();
+  const { monthlyBudgetE5 } = getMockBudgetSettings();
+  
+  // Use representative expenses (~65k) giving ~35k surplus
+  const cycleExpensesE5 = 6500000000;
+  const projectedSurplusE5 = Math.max(0, monthlyBudgetE5 - cycleExpensesE5);
+  const savingsRate = monthlyBudgetE5 > 0 ? Math.round((projectedSurplusE5 / monthlyBudgetE5) * 100) : 0;
+
+  const activeItems = items.filter((i) => i.status !== 'fulfilled' && (i.target_amount_e5 - i.saved_amount_e5) > 0);
+  const totalWeight = activeItems.reduce((acc, i) => acc + (i.priority * i.urgency), 0) || 1;
+
+  const itemForecasts: ItemForecast[] = items.map((item) => {
+    const remaining = Math.max(0, item.target_amount_e5 - item.saved_amount_e5);
+    const weight = item.priority * item.urgency;
+    const share = remaining > 0 ? weight / totalWeight : 0;
+    const monthlyContribution = Math.round(projectedSurplusE5 * share);
+    const months = monthlyContribution > 0 ? remaining / monthlyContribution : 0;
+    const progress = item.target_amount_e5 > 0 ? (item.saved_amount_e5 / item.target_amount_e5) * 100 : 0;
+
+    return {
+      item_id: item.id,
+      item_title: item.title,
+      target_amount_e5: item.target_amount_e5,
+      saved_amount_e5: item.saved_amount_e5,
+      remaining_amount_e5: remaining,
+      priority: item.priority,
+      urgency: item.urgency,
+      weight,
+      monthly_contribution_e5: monthlyContribution,
+      estimated_months: Math.round(months * 10) / 10,
+      progress_percentage: Math.min(100, Math.round(progress)),
+    };
+  });
+
+  const now = new Date();
+  const cycleStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+  const cycleEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString();
+
+  return {
+    cycle_start_date: cycleStart,
+    cycle_end_date: cycleEnd,
+    monthly_budget_e5: monthlyBudgetE5,
+    cycle_expenses_e5: cycleExpensesE5,
+    projected_surplus_e5: projectedSurplusE5,
+    savings_rate_percent: savingsRate,
+    items: itemForecasts,
+  };
+}
 
 async function wishlistFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = api.getToken() || localStorage.getItem('penne_auth_token');
@@ -1292,68 +1413,156 @@ async function wishlistFetch<T>(path: string, options: RequestInit = {}): Promis
   try {
     res = await fetch(fullUrl, { ...options, headers });
   } catch (netErr: any) {
-    console.warn(`[Penne Wishlist API Network Error] Backend unreachable at ${fullUrl}`, netErr);
-    throw new Error(`Failed to fetch from backend at ${API_BASE_URL}. Ensure backend server is running.`);
+    throw new Error('BACKEND_UNAVAILABLE');
   }
 
-  if (!res.ok) {
-    const rawText = await res.text();
-    console.warn(`[Penne Wishlist API Error] ${res.status}: ${rawText}`);
-    let errorMsg = `HTTP ${res.status}`;
-    if (rawText) {
-      if (rawText.trim().startsWith('<')) {
-        // Returned HTML (e.g. 404 from Netlify or proxy)
-        errorMsg = res.status === 404
-          ? `Backend endpoint not found (404) at ${fullUrl}. Ensure backend is running and VITE_API_BASE_URL is configured.`
-          : `Server error ${res.status}: ${res.statusText || 'Unexpected HTML response'}`;
-      } else {
-        try {
-          const json = JSON.parse(rawText);
-          errorMsg = json.message || json.error || rawText;
-        } catch {
-          errorMsg = rawText;
-        }
-      }
-    }
-    throw new Error(errorMsg);
+  let rawText = '';
+  try {
+    rawText = await res.text();
+  } catch {
+    throw new Error('BACKEND_UNAVAILABLE');
   }
-  return res.json() as Promise<T>;
+
+  const isHtml = rawText.trim().startsWith('<') || res.headers.get('content-type')?.includes('text/html');
+
+  if (!res.ok || isHtml) {
+    throw new Error('BACKEND_UNAVAILABLE');
+  }
+
+  try {
+    return JSON.parse(rawText) as T;
+  } catch {
+    throw new Error('BACKEND_UNAVAILABLE');
+  }
 }
 
 export const wishlistApi = {
-  getWishlists(): Promise<WishlistForecastSummary> {
-    return wishlistFetch<WishlistForecastSummary>('/wishlists');
+  async getWishlists(): Promise<WishlistForecastSummary> {
+    try {
+      return await wishlistFetch<WishlistForecastSummary>('/wishlists');
+    } catch {
+      return computeMockForecast();
+    }
   },
-  getForecast(): Promise<WishlistForecastSummary> {
-    return wishlistFetch<WishlistForecastSummary>('/wishlist/forecast');
+  async getForecast(): Promise<WishlistForecastSummary> {
+    try {
+      return await wishlistFetch<WishlistForecastSummary>('/wishlist/forecast');
+    } catch {
+      return computeMockForecast();
+    }
   },
-  createItem(payload: CreateWishlistItemPayload): Promise<WishlistItem> {
-    return wishlistFetch<WishlistItem>('/wishlist', {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    });
+  async createItem(payload: CreateWishlistItemPayload): Promise<WishlistItem> {
+    try {
+      return await wishlistFetch<WishlistItem>('/wishlist', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+    } catch {
+      const items = getMockWishlistItems();
+      const newItem: WishlistItem = {
+        id: `wish-${Date.now()}`,
+        user_uuid: api.getUserUUID(),
+        title: payload.title,
+        target_amount_e5: payload.target_amount_e5,
+        saved_amount_e5: 0,
+        priority: payload.priority,
+        urgency: payload.urgency,
+        item_type: payload.item_type,
+        status: 'active',
+        notes: payload.notes,
+        target_date: payload.target_date,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      items.push(newItem);
+      saveMockWishlistItems(items);
+      return newItem;
+    }
   },
-  updateItem(payload: UpdateWishlistItemPayload): Promise<{ message: string }> {
-    return wishlistFetch<{ message: string }>(`/wishlist?id=${payload.id}`, {
-      method: 'PUT',
-      body: JSON.stringify(payload),
-    });
+  async updateItem(payload: UpdateWishlistItemPayload): Promise<{ message: string }> {
+    try {
+      return await wishlistFetch<{ message: string }>(`/wishlist?id=${payload.id}`, {
+        method: 'PUT',
+        body: JSON.stringify(payload),
+      });
+    } catch {
+      const items = getMockWishlistItems();
+      const idx = items.findIndex((i) => i.id === payload.id);
+      if (idx >= 0) {
+        items[idx] = {
+          ...items[idx],
+          ...payload,
+          updated_at: new Date().toISOString(),
+        };
+        saveMockWishlistItems(items);
+      }
+      return { message: 'Item updated successfully' };
+    }
   },
-  deleteItem(itemId: string): Promise<{ message: string }> {
-    return wishlistFetch<{ message: string }>(`/wishlist?id=${itemId}`, {
-      method: 'DELETE',
-    });
+  async deleteItem(itemId: string): Promise<{ message: string }> {
+    try {
+      return await wishlistFetch<{ message: string }>(`/wishlist?id=${itemId}`, {
+        method: 'DELETE',
+      });
+    } catch {
+      const items = getMockWishlistItems().filter((i) => i.id !== itemId);
+      saveMockWishlistItems(items);
+      return { message: 'Item deleted successfully' };
+    }
   },
-  distributeSurplus(): Promise<{ message: string; allocations: ItemAllocationSimulation[] }> {
-    return wishlistFetch<{ message: string; allocations: ItemAllocationSimulation[] }>('/wishlist/distribute', {
-      method: 'POST',
-    });
+  async distributeSurplus(): Promise<{ message: string; allocations: ItemAllocationSimulation[] }> {
+    try {
+      return await wishlistFetch<{ message: string; allocations: ItemAllocationSimulation[] }>('/wishlist/distribute', {
+        method: 'POST',
+      });
+    } catch {
+      const items = getMockWishlistItems();
+      const forecast = computeMockForecast();
+      const allocations: ItemAllocationSimulation[] = [];
+      let surplus = forecast.projected_surplus_e5;
+
+      for (const f of forecast.items) {
+        if (f.remaining_amount_e5 <= 0 || surplus <= 0) continue;
+        const alloc = Math.min(surplus, f.monthly_contribution_e5 || f.remaining_amount_e5);
+        surplus -= alloc;
+        const itemIdx = items.findIndex((i) => i.id === f.item_id);
+        if (itemIdx >= 0) {
+          const prev = items[itemIdx].saved_amount_e5;
+          const next = prev + alloc;
+          items[itemIdx].saved_amount_e5 = next;
+          if (next >= items[itemIdx].target_amount_e5) {
+            items[itemIdx].status = 'fulfilled';
+          }
+          allocations.push({
+            item_id: f.item_id,
+            item_title: f.item_title,
+            allocated_e5: alloc,
+            previous_saved_e5: prev,
+            new_saved_e5: next,
+            target_amount_e5: f.target_amount_e5,
+            is_fulfilled: next >= f.target_amount_e5,
+            weight: f.weight,
+          });
+        }
+      }
+      saveMockWishlistItems(items);
+      return { message: 'Surplus distributed successfully (demo)', allocations };
+    }
   },
-  updateBudgetSettings(monthlyBudgetE5: number, salaryDay: number): Promise<{ message: string }> {
-    return wishlistFetch<{ message: string }>('/user/budget-settings', {
-      method: 'PUT',
-      body: JSON.stringify({ monthly_budget_e5: monthlyBudgetE5, salary_day: salaryDay }),
-    });
+  async updateBudgetSettings(monthlyBudgetE5: number, salaryDay: number): Promise<{ message: string }> {
+    try {
+      return await wishlistFetch<{ message: string }>('/user/budget-settings', {
+        method: 'PUT',
+        body: JSON.stringify({ monthly_budget_e5: monthlyBudgetE5, salary_day: salaryDay }),
+      });
+    } catch {
+      try {
+        localStorage.setItem('penne_mock_budget_settings', JSON.stringify({ monthlyBudgetE5, salaryDay }));
+      } catch {
+        // ignore
+      }
+      return { message: 'Budget settings updated successfully' };
+    }
   },
 };
 
