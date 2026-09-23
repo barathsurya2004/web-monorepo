@@ -1259,20 +1259,23 @@ export interface UpdateWishlistItemPayload extends Partial<CreateWishlistItemPay
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Wishlist API Client (standalone, uses same base URL + auth token)
+// Wishlist API Client (uses same API_BASE_URL + auth token as PenneApiClient)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const WISHLIST_BASE = (import.meta.env && import.meta.env.VITE_API_BASE_URL)
-  ? import.meta.env.VITE_API_BASE_URL.replace(/\/+$/, '')
-  : '/api';
-
 async function wishlistFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const token = localStorage.getItem('penne_auth_token');
-  const userUUID = localStorage.getItem('penne_user_uuid');
+  const token = api.getToken() || localStorage.getItem('penne_auth_token');
+  const userUUID = api.getUserUUID() || localStorage.getItem('penne_user_uuid');
+  const method = (options.method || 'GET').toUpperCase();
 
   // Append user_uuid and cache-bust as query params
   const sep = path.includes('?') ? '&' : '?';
-  const fullPath = `${path}${userUUID ? `${sep}user_uuid=${userUUID}` : ''}`;
+  let queryPath = `${path}${userUUID ? `${sep}user_uuid=${userUUID}` : ''}`;
+  if (method === 'GET' && !queryPath.includes('_t=')) {
+    const qSep = queryPath.includes('?') ? '&' : '?';
+    queryPath += `${qSep}_t=${Date.now()}`;
+  }
+
+  const fullUrl = `${API_BASE_URL}${queryPath}`;
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -1280,46 +1283,74 @@ async function wishlistFetch<T>(path: string, options: RequestInit = {}): Promis
     ...(options.headers as Record<string, string>),
   };
   if (token) headers['Authorization'] = `Bearer ${token}`;
+  if (method === 'GET') {
+    headers['Cache-Control'] = 'no-cache, no-store, must-revalidate';
+    headers['Pragma'] = 'no-cache';
+  }
 
-  const res = await fetch(fullPath, { ...options, headers });
+  let res: Response;
+  try {
+    res = await fetch(fullUrl, { ...options, headers });
+  } catch (netErr: any) {
+    console.warn(`[Penne Wishlist API Network Error] Backend unreachable at ${fullUrl}`, netErr);
+    throw new Error(`Failed to fetch from backend at ${API_BASE_URL}. Ensure backend server is running.`);
+  }
+
   if (!res.ok) {
-    const text = await res.text();
-    throw new Error(text || `HTTP ${res.status}`);
+    const rawText = await res.text();
+    console.warn(`[Penne Wishlist API Error] ${res.status}: ${rawText}`);
+    let errorMsg = `HTTP ${res.status}`;
+    if (rawText) {
+      if (rawText.trim().startsWith('<')) {
+        // Returned HTML (e.g. 404 from Netlify or proxy)
+        errorMsg = res.status === 404
+          ? `Backend endpoint not found (404) at ${fullUrl}. Ensure backend is running and VITE_API_BASE_URL is configured.`
+          : `Server error ${res.status}: ${res.statusText || 'Unexpected HTML response'}`;
+      } else {
+        try {
+          const json = JSON.parse(rawText);
+          errorMsg = json.message || json.error || rawText;
+        } catch {
+          errorMsg = rawText;
+        }
+      }
+    }
+    throw new Error(errorMsg);
   }
   return res.json() as Promise<T>;
 }
 
 export const wishlistApi = {
   getWishlists(): Promise<WishlistForecastSummary> {
-    return wishlistFetch<WishlistForecastSummary>('/api/wishlists');
+    return wishlistFetch<WishlistForecastSummary>('/wishlists');
   },
   getForecast(): Promise<WishlistForecastSummary> {
-    return wishlistFetch<WishlistForecastSummary>('/api/wishlist/forecast');
+    return wishlistFetch<WishlistForecastSummary>('/wishlist/forecast');
   },
   createItem(payload: CreateWishlistItemPayload): Promise<WishlistItem> {
-    return wishlistFetch<WishlistItem>('/api/wishlist', {
+    return wishlistFetch<WishlistItem>('/wishlist', {
       method: 'POST',
       body: JSON.stringify(payload),
     });
   },
   updateItem(payload: UpdateWishlistItemPayload): Promise<{ message: string }> {
-    return wishlistFetch<{ message: string }>(`/api/wishlist?id=${payload.id}`, {
+    return wishlistFetch<{ message: string }>(`/wishlist?id=${payload.id}`, {
       method: 'PUT',
       body: JSON.stringify(payload),
     });
   },
   deleteItem(itemId: string): Promise<{ message: string }> {
-    return wishlistFetch<{ message: string }>(`/api/wishlist?id=${itemId}`, {
+    return wishlistFetch<{ message: string }>(`/wishlist?id=${itemId}`, {
       method: 'DELETE',
     });
   },
   distributeSurplus(): Promise<{ message: string; allocations: ItemAllocationSimulation[] }> {
-    return wishlistFetch<{ message: string; allocations: ItemAllocationSimulation[] }>('/api/wishlist/distribute', {
+    return wishlistFetch<{ message: string; allocations: ItemAllocationSimulation[] }>('/wishlist/distribute', {
       method: 'POST',
     });
   },
   updateBudgetSettings(monthlyBudgetE5: number, salaryDay: number): Promise<{ message: string }> {
-    return wishlistFetch<{ message: string }>('/api/user/budget-settings', {
+    return wishlistFetch<{ message: string }>('/user/budget-settings', {
       method: 'PUT',
       body: JSON.stringify({ monthly_budget_e5: monthlyBudgetE5, salary_day: salaryDay }),
     });

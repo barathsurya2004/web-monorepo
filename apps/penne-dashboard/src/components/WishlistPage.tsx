@@ -477,6 +477,8 @@ export const WishlistPage: React.FC = () => {
       if (msg.includes('fetch') || msg.includes('NetworkError') || e.name === 'TypeError') {
         setOffline(true);
         setError('Cannot reach penne-service. Is the backend running?');
+      } else if (msg.trim().startsWith('<')) {
+        setError('Cannot reach backend server (received HTML response). Please verify backend connection.');
       } else {
         setError(msg || 'Failed to load wishlist');
       }
