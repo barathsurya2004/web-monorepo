@@ -55,6 +55,7 @@ export interface Allocation {
   id: string;
   envelope_id: string;
   allocated_amount_e5: number;
+  spent_amount_e5?: number;
   start_date?: string;
   end_date?: string;
   created_at?: string;
@@ -77,6 +78,7 @@ export interface AuthSession {
 export interface ActiveCategory {
   name: string;
   allocated_amount_e5: number;
+  spent_amount_e5?: number;
   is_system: boolean;
   currency: string;
   cadence: string;
