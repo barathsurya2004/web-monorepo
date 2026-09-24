@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ShoppingBag, Plus, Zap, TrendingUp, Target, Trash2, Edit3, X,
   ChevronRight, Sparkles, Wallet, BarChart3, CheckCircle2,
@@ -16,6 +17,7 @@ import {
   type ItemAllocationSimulation,
   type CreateWishlistItemPayload,
 } from '../services/api';
+import { QUERY_KEYS } from '../hooks/useDashboardData';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -454,10 +456,22 @@ const WishlistCard: React.FC<{
 // ─── Main WishlistPage ───────────────────────────────────────────────────────
 
 export const WishlistPage: React.FC = () => {
-  const [forecast, setForecast] = useState<WishlistForecastSummary | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [offline, setOffline] = useState(false);
+  const queryClient = useQueryClient();
+
+  const {
+    data: forecast = null,
+    isLoading,
+    isFetching,
+    error: queryError,
+    refetch,
+  } = useQuery<WishlistForecastSummary>({
+    queryKey: QUERY_KEYS.wishlist,
+    queryFn: () => wishlistApi.getWishlists(),
+    staleTime: 1000 * 60 * 5, // Keep fresh for 5 minutes; cached data renders instantly on tab return
+    refetchOnWindowFocus: true,
+  });
+
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const [showBudgetModal, setShowBudgetModal] = useState(false);
   const [addModal, setAddModal] = useState<{ open: boolean; editItem?: ItemForecast | null }>({ open: false });
@@ -465,53 +479,50 @@ export const WishlistPage: React.FC = () => {
   const [distributing, setDistributing] = useState(false);
   const [distributeResult, setDistributeResult] = useState<ItemAllocationSimulation[] | null>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    setOffline(false);
-    try {
-      const data = await wishlistApi.getWishlists();
-      setForecast(data);
-    } catch (e: any) {
-      const msg = e.message || '';
-      if (msg.includes('fetch') || msg.includes('NetworkError') || e.name === 'TypeError') {
-        setOffline(true);
-        setError('Cannot reach penne-service. Is the backend running?');
-      } else if (msg.trim().startsWith('<')) {
-        setError('Cannot reach backend server (received HTML response). Please verify backend connection.');
-      } else {
-        setError(msg || 'Failed to load wishlist');
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { load(); }, [load]);
+  const error = actionError || (queryError ? (queryError as any).message || 'Failed to load wishlist' : null);
+  const offline = Boolean(
+    error && (
+      error.includes('fetch') ||
+      error.includes('NetworkError') ||
+      error.includes('TypeError') ||
+      error.includes('BACKEND_UNAVAILABLE')
+    )
+  );
 
   const handleSaveItem = async (payload: CreateWishlistItemPayload & { id?: string }) => {
-    if (payload.id) {
-      await wishlistApi.updateItem({ ...payload, id: payload.id });
-    } else {
-      await wishlistApi.createItem(payload);
+    setActionError(null);
+    try {
+      if (payload.id) {
+        await wishlistApi.updateItem({ ...payload, id: payload.id });
+      } else {
+        await wishlistApi.createItem(payload);
+      }
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.wishlist });
+    } catch (e: any) {
+      setActionError(e.message || 'Failed to save wish');
     }
-    await load();
   };
 
   const handleDelete = async (id: string) => {
-    await wishlistApi.deleteItem(id);
-    setDeleteConfirm(null);
-    await load();
+    setActionError(null);
+    try {
+      await wishlistApi.deleteItem(id);
+      setDeleteConfirm(null);
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.wishlist });
+    } catch (e: any) {
+      setActionError(e.message || 'Failed to delete wish');
+    }
   };
 
   const handleDistribute = async () => {
     setDistributing(true);
+    setActionError(null);
     try {
       const res = await wishlistApi.distributeSurplus();
       setDistributeResult(res.allocations);
-      await load();
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.wishlist });
     } catch (e: any) {
-      setError(e.message || 'Distribution failed');
+      setActionError(e.message || 'Distribution failed');
     } finally {
       setDistributing(false);
     }
@@ -540,10 +551,10 @@ export const WishlistPage: React.FC = () => {
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => load()} disabled={loading}
+            onClick={() => { setActionError(null); refetch(); }} disabled={isFetching}
             className="w-9 h-9 rounded-xl flex items-center justify-center bg-white/5 hover:bg-white/10 border border-white/10 transition-all cursor-pointer"
           >
-            <RefreshCw className={`w-4 h-4 text-slate-400 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-4 h-4 text-slate-400 ${isFetching ? 'animate-spin' : ''}`} />
           </button>
           <button
             onClick={() => setShowBudgetModal(true)}
@@ -568,12 +579,12 @@ export const WishlistPage: React.FC = () => {
         <div className="flex items-center gap-3 p-4 rounded-xl text-sm border" style={{ background: 'rgba(255,181,167,0.1)', borderColor: 'rgba(255,181,167,0.3)', color: '#FFB5A7' }}>
           {offline ? <WifiOff className="w-5 h-5 shrink-0" /> : <AlertTriangle className="w-5 h-5 shrink-0" />}
           <span className="flex-1">{error}</span>
-          <button onClick={load} className="font-bold underline cursor-pointer text-xs">Retry</button>
+          <button onClick={() => { setActionError(null); refetch(); }} className="font-bold underline cursor-pointer text-xs">Retry</button>
         </div>
       )}
 
       {/* ── Loading Skeleton ─────────────────────────────────────── */}
-      {loading && !forecast && (
+      {isLoading && !forecast && (
         <div className="space-y-3">
           {[1, 2, 3].map((i) => (
             <div key={i} className="h-20 velvet-card animate-pulse" style={{ opacity: 0.4 }} />
@@ -582,7 +593,7 @@ export const WishlistPage: React.FC = () => {
       )}
 
       {/* ── No Budget Warning ────────────────────────────────────── */}
-      {!loading && !error && budget === 0 && forecast !== null && (
+      {!isLoading && !error && budget === 0 && forecast !== null && (
         <button
           onClick={() => setShowBudgetModal(true)}
           className="w-full p-4 rounded-xl text-left cursor-pointer hover:opacity-90 transition-opacity border flex items-center gap-3"
@@ -708,7 +719,7 @@ export const WishlistPage: React.FC = () => {
       )}
 
       {/* ── Empty State ───────────────────────────────────────────── */}
-      {!loading && !error && forecast !== null && items.length === 0 && (
+      {!isLoading && !error && forecast !== null && items.length === 0 && (
         <div className="text-center py-16 space-y-4">
           <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto" style={{ background: 'rgba(255,255,255,0.05)' }}>
             <ShoppingBag className="w-8 h-8 text-slate-500" />
@@ -740,7 +751,10 @@ export const WishlistPage: React.FC = () => {
       {showBudgetModal && (
         <BudgetModal
           currentBudgetE5={budget}
-          onSave={async (e5, day) => { await wishlistApi.updateBudgetSettings(e5, day); await load(); }}
+          onSave={async (e5, day) => {
+            await wishlistApi.updateBudgetSettings(e5, day);
+            await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.wishlist });
+          }}
           onClose={() => setShowBudgetModal(false)}
         />
       )}

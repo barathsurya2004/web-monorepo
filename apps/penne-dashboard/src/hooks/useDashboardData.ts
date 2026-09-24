@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '../services/api';
+import { api, wishlistApi } from '../services/api';
 import {
   User,
   Transaction,
@@ -16,6 +16,7 @@ export const QUERY_KEYS = {
   envelopeGroups: ['envelopeGroups'] as const,
   envelopes: ['envelopes'] as const,
   dashboardSummary: ['dashboardSummary'] as const,
+  wishlist: ['wishlist'] as const,
 };
 
 export interface CreateTxnVariables {
@@ -91,6 +92,15 @@ export function useDashboardData(isAuthenticated: boolean) {
     },
     enabled: isAuthenticated,
     staleTime: 0,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
+  });
+
+  const wishlistQuery = useQuery({
+    queryKey: QUERY_KEYS.wishlist,
+    queryFn: () => wishlistApi.getWishlists(),
+    enabled: isAuthenticated,
+    staleTime: 1000 * 60 * 5, // 5 minutes fresh
     refetchOnMount: 'always',
     refetchOnWindowFocus: true,
   });
@@ -210,6 +220,8 @@ export function useDashboardData(isAuthenticated: boolean) {
       groupsQuery.isFetching,
     isError: userQuery.isError || transactionsQuery.isError,
     error: userQuery.error || transactionsQuery.error,
+    wishlist: wishlistQuery.data || null,
+    isLoadingWishlist: wishlistQuery.isLoading,
     refetchAll: async () => {
       await Promise.allSettled([
         queryClient.refetchQueries({ queryKey: QUERY_KEYS.user, exact: true }),
@@ -218,6 +230,7 @@ export function useDashboardData(isAuthenticated: boolean) {
         queryClient.refetchQueries({ queryKey: QUERY_KEYS.categories, exact: true }),
         queryClient.refetchQueries({ queryKey: QUERY_KEYS.envelopes, exact: true }),
         queryClient.refetchQueries({ queryKey: QUERY_KEYS.envelopeGroups, exact: true }),
+        queryClient.refetchQueries({ queryKey: QUERY_KEYS.wishlist, exact: true }),
       ]);
     },
     createTxnMutation,
