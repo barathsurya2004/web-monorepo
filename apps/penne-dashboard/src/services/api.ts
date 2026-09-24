@@ -1043,8 +1043,8 @@ export class PenneApiClient {
 
   async createAllocation(envelopeId: string, allocatedAmountE5: number): Promise<Allocation> {
     this.clearEnvelopeCache();
-    const nowIso = new Date().toISOString();
-    const hundredYearsLaterIso = new Date(Date.now() + 100 * 365 * 86400000).toISOString();
+    const now = new Date();
+    const nowIso = now.toISOString();
 
     if (this.useMock) {
       await this.simulateDemoDelay(750, 150);
@@ -1053,12 +1053,14 @@ export class PenneApiClient {
         this.mockAllocations[existingIdx].allocated_amount_e5 += Math.round(allocatedAmountE5);
         return this.mockAllocations[existingIdx];
       } else {
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0).toISOString();
+        const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999).toISOString();
         const newAlloc: Allocation = {
           id: `alloc-${Date.now()}`,
           envelope_id: envelopeId,
           allocated_amount_e5: Math.round(allocatedAmountE5),
-          start_date: nowIso,
-          end_date: hundredYearsLaterIso,
+          start_date: startOfMonth,
+          end_date: endOfMonth,
           created_at: nowIso
         };
         this.mockAllocations.push(newAlloc);
@@ -1070,8 +1072,6 @@ export class PenneApiClient {
       body: JSON.stringify({
         envelope_id: envelopeId,
         allocated_amount_e5: Math.round(allocatedAmountE5),
-        start_date: nowIso,
-        end_date: hundredYearsLaterIso
       })
     });
   }
