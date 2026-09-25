@@ -120,10 +120,12 @@ export function useDashboardData(isAuthenticated: boolean) {
       // 1. Cancel ongoing queries so they don't overwrite optimistic data
       await queryClient.cancelQueries({ queryKey: QUERY_KEYS.transactions });
       await queryClient.cancelQueries({ queryKey: QUERY_KEYS.dashboardSummary });
+      await queryClient.cancelQueries({ queryKey: QUERY_KEYS.categories });
 
       // 2. Snapshot previous state for rollback
       const prevTransactions = queryClient.getQueryData<Transaction[]>(QUERY_KEYS.transactions) || [];
       const prevSummary = queryClient.getQueryData<DashboardSummary | null>(QUERY_KEYS.dashboardSummary);
+      const prevCategories = queryClient.getQueryData<ActiveCategory[]>(QUERY_KEYS.categories) || [];
 
       const optimisticId = `opt-txn-${Date.now()}`;
       const nowIso = newTxnVars.createdAt || new Date().toISOString();
@@ -147,7 +149,18 @@ export function useDashboardData(isAuthenticated: boolean) {
         ...old,
       ]);
 
-      // 5. Instantly update dashboard summary & account balance numbers
+      // 5. Instantly update active category spent amount if envelope assigned
+      if (newTxnVars.txnType === 'debit' && newTxnVars.envelopeId) {
+        queryClient.setQueryData<ActiveCategory[]>(QUERY_KEYS.categories, (old = []) =>
+          old.map((cat) =>
+            cat.envelope_id === newTxnVars.envelopeId
+              ? { ...cat, spent_amount_e5: (cat.spent_amount_e5 || 0) + roundedAmt }
+              : cat
+          )
+        );
+      }
+
+      // 6. Instantly update dashboard summary & account balance numbers
       if (prevSummary) {
         queryClient.setQueryData<DashboardSummary>(QUERY_KEYS.dashboardSummary, (old) => {
           if (!old) return old!;
@@ -171,7 +184,7 @@ export function useDashboardData(isAuthenticated: boolean) {
         });
       }
 
-      return { prevTransactions, prevSummary, optimisticId };
+      return { prevTransactions, prevSummary, prevCategories, optimisticId };
     },
     onError: (_err, _variables, context) => {
       // Rollback to previous snapshots if backend rejected
@@ -180,6 +193,9 @@ export function useDashboardData(isAuthenticated: boolean) {
       }
       if (context?.prevSummary) {
         queryClient.setQueryData(QUERY_KEYS.dashboardSummary, context.prevSummary);
+      }
+      if (context?.prevCategories) {
+        queryClient.setQueryData(QUERY_KEYS.categories, context.prevCategories);
       }
     },
     onSuccess: (savedTxn, _variables, context) => {

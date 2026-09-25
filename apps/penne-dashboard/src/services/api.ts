@@ -1076,6 +1076,24 @@ export class PenneApiClient {
     });
   }
 
+  async updateAllocation(allocation: Allocation): Promise<Allocation> {
+    this.clearEnvelopeCache();
+    if (this.useMock) {
+      await this.simulateDemoDelay(700, 120);
+      const idx = this.mockAllocations.findIndex((a) => a.id === allocation.id || a.envelope_id === allocation.envelope_id);
+      if (idx !== -1) {
+        this.mockAllocations[idx] = { ...this.mockAllocations[idx], ...allocation };
+        return this.mockAllocations[idx];
+      }
+      this.mockAllocations.push(allocation);
+      return allocation;
+    }
+    return await this.request<Allocation>('/allocation', {
+      method: 'PUT',
+      body: JSON.stringify(allocation)
+    });
+  }
+
   async getActiveCategories(): Promise<ActiveCategory[]> {
     if (this.useMock) {
       await this.simulateDemoDelay(850, 150);
@@ -1090,13 +1108,18 @@ export class PenneApiClient {
       return this.mockAllocations.map((alloc) => {
         const env = this.mockEnvelopes.find((e) => e.id === alloc.envelope_id);
         const name = (env && env.name) || mockCategoryNames[alloc.envelope_id] || (env ? env.id : 'General Category');
+        const spentE5 = this.mockTransactions
+          .filter((t) => t.envelope_id === alloc.envelope_id && t.txn_type === 'debit')
+          .reduce((acc, t) => acc + (t.amount_e5 || 0), 0);
         return {
           name,
           allocated_amount_e5: alloc.allocated_amount_e5,
+          spent_amount_e5: spentE5,
           is_system: env ? env.is_system : false,
           currency: env ? env.country_iso2 : 'IN',
           cadence: env ? env.cadence : 'monthly',
-          envelope_id: alloc.envelope_id
+          envelope_id: alloc.envelope_id,
+          allocation_id: alloc.id
         };
       });
     }

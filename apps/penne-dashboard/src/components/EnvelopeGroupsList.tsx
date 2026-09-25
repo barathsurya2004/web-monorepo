@@ -76,11 +76,13 @@ export const EnvelopeGroupsList: React.FC<EnvelopeGroupsListProps> = ({
                 <div className="space-y-3 w-full max-w-full overflow-x-hidden">
                   {groupEnvelopes.map((env) => {
                     const alloc = allocations.find((a) => a.envelope_id === env.id);
-                    const allocatedE5 = alloc ? alloc.allocated_amount_e5 : 0;
+                    const allocatedE5 = alloc ? alloc.allocated_amount_e5 : (env.target_amount_e5 || 0);
                     
-                    const envSpentE5 = transactions
-                      .filter((t) => t.envelope_id === env.id && t.txn_type === 'debit')
-                      .reduce((acc, t) => acc + t.amount_e5, 0);
+                    const envSpentE5 = alloc?.spent_amount_e5 !== undefined
+                      ? alloc.spent_amount_e5
+                      : transactions
+                          .filter((t) => t.envelope_id === env.id && t.txn_type === 'debit')
+                          .reduce((acc, t) => acc + t.amount_e5, 0);
 
                     const remainingE5 = allocatedE5 - envSpentE5;
                     const progressPercent = env.target_amount_e5 > 0

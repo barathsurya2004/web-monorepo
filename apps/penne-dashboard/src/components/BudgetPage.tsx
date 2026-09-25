@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { ActiveCategory, Transaction, EnvelopeGroup, Envelope, e5ToAmount } from '@packages/types';
+import { ActiveCategory, Transaction, EnvelopeGroup, Envelope, DashboardSummary, e5ToAmount } from '@packages/types';
 import { Button } from '@packages/ui';
 import {
   Folder,
@@ -17,6 +17,7 @@ import { BudgetOverviewSkeleton, CategoryListSkeleton } from './Skeleton';
 interface BudgetPageProps {
   categories: ActiveCategory[];
   transactions: Transaction[];
+  dashboardSummary?: DashboardSummary | null;
   envelopeGroups?: EnvelopeGroup[];
   envelopes?: Envelope[];
   isServerOffline?: boolean;
@@ -40,6 +41,7 @@ const formatINR = (val: number) => {
 export const BudgetPage: React.FC<BudgetPageProps> = ({
   categories = [],
   transactions = [],
+  dashboardSummary,
   envelopeGroups = [],
   envelopes = [],
   isServerOffline,
@@ -67,100 +69,139 @@ export const BudgetPage: React.FC<BudgetPageProps> = ({
     return map;
   }, [envelopeGroups]);
 
+  // Category allocation lookup map
+  const categoryMap = useMemo(() => {
+    const map = new Map<string, ActiveCategory>();
+    (categories || []).forEach((c) => {
+      if (c && c.envelope_id) {
+        map.set(c.envelope_id, c);
+      }
+    });
+    return map;
+  }, [categories]);
+
   // Combine envelopes and categories seamlessly so data is never missed
   const unifiedEnvelopes = useMemo(() => {
     const map = new Map<string, {
       id: string;
       name: string;
       target_amount_e5: number;
+      allocated_amount_e5: number;
+      spent_amount_e5: number;
       cadence: string;
       is_system: boolean;
       envelope_group_id?: string;
       groupName?: string;
       matchedEnv?: Envelope;
+      allocation_id?: string;
     }>();
 
     // 1. Seed from envelopes prop
     (envelopes || []).forEach((env) => {
       if (!env || !env.id) return;
       const gName = env.envelope_group_id ? groupNameMap.get(env.envelope_group_id) : undefined;
+      const activeCat = categoryMap.get(env.id);
       map.set(env.id, {
         id: env.id,
-        name: env.name || 'Category Envelope',
+        name: activeCat?.name || env.name || 'Category Envelope',
         target_amount_e5: env.target_amount_e5 || 0,
-        cadence: env.cadence || 'monthly',
-        is_system: !!env.is_system,
+        allocated_amount_e5: (activeCat && activeCat.allocated_amount_e5 !== undefined)
+          ? activeCat.allocated_amount_e5
+          : (env.target_amount_e5 || 0),
+        spent_amount_e5: activeCat?.spent_amount_e5 ?? 0,
+        cadence: activeCat?.cadence || env.cadence || 'monthly',
+        is_system: !!(activeCat ? activeCat.is_system : env.is_system),
         envelope_group_id: env.envelope_group_id,
         groupName: gName,
-        matchedEnv: env
+        matchedEnv: env,
+        allocation_id: activeCat?.allocation_id,
       });
     });
 
-    // 2. Add or enrich from categories prop
+    // 2. Add or enrich from categories prop for any category not in envelopes yet
     (categories || []).forEach((cat) => {
       if (!cat || !cat.envelope_id) return;
-      const existing = map.get(cat.envelope_id);
-      if (existing) {
-        if (!existing.target_amount_e5 && cat.allocated_amount_e5) {
-          existing.target_amount_e5 = cat.allocated_amount_e5;
-        }
-        if (cat.name && (!existing.name || existing.name === 'Category Envelope')) {
-          existing.name = cat.name;
-        }
-      } else {
-        const matchedEnv = (envelopes || []).find((e) => e && e.id === cat.envelope_id);
-        const gId = matchedEnv?.envelope_group_id;
-        const gName = gId ? groupNameMap.get(gId) : undefined;
-        map.set(cat.envelope_id, {
-          id: cat.envelope_id,
-          name: cat.name || matchedEnv?.name || 'Category Envelope',
-          target_amount_e5: cat.allocated_amount_e5 || 0,
-          cadence: cat.cadence || matchedEnv?.cadence || 'monthly',
-          is_system: !!cat.is_system,
-          envelope_group_id: gId,
-          groupName: gName,
-          matchedEnv
-        });
-      }
+      if (map.has(cat.envelope_id)) return;
+      const matchedEnv = (envelopes || []).find((e) => e && e.id === cat.envelope_id);
+      const gId = matchedEnv?.envelope_group_id;
+      const gName = gId ? groupNameMap.get(gId) : undefined;
+      map.set(cat.envelope_id, {
+        id: cat.envelope_id,
+        name: cat.name || matchedEnv?.name || 'Category Envelope',
+        target_amount_e5: matchedEnv?.target_amount_e5 || cat.allocated_amount_e5 || 0,
+        allocated_amount_e5: cat.allocated_amount_e5 || 0,
+        spent_amount_e5: cat.spent_amount_e5 ?? 0,
+        cadence: cat.cadence || matchedEnv?.cadence || 'monthly',
+        is_system: !!cat.is_system,
+        envelope_group_id: gId,
+        groupName: gName,
+        matchedEnv,
+        allocation_id: cat.allocation_id,
+      });
     });
 
     return Array.from(map.values());
-  }, [envelopes, categories, groupNameMap]);
+  }, [envelopes, categories, categoryMap, groupNameMap]);
 
-  // Compute spent per envelope
+  // Compute spent per envelope using authoritative active allocation spent amount,
+  // plus any optimistic pending transactions created client-side.
   const envStats = useMemo(() => {
     const map = new Map<string, { spent_e5: number; count: number }>();
+    const hasCategoryData = categoryMap.size > 0;
+
     unifiedEnvelopes.forEach((e) => {
-      map.set(e.id, { spent_e5: 0, count: 0 });
+      // Use the database's cadence-scoped active cycle spent amount as authoritative base
+      map.set(e.id, {
+        spent_e5: hasCategoryData ? (e.spent_amount_e5 || 0) : 0,
+        count: 0
+      });
     });
 
     safeTxns.forEach((t) => {
       if (t && t.envelope_id && t.txn_type === 'debit') {
         const current = map.get(t.envelope_id);
         if (current) {
-          current.spent_e5 += t.amount_e5 || 0;
           current.count += 1;
+          // If we have authoritative category data from backend, only add pending optimistic debits
+          // If category data is empty/unavailable, fall back to summing in-memory transactions
+          if (!hasCategoryData || t.id.startsWith('opt-txn-')) {
+            current.spent_e5 += t.amount_e5 || 0;
+          }
         } else {
-          map.set(t.envelope_id, { spent_e5: t.amount_e5 || 0, count: 1 });
+          map.set(t.envelope_id, {
+            spent_e5: (!hasCategoryData || t.id.startsWith('opt-txn-')) ? (t.amount_e5 || 0) : 0,
+            count: 1
+          });
         }
       }
     });
     return map;
-  }, [unifiedEnvelopes, safeTxns]);
+  }, [unifiedEnvelopes, safeTxns, categoryMap]);
 
   const totalBudgetedAmount = unifiedEnvelopes
     .filter((e) => !e.is_system)
-    .reduce((acc, e) => acc + e5ToAmount(e.target_amount_e5), 0);
+    .reduce((acc, e) => acc + e5ToAmount(e.allocated_amount_e5 || e.target_amount_e5), 0);
 
-  const totalSpentAmount = safeTxns
-    .filter((t) => t && t.txn_type === 'debit')
-    .reduce((acc, t) => acc + e5ToAmount(t.amount_e5), 0);
+  const totalEnvelopeSpentAmount = unifiedEnvelopes
+    .filter((e) => !e.is_system)
+    .reduce((acc, e) => {
+      const stats = envStats.get(e.id);
+      return acc + e5ToAmount(stats ? stats.spent_e5 : 0);
+    }, 0);
 
-  const totalIncomeAmount = safeTxns
-    .filter((t) => t && t.txn_type === 'credit')
-    .reduce((acc, t) => acc + e5ToAmount(t.amount_e5), 0);
+  const totalSpentAmount = dashboardSummary
+    ? e5ToAmount(dashboardSummary.total_expense_e5)
+    : totalEnvelopeSpentAmount;
 
-  const totalRemainingAmount = totalIncomeAmount - totalSpentAmount;
+  const totalIncomeAmount = dashboardSummary
+    ? e5ToAmount(dashboardSummary.total_income_e5)
+    : safeTxns
+        .filter((t) => t && t.txn_type === 'credit')
+        .reduce((acc, t) => acc + e5ToAmount(t.amount_e5), 0);
+
+  const totalRemainingAmount = dashboardSummary
+    ? e5ToAmount(dashboardSummary.total_remaining_e5)
+    : totalIncomeAmount - totalSpentAmount;
 
   const filteredEnvelopes = useMemo(() => {
     return unifiedEnvelopes.filter((e) => {
@@ -173,7 +214,7 @@ export const BudgetPage: React.FC<BudgetPageProps> = ({
       if (e.is_system) return false;
       const stats = envStats.get(e.id) || { spent_e5: 0, count: 0 };
       const spent = e5ToAmount(stats.spent_e5);
-      const target = e5ToAmount(e.target_amount_e5);
+      const target = e5ToAmount(e.allocated_amount_e5 || e.target_amount_e5);
       const pct = target > 0 ? (spent / target) * 100 : 0;
 
       if (filterTab === 'warning') return pct >= 80 && pct <= 100;
@@ -245,7 +286,7 @@ export const BudgetPage: React.FC<BudgetPageProps> = ({
           <div className="grid grid-cols-2 gap-3 pt-3 border-t border-white/5 font-mono text-xs">
             <div>
               <span className="text-[10px] text-slate-400 block font-bold uppercase">Spent in Envelopes</span>
-              <span className="text-[#FFB5A7] font-bold text-sm">{formatINR(totalSpentAmount)}</span>
+              <span className="text-[#FFB5A7] font-bold text-sm">{formatINR(totalEnvelopeSpentAmount)}</span>
             </div>
             <div className="text-right">
               <span className="text-[10px] text-slate-400 block font-bold uppercase">General Surplus Pool</span>
@@ -316,7 +357,7 @@ export const BudgetPage: React.FC<BudgetPageProps> = ({
           {filteredEnvelopes.map((env) => {
             const stats = envStats.get(env.id) || { spent_e5: 0, count: 0 };
             const spent = e5ToAmount(stats.spent_e5);
-            const target = e5ToAmount(env.target_amount_e5);
+            const target = e5ToAmount(env.allocated_amount_e5 || env.target_amount_e5);
             const remaining = target - spent;
             const pct = target > 0 ? Math.min(Math.round((spent / target) * 100), 150) : 0;
             const isWarning = pct >= 80 && pct <= 100;
@@ -353,16 +394,23 @@ export const BudgetPage: React.FC<BudgetPageProps> = ({
                       <button
                         onClick={() =>
                           onSelectEnvelopeForEdit(
-                            env.matchedEnv || {
-                              id: env.id,
-                              user_uuid: '',
-                              envelope_group_id: env.envelope_group_id || '',
-                              name: env.name,
-                              target_amount_e5: env.target_amount_e5,
-                              cadence: env.cadence,
-                              country_iso2: 'IN',
-                              is_system: env.is_system,
-                            }
+                            env.matchedEnv
+                              ? {
+                                  ...env.matchedEnv,
+                                  name: env.name,
+                                  target_amount_e5: env.allocated_amount_e5 || env.target_amount_e5,
+                                  cadence: env.cadence,
+                                }
+                              : {
+                                  id: env.id,
+                                  user_uuid: '',
+                                  envelope_group_id: env.envelope_group_id || '',
+                                  name: env.name,
+                                  target_amount_e5: env.allocated_amount_e5 || env.target_amount_e5,
+                                  cadence: env.cadence,
+                                  country_iso2: 'IN',
+                                  is_system: env.is_system,
+                                }
                           )
                         }
                         className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 active:scale-95 transition-all cursor-pointer"

@@ -83,6 +83,7 @@ export interface ActiveCategory {
   currency: string;
   cadence: string;
   envelope_id: string;
+  allocation_id?: string;
 }
 
 export interface DashboardSummary {

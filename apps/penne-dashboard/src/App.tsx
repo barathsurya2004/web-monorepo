@@ -393,6 +393,7 @@ const AppInner: React.FC = () => {
           const newCategory: ActiveCategory = {
             name: envelope.name || categoryName,
             allocated_amount_e5: targetAmountE5,
+            spent_amount_e5: 0,
             is_system: false,
             currency: envelope.country_iso2 || 'IN',
             cadence: envelope.cadence || cadence,
@@ -450,6 +451,21 @@ const AppInner: React.FC = () => {
             : c
         )
       );
+
+      // Sync active cycle allocation amount if present
+      const matchedCat = categories.find((c) => c.envelope_id === id);
+      if (matchedCat?.allocation_id) {
+        try {
+          await api.updateAllocation({
+            id: matchedCat.allocation_id,
+            envelope_id: id,
+            allocated_amount_e5: Math.round(targetAmountE5),
+          });
+        } catch (allocErr) {
+          console.warn('[Penne] Active allocation sync warning', allocErr);
+        }
+      }
+
       refreshCategoriesSilent();
       refreshSummarySilent();
       refreshTransactionsSilent();
@@ -629,6 +645,7 @@ const AppInner: React.FC = () => {
           <BudgetPage
             categories={categories}
             transactions={transactions}
+            dashboardSummary={dashboardSummary}
             envelopeGroups={envelopeGroups}
             envelopes={envelopes}
             isServerOffline={isServerOffline}
