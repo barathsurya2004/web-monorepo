@@ -164,20 +164,77 @@ export function useDashboardData(isAuthenticated: boolean) {
       if (prevSummary) {
         queryClient.setQueryData<DashboardSummary>(QUERY_KEYS.dashboardSummary, (old) => {
           if (!old) return old!;
+          const isCard = newTxnVars.paymentMethod === 'bank_card';
+          const baseIncome = old.base_income_e5 ?? old.total_income_e5;
+
           if (newTxnVars.txnType === 'debit') {
-            const isCard = newTxnVars.paymentMethod === 'bank_card';
+            const newTotalExpense = old.total_expense_e5 + roundedAmt;
+            const bufferedTotal = old.buffered_income_e5 ?? 0;
+
+            let newBufferedUsed = 0;
+            let newTotalRemaining = 0;
+
+            if (newTotalExpense <= baseIncome) {
+              newTotalRemaining = baseIncome - newTotalExpense;
+              newBufferedUsed = 0;
+            } else {
+              const deficit = newTotalExpense - baseIncome;
+              if (deficit <= bufferedTotal) {
+                newBufferedUsed = deficit;
+                newTotalRemaining = 0;
+              } else {
+                newBufferedUsed = bufferedTotal;
+                newTotalRemaining = -(deficit - bufferedTotal);
+              }
+            }
+
+            const newBufferedRemaining = bufferedTotal - newBufferedUsed;
+            const newEffectiveIncome = baseIncome + newBufferedUsed;
+
             return {
               ...old,
-              total_expense_e5: old.total_expense_e5 + roundedAmt,
-              total_remaining_e5: old.total_remaining_e5 - roundedAmt,
+              total_income_e5: newEffectiveIncome,
+              base_income_e5: baseIncome,
+              buffered_income_e5: bufferedTotal,
+              buffered_used_e5: newBufferedUsed,
+              buffered_remaining_e5: newBufferedRemaining,
+              total_expense_e5: newTotalExpense,
+              total_remaining_e5: newTotalRemaining,
               card_spent_e5: isCard ? old.card_spent_e5 + roundedAmt : old.card_spent_e5,
               bank_spent_e5: !isCard ? old.bank_spent_e5 + roundedAmt : old.bank_spent_e5,
             };
           } else if (newTxnVars.txnType === 'credit') {
+            const newBufferedIncome = (old.buffered_income_e5 ?? 0) + roundedAmt;
+            const totalExpense = old.total_expense_e5;
+
+            let newBufferedUsed = 0;
+            let newTotalRemaining = 0;
+
+            if (totalExpense <= baseIncome) {
+              newTotalRemaining = baseIncome - totalExpense;
+              newBufferedUsed = 0;
+            } else {
+              const deficit = totalExpense - baseIncome;
+              if (deficit <= newBufferedIncome) {
+                newBufferedUsed = deficit;
+                newTotalRemaining = 0;
+              } else {
+                newBufferedUsed = newBufferedIncome;
+                newTotalRemaining = -(deficit - newBufferedIncome);
+              }
+            }
+
+            const newBufferedRemaining = newBufferedIncome - newBufferedUsed;
+            const newEffectiveIncome = baseIncome + newBufferedUsed;
+
             return {
               ...old,
-              total_income_e5: old.total_income_e5 + roundedAmt,
-              total_remaining_e5: old.total_remaining_e5 + roundedAmt,
+              total_income_e5: newEffectiveIncome,
+              base_income_e5: baseIncome,
+              buffered_income_e5: newBufferedIncome,
+              buffered_used_e5: newBufferedUsed,
+              buffered_remaining_e5: newBufferedRemaining,
+              total_remaining_e5: newTotalRemaining,
             };
           }
           return old;

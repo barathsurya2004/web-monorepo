@@ -260,7 +260,7 @@ export const HomePage: React.FC<HomePageProps> = ({
           {/* Inflow vs Net Remaining Mini Split at bottom of card */}
           <div className="mt-5 pt-3.5 border-t border-indigo-950/10 grid grid-cols-2 gap-3 pr-14 text-indigo-950">
             <div>
-              <span className="text-[9px] font-mono uppercase text-indigo-950/60 block font-bold">Monthly Inflow</span>
+              <span className="text-[9px] font-mono uppercase text-indigo-950/60 block font-bold">Active Budget</span>
               <span className="text-xs sm:text-sm font-bold font-mono text-emerald-900 flex items-center gap-1">
                 <ArrowDownLeft className="w-3.5 h-3.5 text-emerald-700" />
                 {formatINR(totalIncomeAmount)}
@@ -284,6 +284,45 @@ export const HomePage: React.FC<HomePageProps> = ({
           </div>
         </div>
       )}
+
+      {/* Alert if current expenses borrowed from next month's salary */}
+      {dashboardSummary?.buffered_used_e5 && dashboardSummary.buffered_used_e5 > 0 ? (
+        <div className="velvet-card p-3.5 border-amber-500/40 bg-amber-950/20 flex items-start gap-2.5 text-xs text-amber-200">
+          <div className="w-5 h-5 rounded-full bg-amber-500/20 text-amber-300 flex items-center justify-center shrink-0 mt-0.5 font-bold font-mono text-[10px]">
+            !
+          </div>
+          <div className="space-y-0.5">
+            <p className="font-bold text-amber-100">
+              Dipping into Next Month's Salary
+            </p>
+            <p className="text-[11px] text-amber-200/80 leading-relaxed font-mono">
+              Last month's budget ran out. <span className="font-bold text-amber-100">{formatINR(e5ToAmount(dashboardSummary.buffered_used_e5))}</span> was deducted from your incoming salary buffer to keep spending funded.
+            </p>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Next Cadence Buffered Paycheck Card */}
+      {dashboardSummary?.buffered_remaining_e5 && dashboardSummary.buffered_remaining_e5 > 0 ? (
+        <div className="velvet-card p-3.5 border-indigo-500/30 bg-[#1D1A3B] flex items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2.5">
+            <div className="w-7 h-7 rounded-xl bg-[#232044] border border-[#FBD8B3]/30 flex items-center justify-center text-[#FBD8B3] shrink-0 font-bold text-xs">
+              ₹
+            </div>
+            <div>
+              <span className="text-[9px] font-mono uppercase tracking-wider text-slate-400 block font-bold">
+                Next Month Buffer
+              </span>
+              <span className="text-xs sm:text-sm font-bold font-mono text-emerald-300">
+                +{formatINR(e5ToAmount(dashboardSummary.buffered_remaining_e5))}
+              </span>
+            </div>
+          </div>
+          <span className="px-2 py-0.5 rounded-full bg-[#FBD8B3]/10 text-[#FBD8B3] text-[9px] font-mono font-bold border border-[#FBD8B3]/20">
+            Unlocks on 1st
+          </span>
+        </div>
+      ) : null}
 
       {/* Quick Context Strip (Active Envelopes Pills Row with Emojis) */}
       <div className="velvet-card p-4 space-y-2.5">

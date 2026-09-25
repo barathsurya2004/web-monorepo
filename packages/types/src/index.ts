@@ -88,6 +88,10 @@ export interface ActiveCategory {
 
 export interface DashboardSummary {
   total_income_e5: number;
+  base_income_e5?: number;
+  buffered_income_e5?: number;
+  buffered_used_e5?: number;
+  buffered_remaining_e5?: number;
   total_expense_e5: number;
   total_remaining_e5: number;
   card_spent_e5: number;

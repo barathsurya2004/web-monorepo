@@ -296,6 +296,28 @@ export const BudgetPage: React.FC<BudgetPageProps> = ({
         </div>
       )}
 
+      {/* Next Cadence Buffered Paycheck Card */}
+      {dashboardSummary?.buffered_remaining_e5 && dashboardSummary.buffered_remaining_e5 > 0 ? (
+        <div className="velvet-card p-3.5 border-indigo-500/30 bg-[#1D1A3B] flex items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2.5">
+            <div className="w-7 h-7 rounded-xl bg-[#232044] border border-[#FBD8B3]/30 flex items-center justify-center text-[#FBD8B3] shrink-0 font-bold text-xs">
+              ₹
+            </div>
+            <div>
+              <span className="text-[9px] font-mono uppercase tracking-wider text-slate-400 block font-bold">
+                Next Cadence Buffer
+              </span>
+              <span className="text-xs sm:text-sm font-bold font-mono text-emerald-300">
+                +{formatINR(e5ToAmount(dashboardSummary.buffered_remaining_e5))}
+              </span>
+            </div>
+          </div>
+          <span className="px-2 py-0.5 rounded-full bg-[#FBD8B3]/10 text-[#FBD8B3] text-[9px] font-mono font-bold border border-[#FBD8B3]/20">
+            Unlocks on 1st
+          </span>
+        </div>
+      ) : null}
+
       {/* Status Filter Tabs */}
       <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5">
         {[

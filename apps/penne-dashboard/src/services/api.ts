@@ -1133,38 +1133,102 @@ export class PenneApiClient {
     }
   }
 
+  private calculateBufferedSummary(
+    txns: Transaction[],
+    cardLimit: number,
+    bankLimit: number,
+    fallbackBudgetE5?: number
+  ): DashboardSummary {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+
+    const currentMonthStart = new Date(currentYear, currentMonth, 1, 0, 0, 0, 0);
+    const currentMonthEnd = new Date(currentYear, currentMonth + 1, 1, 0, 0, 0, 0);
+    const prevMonthStart = new Date(currentYear, currentMonth - 1, 1, 0, 0, 0, 0);
+    const prevMonthEnd = currentMonthStart;
+
+    let prevIncomeE5 = 0;
+    let currIncomeE5 = 0;
+    let cardSpentE5 = 0;
+    let bankSpentE5 = 0;
+
+    for (const t of txns) {
+      if (!t) continue;
+      const tDate = t.created_at ? new Date(t.created_at) : now;
+      const amt = t.amount_e5 || 0;
+
+      if (t.txn_type === 'credit') {
+        if (tDate >= prevMonthStart && tDate < prevMonthEnd) {
+          prevIncomeE5 += amt;
+        } else if (tDate >= currentMonthStart && tDate < currentMonthEnd) {
+          currIncomeE5 += amt;
+        }
+      } else if (t.txn_type === 'debit') {
+        if (tDate >= currentMonthStart && tDate < currentMonthEnd) {
+          if (t.payment_method === 'bank_card') {
+            cardSpentE5 += amt;
+          } else {
+            bankSpentE5 += amt;
+          }
+        }
+      }
+    }
+
+    const totalExpenseE5 = cardSpentE5 + bankSpentE5;
+    let baseIncomeE5 = prevIncomeE5;
+    if (baseIncomeE5 === 0) {
+      baseIncomeE5 = fallbackBudgetE5 || 0;
+    }
+    // In mock/bootstrap mode if no prior history exists, initialize base from current credits
+    if (baseIncomeE5 === 0 && currIncomeE5 > 0) {
+      baseIncomeE5 = currIncomeE5;
+      currIncomeE5 = 0;
+    }
+
+    let bufferedUsedE5 = 0;
+    let totalRemainingE5 = 0;
+
+    if (totalExpenseE5 <= baseIncomeE5) {
+      totalRemainingE5 = baseIncomeE5 - totalExpenseE5;
+      bufferedUsedE5 = 0;
+    } else {
+      const deficit = totalExpenseE5 - baseIncomeE5;
+      if (deficit <= currIncomeE5) {
+        bufferedUsedE5 = deficit;
+        totalRemainingE5 = 0;
+      } else {
+        bufferedUsedE5 = currIncomeE5;
+        const uncoveredDeficit = deficit - currIncomeE5;
+        totalRemainingE5 = -uncoveredDeficit;
+      }
+    }
+
+    const bufferedRemainingE5 = currIncomeE5 - bufferedUsedE5;
+    const effectiveIncomeE5 = baseIncomeE5 + bufferedUsedE5;
+
+    return {
+      total_income_e5: effectiveIncomeE5,
+      base_income_e5: baseIncomeE5,
+      buffered_income_e5: currIncomeE5,
+      buffered_used_e5: bufferedUsedE5,
+      buffered_remaining_e5: bufferedRemainingE5,
+      total_expense_e5: totalExpenseE5,
+      total_remaining_e5: totalRemainingE5,
+      card_spent_e5: cardSpentE5,
+      card_limit_e5: amountToE5(cardLimit),
+      bank_spent_e5: bankSpentE5,
+      bank_limit_e5: amountToE5(bankLimit)
+    };
+  }
+
   async getDashboardSummary(): Promise<DashboardSummary> {
+    const cardLimit = Number(localStorage.getItem('penne_limit_bank_card') || 25000);
+    const bankLimit = Number(localStorage.getItem('penne_limit_bank_account') || 10000);
+
     if (this.useMock) {
       await this.simulateDemoDelay(1350, 200);
-      const cardLimit = Number(localStorage.getItem('penne_limit_bank_card') || 25000);
-      const bankLimit = Number(localStorage.getItem('penne_limit_bank_account') || 10000);
-
-      const totalIncomeE5 = this.mockTransactions
-        .filter((t) => t.txn_type === 'credit')
-        .reduce((sum, t) => sum + (t.amount_e5 || 0), 0);
-
-      const debitTxns = this.mockTransactions.filter((t) => t.txn_type === 'debit');
-
-      const cardSpentE5 = debitTxns
-        .filter((t) => t.payment_method === 'bank_card')
-        .reduce((sum, t) => sum + (t.amount_e5 || 0), 0);
-
-      const bankSpentE5 = debitTxns
-        .filter((t) => t.payment_method !== 'bank_card')
-        .reduce((sum, t) => sum + (t.amount_e5 || 0), 0);
-
-      const totalExpenseE5 = cardSpentE5 + bankSpentE5;
-      const totalRemainingE5 = totalIncomeE5 - totalExpenseE5;
-
-      return {
-        total_income_e5: totalIncomeE5,
-        total_expense_e5: totalExpenseE5,
-        total_remaining_e5: totalRemainingE5,
-        card_spent_e5: cardSpentE5,
-        card_limit_e5: amountToE5(cardLimit),
-        bank_spent_e5: bankSpentE5,
-        bank_limit_e5: amountToE5(bankLimit)
-      };
+      return this.calculateBufferedSummary(this.mockTransactions, cardLimit, bankLimit);
     }
 
     try {
@@ -1175,35 +1239,8 @@ export class PenneApiClient {
       throw new Error('Invalid summary response');
     } catch (err) {
       console.warn('[Penne API] GET /api/dashboard-summary failed, calculating fallback summary', err);
-      const cardLimit = Number(localStorage.getItem('penne_limit_bank_card') || 25000);
-      const bankLimit = Number(localStorage.getItem('penne_limit_bank_account') || 10000);
-
       const txns = await this.getTransactions();
-      const totalIncomeE5 = txns
-        .filter((t) => t.txn_type === 'credit')
-        .reduce((sum, t) => sum + (t.amount_e5 || 0), 0);
-
-      const debitTxns = txns.filter((t) => t.txn_type === 'debit');
-
-      const cardSpentE5 = debitTxns
-        .filter((t) => t.payment_method === 'bank_card')
-        .reduce((sum, t) => sum + (t.amount_e5 || 0), 0);
-
-      const bankSpentE5 = debitTxns
-        .filter((t) => t.payment_method !== 'bank_card')
-        .reduce((sum, t) => sum + (t.amount_e5 || 0), 0);
-
-      const totalExpenseE5 = cardSpentE5 + bankSpentE5;
-
-      return {
-        total_income_e5: totalIncomeE5,
-        total_expense_e5: totalExpenseE5,
-        total_remaining_e5: totalIncomeE5 - totalExpenseE5,
-        card_spent_e5: cardSpentE5,
-        card_limit_e5: amountToE5(cardLimit),
-        bank_spent_e5: bankSpentE5,
-        bank_limit_e5: amountToE5(bankLimit)
-      };
+      return this.calculateBufferedSummary(txns, cardLimit, bankLimit);
     }
   }
 }

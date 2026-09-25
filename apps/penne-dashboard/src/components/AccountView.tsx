@@ -120,6 +120,8 @@ export const AccountView: React.FC<AccountViewProps> = ({
     effectiveBankLimit,
     cardAvailableAmt,
     bankAvailableAmt,
+    bufferedRemainingAmt,
+    bufferedUsedAmt,
     hasOptimisticTxn
   } = useMemo(() => {
     let incE5 = 0;
@@ -174,6 +176,12 @@ export const AccountView: React.FC<AccountViewProps> = ({
       bankSpentAmt: bSpent,
       effectiveCardLimit: effCardLim,
       effectiveBankLimit: effBankLim,
+      bufferedRemainingAmt: dashboardSummary?.buffered_remaining_e5
+        ? e5ToAmount(dashboardSummary.buffered_remaining_e5)
+        : 0,
+      bufferedUsedAmt: dashboardSummary?.buffered_used_e5
+        ? e5ToAmount(dashboardSummary.buffered_used_e5)
+        : 0,
       cardAvailableAmt: Math.max(0, effCardLim - cSpent),
       bankAvailableAmt: Math.max(0, effBankLim - bSpent),
       hasOptimisticTxn: isOptimistic
@@ -267,6 +275,26 @@ export const AccountView: React.FC<AccountViewProps> = ({
             </p>
           </div>
         </div>
+
+        {/* Next Cadence Buffer Section (if received or tapped) */}
+        {(bufferedRemainingAmt > 0 || bufferedUsedAmt > 0) && (
+          <div className="bg-[#1D1A3B] p-3.5 rounded-xl border border-indigo-500/20 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#FBD8B3] flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                Next Cadence Buffer (Unlocks 1st)
+              </span>
+              <span className="text-xs font-mono font-bold text-emerald-300">
+                +{formatINR(bufferedRemainingAmt)}
+              </span>
+            </div>
+            {bufferedUsedAmt > 0 && (
+              <p className="text-[11px] font-mono text-amber-300/90 leading-tight">
+                ⚠️ {formatINR(bufferedUsedAmt)} was deducted from next month's salary buffer to cover this month's overage.
+              </p>
+            )}
+          </div>
+        )}
 
         {/* Payment Rails Balances Breakdown */}
         <div className="space-y-3 pt-2 border-t border-white/5 font-mono text-xs">
