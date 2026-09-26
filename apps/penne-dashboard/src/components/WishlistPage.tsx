@@ -4,6 +4,7 @@ import {
   ShoppingBag, Plus, Zap, TrendingUp, Target, Trash2, Edit3, X,
   ChevronRight, Sparkles, Wallet, BarChart3, CheckCircle2,
   Clock, Loader2, AlertTriangle, WifiOff, Settings2, RefreshCw,
+  Coins,
 } from 'lucide-react';
 import {
   wishlistApi,
@@ -304,6 +305,156 @@ const ItemModal: React.FC<{
   );
 };
 
+// ─── Allocate Money Modal ───────────────────────────────────────────────────
+
+interface AllocateMoneyModalProps {
+  item: ItemForecast;
+  onClose: () => void;
+  onSuccess: (allocation: ItemAllocationSimulation) => void;
+}
+
+const AllocateMoneyModal: React.FC<AllocateMoneyModalProps> = ({ item, onClose, onSuccess }) => {
+  const neededINR = Math.max(0, item.remaining_amount_e5 / 100000);
+  const [amountStr, setAmountStr] = useState(neededINR > 0 ? String(neededINR) : '0');
+  const [submitting, setSubmitting] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const parsedAmount = parseFloat(amountStr) || 0;
+  const isFullNeeded = Math.abs(parsedAmount - neededINR) < 0.01;
+
+  const handleAllocate = async () => {
+    if (parsedAmount <= 0) {
+      setErr('Please enter an amount greater than 0');
+      return;
+    }
+    setSubmitting(true);
+    setErr(null);
+    try {
+      const amountE5 = inrToE5(parsedAmount);
+      const res = await wishlistApi.allocateMoney(item.item_id, amountE5);
+      onSuccess(res.allocation);
+      onClose();
+    } catch (e: any) {
+      setErr(e.message || 'Failed to allocate money');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in" onClick={onClose}>
+      <div className="velvet-card w-full max-w-md p-6 space-y-5 animate-scale-up" onClick={(e) => e.stopPropagation()}>
+        {/* Header */}
+        <div className="flex items-center justify-between pb-1 border-b border-white/10">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: 'rgba(168,230,207,0.15)' }}>
+              <Coins className="w-4 h-4" style={{ color: '#A8E6CF' }} />
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-[#F5F3FF]">Allocate Money</h2>
+              <p className="text-xs text-slate-400">Manual funding allocation</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Wish summary card */}
+        <div className="p-3.5 rounded-xl bg-white/[0.04] border border-white/5 space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="font-semibold text-sm text-[#F5F3FF] truncate">{item.item_title}</span>
+            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full" style={{ background: 'rgba(168,230,207,0.1)', color: '#A8E6CF' }}>
+              {Math.round(item.progress_percentage)}% saved
+            </span>
+          </div>
+          <div className="grid grid-cols-3 gap-2 text-xs">
+            <div>
+              <span className="text-[10px] uppercase text-slate-500 font-bold block">Target</span>
+              <span className="font-mono text-[#F5F3FF]">{e5ToINR(item.target_amount_e5)}</span>
+            </div>
+            <div>
+              <span className="text-[10px] uppercase text-slate-500 font-bold block">Saved</span>
+              <span className="font-mono text-slate-300">{e5ToINR(item.saved_amount_e5)}</span>
+            </div>
+            <div>
+              <span className="text-[10px] uppercase text-[#A8E6CF] font-bold block">Needed</span>
+              <span className="font-mono font-bold text-[#A8E6CF]">{e5ToINR(item.remaining_amount_e5)}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Amount Input */}
+        <div>
+          <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5 block">
+            Amount to Allocate (₹)
+          </label>
+          <div className="relative">
+            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-mono font-bold">₹</span>
+            <input
+              type="number"
+              min="1"
+              step="any"
+              value={amountStr}
+              onChange={(e) => setAmountStr(e.target.value)}
+              className="w-full pl-8 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-[#F5F3FF] font-mono font-bold text-base focus:outline-none focus:border-[#A8E6CF]/50 transition-colors"
+              placeholder="0"
+              autoFocus
+            />
+          </div>
+          {/* Quick preset buttons */}
+          <div className="flex gap-2 mt-2">
+            <button
+              type="button"
+              onClick={() => setAmountStr(String(neededINR))}
+              className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
+                isFullNeeded
+                  ? 'bg-[#A8E6CF]/20 text-[#A8E6CF] border-[#A8E6CF]/40'
+                  : 'bg-white/5 text-slate-300 border-white/10 hover:bg-white/10'
+              }`}
+            >
+              Full Needed ({e5ToINR(item.remaining_amount_e5)})
+            </button>
+            {neededINR > 100 && (
+              <button
+                type="button"
+                onClick={() => setAmountStr(String(Math.round(neededINR / 2)))}
+                className="py-1.5 px-3 rounded-lg text-xs font-semibold border border-white/10 bg-white/5 text-slate-300 hover:bg-white/10 transition-all cursor-pointer"
+              >
+                50%
+              </button>
+            )}
+          </div>
+        </div>
+
+        {err && (
+          <p className="text-xs flex items-center gap-1.5" style={{ color: '#FFB5A7' }}>
+            <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+            {err}
+          </p>
+        )}
+
+        {/* Submit */}
+        <button
+          onClick={handleAllocate}
+          disabled={submitting || parsedAmount <= 0}
+          className="w-full py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50 hover:opacity-90"
+          style={{ background: '#A8E6CF', color: '#1A1735' }}
+        >
+          {submitting ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <Coins className="w-4 h-4" />
+          )}
+          {isFullNeeded
+            ? `Allocate Needed Money (${e5ToINR(item.remaining_amount_e5)})`
+            : `Allocate ₹${parsedAmount.toLocaleString('en-IN')}`}
+        </button>
+      </div>
+    </div>
+  );
+};
+
 // ─── Distribute Toast ────────────────────────────────────────────────────────
 
 const DistributeToast: React.FC<{ results: ItemAllocationSimulation[]; onClose: () => void }> = ({ results, onClose }) => {
@@ -312,6 +463,8 @@ const DistributeToast: React.FC<{ results: ItemAllocationSimulation[]; onClose: 
     return () => clearTimeout(t);
   }, [onClose]);
 
+  const isSingle = results.length === 1;
+
   return (
     <div className="fixed bottom-24 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-sm z-50 animate-slide-down">
       <div className="velvet-card p-4">
@@ -319,7 +472,9 @@ const DistributeToast: React.FC<{ results: ItemAllocationSimulation[]; onClose: 
           <div className="w-7 h-7 rounded-full flex items-center justify-center" style={{ background: 'rgba(168,230,207,0.2)' }}>
             <Sparkles className="w-4 h-4" style={{ color: '#A8E6CF' }} />
           </div>
-          <span className="font-bold text-sm text-[#F5F3FF]">Surplus Distributed!</span>
+          <span className="font-bold text-sm text-[#F5F3FF]">
+            {isSingle ? 'Funds Allocated!' : 'Surplus Distributed!'}
+          </span>
           <button onClick={onClose} className="ml-auto cursor-pointer"><X className="w-4 h-4 text-slate-400" /></button>
         </div>
         <div className="space-y-1.5">
@@ -349,7 +504,8 @@ const WishlistCard: React.FC<{
   forecast: ItemForecast;
   onEdit: () => void;
   onDelete: () => void;
-}> = ({ forecast, onEdit, onDelete }) => {
+  onAllocate: () => void;
+}> = ({ forecast, onEdit, onDelete, onAllocate }) => {
   const pct = clamp(forecast.progress_percentage, 0, 100);
   const fulfilled = forecast.remaining_amount_e5 <= 0;
   const ringColor = fulfilled ? '#A8E6CF' : URGENCY_COLORS[Math.max(0, forecast.urgency - 1)];
@@ -377,9 +533,30 @@ const WishlistCard: React.FC<{
                 </span>
               )}
             </div>
-            <div className="flex items-baseline gap-2 text-[11px]">
-              <span className="font-mono font-bold text-[#F5F3FF]">{e5ToINR(forecast.saved_amount_e5)}</span>
-              <span className="text-slate-500">of {e5ToINR(forecast.target_amount_e5)}</span>
+            <div className="flex items-baseline justify-between gap-2 text-[11px]">
+              <div className="flex items-baseline gap-2">
+                <span className="font-mono font-bold text-[#F5F3FF]">{e5ToINR(forecast.saved_amount_e5)}</span>
+                <span className="text-slate-500">of {e5ToINR(forecast.target_amount_e5)}</span>
+              </div>
+              {!fulfilled && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onAllocate();
+                  }}
+                  className="flex items-center gap-1 text-[10px] font-bold font-mono px-2 py-0.5 rounded-md transition-all cursor-pointer hover:opacity-90"
+                  style={{
+                    background: 'rgba(168,230,207,0.15)',
+                    color: '#A8E6CF',
+                    border: '1px solid rgba(168,230,207,0.3)',
+                  }}
+                  title="Manually allocate needed money"
+                >
+                  <Coins className="w-2.5 h-2.5" />
+                  Allocate
+                </button>
+              )}
             </div>
             {/* Progress Bar */}
             <div className="mt-2 h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.08)' }}>
@@ -392,6 +569,15 @@ const WishlistCard: React.FC<{
 
           {/* Action buttons */}
           <div className="flex gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+            {!fulfilled && (
+              <button
+                onClick={onAllocate}
+                title="Allocate needed money"
+                className="w-7 h-7 rounded-lg flex items-center justify-center text-[#A8E6CF] hover:bg-[#A8E6CF]/15 transition-all cursor-pointer"
+              >
+                <Coins className="w-3.5 h-3.5" />
+              </button>
+            )}
             <button onClick={onEdit} className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-[#F5F3FF] hover:bg-white/10 transition-all cursor-pointer">
               <Edit3 className="w-3.5 h-3.5" />
             </button>
@@ -446,6 +632,25 @@ const WishlistCard: React.FC<{
                 )}
               </div>
             </div>
+
+            {/* Allocate button inside expanded view */}
+            {!fulfilled && (
+              <div className="col-span-2 pt-1">
+                <button
+                  type="button"
+                  onClick={onAllocate}
+                  className="w-full flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer hover:opacity-90"
+                  style={{
+                    background: 'rgba(168,230,207,0.12)',
+                    color: '#A8E6CF',
+                    border: '1px solid rgba(168,230,207,0.25)',
+                  }}
+                >
+                  <Coins className="w-3.5 h-3.5" />
+                  Allocate Needed Money ({e5ToINR(forecast.remaining_amount_e5)})
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -478,6 +683,7 @@ export const WishlistPage: React.FC = () => {
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [distributing, setDistributing] = useState(false);
   const [distributeResult, setDistributeResult] = useState<ItemAllocationSimulation[] | null>(null);
+  const [allocateModalItem, setAllocateModalItem] = useState<ItemForecast | null>(null);
 
   const error = actionError || (queryError ? (queryError as any).message || 'Failed to load wishlist' : null);
   const offline = Boolean(
@@ -527,6 +733,14 @@ export const WishlistPage: React.FC = () => {
       setDistributing(false);
     }
   };
+
+  const now = new Date();
+  const cycleEndDate = forecast ? new Date(forecast.cycle_end_date) : null;
+  const daysUntilCycleEnd = cycleEndDate
+    ? Math.ceil((cycleEndDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+    : null;
+  // Button to distribute money across wishes is only visible 1-2 days before cycle ends
+  const isDistributeEligible = daysUntilCycleEnd !== null && daysUntilCycleEnd <= 2 && daysUntilCycleEnd >= 0;
 
   const items = forecast?.items ?? [];
   const activeItems = items.filter((i) => i.remaining_amount_e5 > 0);
@@ -655,16 +869,30 @@ export const WishlistPage: React.FC = () => {
             <span>₹0</span><span>{e5ToINR(budget)}</span>
           </div>
 
-          {/* Distribute button */}
+          {/* Distribute button (visible only 1-2 days before cycle ends) */}
           {surplus > 0 && activeItems.length > 0 && (
-            <button
-              onClick={handleDistribute} disabled={distributing}
-              className="mt-4 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-sm transition-all cursor-pointer disabled:opacity-50 hover:opacity-90"
-              style={{ background: 'rgba(168,230,207,0.12)', color: '#A8E6CF', border: '1px solid rgba(168,230,207,0.25)' }}
-            >
-              {distributing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
-              Distribute {e5ToINR(surplus)} Across Wishes
-            </button>
+            isDistributeEligible ? (
+              <button
+                onClick={handleDistribute} disabled={distributing}
+                className="mt-4 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-sm transition-all cursor-pointer disabled:opacity-50 hover:opacity-90"
+                style={{ background: 'rgba(168,230,207,0.12)', color: '#A8E6CF', border: '1px solid rgba(168,230,207,0.25)' }}
+              >
+                {distributing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+                Distribute {e5ToINR(surplus)} Across Wishes
+              </button>
+            ) : (
+              <div className="mt-4 flex items-center justify-between py-2 px-3.5 rounded-xl bg-white/[0.03] border border-white/5 text-xs text-slate-400">
+                <div className="flex items-center gap-2">
+                  <Clock className="w-3.5 h-3.5 text-slate-500" />
+                  <span>Surplus distribution unlocks 1–2 days before cycle ends</span>
+                </div>
+                <span className="font-mono text-[10px] text-slate-400 font-bold px-2 py-0.5 rounded-full bg-white/5">
+                  {daysUntilCycleEnd !== null && daysUntilCycleEnd > 2
+                    ? `in ${daysUntilCycleEnd - 2 === 1 ? '1 day' : `${daysUntilCycleEnd - 2} days`}`
+                    : 'locked'}
+                </span>
+              </div>
+            )
           )}
         </div>
       )}
@@ -696,6 +924,7 @@ export const WishlistPage: React.FC = () => {
               key={item.item_id} forecast={item}
               onEdit={() => setAddModal({ open: true, editItem: item })}
               onDelete={() => setDeleteConfirm(item.item_id)}
+              onAllocate={() => setAllocateModalItem(item)}
             />
           ))}
         </div>
@@ -713,6 +942,7 @@ export const WishlistPage: React.FC = () => {
               key={item.item_id} forecast={item}
               onEdit={() => setAddModal({ open: true, editItem: item })}
               onDelete={() => setDeleteConfirm(item.item_id)}
+              onAllocate={() => setAllocateModalItem(item)}
             />
           ))}
         </div>
@@ -793,6 +1023,17 @@ export const WishlistPage: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {allocateModalItem && (
+        <AllocateMoneyModal
+          item={allocateModalItem}
+          onClose={() => setAllocateModalItem(null)}
+          onSuccess={async (sim) => {
+            setDistributeResult([sim]);
+            await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.wishlist });
+          }}
+        />
       )}
 
       {distributeResult && <DistributeToast results={distributeResult} onClose={() => setDistributeResult(null)} />}

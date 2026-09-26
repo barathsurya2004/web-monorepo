@@ -1609,6 +1609,41 @@ export const wishlistApi = {
       return { message: 'Surplus distributed successfully (demo)', allocations };
     }
   },
+  async allocateMoney(itemId: string, amountE5?: number): Promise<{ message: string; allocation: ItemAllocationSimulation }> {
+    try {
+      return await wishlistFetch<{ message: string; allocation: ItemAllocationSimulation }>('/wishlist/allocate', {
+        method: 'POST',
+        body: JSON.stringify({ item_id: itemId, amount_e5: amountE5 }),
+      });
+    } catch {
+      const items = getMockWishlistItems();
+      const itemIdx = items.findIndex((i) => i.id === itemId);
+      if (itemIdx < 0) {
+        throw new Error('Wishlist item not found');
+      }
+      const item = items[itemIdx];
+      const needed = Math.max(0, item.target_amount_e5 - item.saved_amount_e5);
+      const alloc = amountE5 && amountE5 > 0 ? Math.min(amountE5, needed) : needed;
+      const prev = item.saved_amount_e5;
+      const next = prev + alloc;
+      item.saved_amount_e5 = next;
+      if (next >= item.target_amount_e5) {
+        item.status = 'fulfilled';
+      }
+      saveMockWishlistItems(items);
+      const allocation: ItemAllocationSimulation = {
+        item_id: item.id,
+        item_title: item.title,
+        allocated_e5: alloc,
+        previous_saved_e5: prev,
+        new_saved_e5: next,
+        target_amount_e5: item.target_amount_e5,
+        is_fulfilled: next >= item.target_amount_e5,
+        weight: item.priority * item.urgency,
+      };
+      return { message: 'Money allocated successfully (demo)', allocation };
+    }
+  },
   async updateBudgetSettings(monthlyBudgetE5: number, salaryDay: number): Promise<{ message: string }> {
     try {
       return await wishlistFetch<{ message: string }>('/user/budget-settings', {
