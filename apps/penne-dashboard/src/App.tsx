@@ -325,6 +325,7 @@ const AppInner: React.FC = () => {
       refreshSummarySilent();
       refreshTransactionsSilent();
       refreshCategoriesSilent();
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.wishlist });
     } catch (err: any) {
       // Rollback on failure
       queryClient.setQueryData(QUERY_KEYS.transactions, prevTxns);
@@ -346,6 +347,7 @@ const AppInner: React.FC = () => {
       refreshSummarySilent();
       refreshTransactionsSilent();
       refreshCategoriesSilent();
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.wishlist });
     } catch (err: any) {
       addToast({
         type: 'error',

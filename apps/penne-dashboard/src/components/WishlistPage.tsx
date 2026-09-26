@@ -4,7 +4,7 @@ import {
   ShoppingBag, Plus, Zap, TrendingUp, Target, Trash2, Edit3, X,
   ChevronRight, Sparkles, Wallet, BarChart3, CheckCircle2,
   Clock, Loader2, AlertTriangle, WifiOff, Settings2, RefreshCw,
-  Coins,
+  Coins, Landmark, CreditCard,
 } from 'lucide-react';
 import {
   wishlistApi,
@@ -320,6 +320,7 @@ const AllocateMoneyModal: React.FC<AllocateMoneyModalProps> = ({ item, onClose, 
 
   // Default to full needed amount for 1-tap fulfillment
   const [allocatedINR, setAllocatedINR] = useState<number>(neededINR > 0 ? neededINR : 0);
+  const [paymentMethod, setPaymentMethod] = useState<'bank_account' | 'bank_card'>('bank_account');
   const [isCustomMode, setIsCustomMode] = useState<boolean>(false);
   const [customInputStr, setCustomInputStr] = useState<string>(String(neededINR));
   const [submitting, setSubmitting] = useState<boolean>(false);
@@ -370,7 +371,7 @@ const AllocateMoneyModal: React.FC<AllocateMoneyModalProps> = ({ item, onClose, 
     setErr(null);
     try {
       const amountE5 = inrToE5(allocatedINR);
-      const res = await wishlistApi.allocateMoney(item.item_id, amountE5);
+      const res = await wishlistApi.allocateMoney(item.item_id, amountE5, paymentMethod);
       onSuccess(res.allocation);
       onClose();
     } catch (e: any) {
@@ -509,6 +510,43 @@ const AllocateMoneyModal: React.FC<AllocateMoneyModalProps> = ({ item, onClose, 
               </button>
             </div>
           )}
+        </div>
+
+        {/* Account Selector (Recorded to Ledger) */}
+        <div className="space-y-1.5 pt-1">
+          <div className="flex items-center justify-between text-[11px] text-slate-400 font-mono">
+            <span>Deduct From (Ledger Account)</span>
+            <span className="text-[10px] text-[#A8E6CF] font-bold">Ledger Debit</span>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setPaymentMethod('bank_account')}
+              className={`py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer border flex items-center justify-center gap-2 active:scale-95 ${
+                paymentMethod === 'bank_account'
+                  ? 'bg-[#64D2FF]/20 text-[#64D2FF] border-[#64D2FF]/50 shadow-sm'
+                  : 'bg-white/5 text-slate-300 border-white/10 hover:bg-white/10'
+              }`}
+            >
+              <Landmark className="w-3.5 h-3.5" />
+              <span>Primary Bank</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setPaymentMethod('bank_card')}
+              className={`py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer border flex items-center justify-center gap-2 active:scale-95 ${
+                paymentMethod === 'bank_card'
+                  ? 'bg-[#C8B6FF]/20 text-[#C8B6FF] border-[#C8B6FF]/50 shadow-sm'
+                  : 'bg-white/5 text-slate-300 border-white/10 hover:bg-white/10'
+              }`}
+            >
+              <CreditCard className="w-3.5 h-3.5" />
+              <span>Obsidian Card</span>
+            </button>
+          </div>
+          <p className="text-[10px] font-mono text-slate-400 text-center">
+            Logged as an expenditure of ₹{allocatedINR.toLocaleString('en-IN')} in your Ledger.
+          </p>
         </div>
 
         {err && (
@@ -1090,6 +1128,8 @@ export const WishlistPage: React.FC = () => {
           onSuccess={async (sim) => {
             setDistributeResult([sim]);
             await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.wishlist });
+            await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.transactions });
+            await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.dashboardSummary });
           }}
         />
       )}

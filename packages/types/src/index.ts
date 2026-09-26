@@ -23,6 +23,8 @@ export interface Transaction {
   country_iso2: string;
   created_at?: string;
   CreatedAt?: string;
+  description?: string;
+  wishlist_item_id?: string;
 }
 
 export interface EnvelopeGroup {

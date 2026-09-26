@@ -1609,11 +1609,11 @@ export const wishlistApi = {
       return { message: 'Surplus distributed successfully (demo)', allocations };
     }
   },
-  async allocateMoney(itemId: string, amountE5?: number): Promise<{ message: string; allocation: ItemAllocationSimulation }> {
+  async allocateMoney(itemId: string, amountE5?: number, paymentMethod: string = 'bank_account'): Promise<{ message: string; allocation: ItemAllocationSimulation }> {
     try {
       return await wishlistFetch<{ message: string; allocation: ItemAllocationSimulation }>('/wishlist/allocate', {
         method: 'POST',
-        body: JSON.stringify({ item_id: itemId, amount_e5: amountE5 }),
+        body: JSON.stringify({ item_id: itemId, amount_e5: amountE5, payment_method: paymentMethod }),
       });
     } catch {
       const items = getMockWishlistItems();
@@ -1631,6 +1631,27 @@ export const wishlistApi = {
         item.status = 'fulfilled';
       }
       saveMockWishlistItems(items);
+
+      // Create mock transaction so demo/offline ledger immediately reflects the allocation
+      try {
+        const mockTxnsStr = localStorage.getItem('penne_mock_transactions');
+        const mockTxns: any[] = mockTxnsStr ? JSON.parse(mockTxnsStr) : [];
+        mockTxns.unshift({
+          id: `mock-txn-wish-${Date.now()}`,
+          user_id: TEST_USER_UUID,
+          amount_e5: alloc,
+          txn_type: 'debit',
+          payment_method: paymentMethod,
+          country_iso2: 'IN',
+          created_at: new Date().toISOString(),
+          description: `Wishlist: ${item.title}`,
+          wishlist_item_id: item.id,
+        });
+        localStorage.setItem('penne_mock_transactions', JSON.stringify(mockTxns));
+      } catch {
+        // ignore
+      }
+
       const allocation: ItemAllocationSimulation = {
         item_id: item.id,
         item_title: item.title,

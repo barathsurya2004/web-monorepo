@@ -490,9 +490,10 @@ export const HomePage: React.FC<HomePageProps> = ({
             {recentTxns.map((tx) => {
               const isCredit = tx.txn_type === 'credit';
               const isTransfer = tx.txn_type === 'transfer';
+              const isWishlist = !!(tx.wishlist_item_id || (tx.description && tx.description.toLowerCase().startsWith('wishlist')));
               const { dateStr, timeStr } = formatTransactionDateTime(tx.created_at || tx.CreatedAt);
               const assignedEnv = tx.envelope_id ? envelopeMap.get(tx.envelope_id) : null;
-              const heading = assignedEnv?.name || (isCredit
+              const heading = tx.description || assignedEnv?.name || (isCredit
                 ? 'Income Inflow'
                 : isTransfer
                 ? 'Account Transfer'
@@ -511,6 +512,8 @@ export const HomePage: React.FC<HomePageProps> = ({
                           ? 'bg-[#A8E6CF]/20 text-[#A8E6CF] border border-[#A8E6CF]/30'
                           : isTransfer
                           ? 'bg-[#FBD8B3]/20 text-[#FBD8B3] border border-[#FBD8B3]/30'
+                          : isWishlist
+                          ? 'bg-[#A8E6CF]/20 text-[#A8E6CF] border border-[#A8E6CF]/35'
                           : tx.payment_method === 'bank_card'
                           ? 'bg-[#C8B6FF]/20 text-[#C8B6FF] border border-[#C8B6FF]/35'
                           : 'bg-[#64D2FF]/20 text-[#64D2FF] border border-[#64D2FF]/35'
@@ -531,6 +534,14 @@ export const HomePage: React.FC<HomePageProps> = ({
                         <p className="text-xs font-bold text-slate-100 truncate group-hover:text-[#FBD8B3] transition-colors">
                           {heading}
                         </p>
+                        {isWishlist && (
+                          <span
+                            className="px-1.5 py-0.5 rounded text-[9px] font-mono font-black shrink-0 tracking-wider uppercase leading-none shadow-sm bg-[#A8E6CF]/20 text-[#A8E6CF] border border-[#A8E6CF]/40"
+                            title="Wishlist Allocation"
+                          >
+                            WISH
+                          </span>
+                        )}
                         <span
                           className={`px-1.5 py-0.5 rounded text-[9px] font-mono font-black shrink-0 tracking-wider uppercase leading-none shadow-sm ${
                             tx.payment_method === 'bank_card'
