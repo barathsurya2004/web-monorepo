@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
-import { api, ApiEventListenerPayload } from './services/api';
+import { useQuery } from '@tanstack/react-query';
+import { api, ApiEventListenerPayload, wishlistApi, WishlistForecastSummary, WishlistItem } from './services/api';
 import { User, Transaction, AuthSession, ActiveCategory, EnvelopeGroup, Envelope, DashboardSummary } from '@packages/types';
 import { useDashboardData, QUERY_KEYS } from './hooks/useDashboardData';
 import { queryClient } from './services/queryClient';
@@ -13,7 +14,7 @@ import { BudgetPage } from './components/BudgetPage';
 import { AccountView } from './components/AccountView';
 import { WishlistPage } from './components/WishlistPage';
 import { BottomTabBar, NavTab } from './components/BottomTabBar';
-import { NewTxnModal, NewCategoryModal, EditTxnModal, EditCategoryModal, EditGroupModal } from './components/Modals';
+import { NewTxnModal, NewCategoryModal, EditTxnModal, EditCategoryModal, EditGroupModal, WishlistTxnModal, WishlistModalItem } from './components/Modals';
 import { ToastProvider, useToast } from './components/AlertBanner';
 
 export interface ResourceLoadingStates {
@@ -53,6 +54,30 @@ const AppInner: React.FC = () => {
     refetchAll,
     createTxnMutation,
   } = useDashboardData(isAuthenticated);
+
+  // Wishlist forecast query for mapping wishlist allocations in ledger and modals
+  const { data: wishlistForecast } = useQuery<WishlistForecastSummary>({
+    queryKey: QUERY_KEYS.wishlist,
+    queryFn: () => wishlistApi.getWishlists(),
+    enabled: isAuthenticated,
+    staleTime: 1000 * 60 * 5,
+  });
+
+  const wishlistItemsMap = useMemo(() => {
+    const map = new Map<string, WishlistModalItem>();
+    if (wishlistForecast?.items) {
+      wishlistForecast.items.forEach((item) => {
+        map.set(item.item_id, {
+          id: item.item_id,
+          title: item.item_title,
+          target_amount_e5: item.target_amount_e5,
+          saved_amount_e5: item.saved_amount_e5,
+          status: item.remaining_amount_e5 <= 0 ? 'fulfilled' : 'active',
+        });
+      });
+    }
+    return map;
+  }, [wishlistForecast]);
 
   const loadingState: ResourceLoadingStates = useMemo(() => ({
     user: isLoadingUser,
@@ -286,7 +311,9 @@ const AppInner: React.FC = () => {
     amountE5: number,
     txnType: string,
     bankName: string,
-    envelopeId?: string | null
+    envelopeId?: string | null,
+    description?: string,
+    wishlistItemId?: string | null
   ) => {
     // 1. Snapshot previous state for rollback
     const prevTxns = queryClient.getQueryData<Transaction[]>(QUERY_KEYS.transactions) || [];
@@ -304,6 +331,8 @@ const AppInner: React.FC = () => {
       txn_type: txnType,
       payment_method: bankName,
       envelope_id: envelopeId || null,
+      description: description !== undefined ? description : existingTxn?.description,
+      wishlist_item_id: wishlistItemId !== undefined ? (wishlistItemId || undefined) : existingTxn?.wishlist_item_id,
     };
 
     queryClient.setQueryData<Transaction[]>(QUERY_KEYS.transactions, (prev = []) =>
@@ -317,7 +346,9 @@ const AppInner: React.FC = () => {
         txnType,
         bankName,
         envelopeId,
-        existingTxn?.created_at
+        existingTxn?.created_at,
+        description !== undefined ? description : existingTxn?.description,
+        wishlistItemId !== undefined ? wishlistItemId : existingTxn?.wishlist_item_id
       );
       queryClient.setQueryData<Transaction[]>(QUERY_KEYS.transactions, (prev = []) =>
         prev.map((t) => (t.id === txnId ? updatedTxn : t))
@@ -609,6 +640,7 @@ const AppInner: React.FC = () => {
             envelopes={envelopes}
             envelopeGroups={envelopeGroups}
             categories={categories}
+            wishlistItemsMap={wishlistItemsMap}
             dashboardSummary={dashboardSummary}
             isServerOffline={isServerOffline}
             isMockMode={isMockMode}
@@ -630,6 +662,7 @@ const AppInner: React.FC = () => {
             envelopeGroups={envelopeGroups}
             envelopes={envelopes}
             categories={categories}
+            wishlistItemsMap={wishlistItemsMap}
             isServerOffline={isServerOffline}
             isMockMode={isMockMode}
             onRetryConnection={loadData}
@@ -700,19 +733,41 @@ const AppInner: React.FC = () => {
         onSubmit={handleCreateTxn}
       />
 
-      {/* Edit Transaction Modal */}
-      <EditTxnModal
-        isOpen={isEditTxnModalOpen}
-        onClose={() => {
-          setIsEditTxnModalOpen(false);
-          setSelectedTxnForEdit(null);
-        }}
-        transaction={selectedTxnForEdit}
-        envelopes={envelopes}
-        groups={envelopeGroups}
-        onSubmit={handleUpdateTxn}
-        onDelete={handleDeleteTxn}
-      />
+      {/* Edit Transaction Modal / Wishlist Transaction Modal */}
+      {selectedTxnForEdit && (
+        selectedTxnForEdit.wishlist_item_id ||
+        (selectedTxnForEdit.description && selectedTxnForEdit.description.toLowerCase().startsWith('wishlist'))
+      ) ? (
+        <WishlistTxnModal
+          isOpen={isEditTxnModalOpen}
+          onClose={() => {
+            setIsEditTxnModalOpen(false);
+            setSelectedTxnForEdit(null);
+          }}
+          transaction={selectedTxnForEdit}
+          wishlistItem={selectedTxnForEdit?.wishlist_item_id ? wishlistItemsMap.get(selectedTxnForEdit.wishlist_item_id) : null}
+          onSubmit={handleUpdateTxn}
+          onDelete={handleDeleteTxn}
+          onNavigateToWishlist={() => {
+            setIsEditTxnModalOpen(false);
+            setSelectedTxnForEdit(null);
+            setActiveTab('wishlist');
+          }}
+        />
+      ) : (
+        <EditTxnModal
+          isOpen={isEditTxnModalOpen}
+          onClose={() => {
+            setIsEditTxnModalOpen(false);
+            setSelectedTxnForEdit(null);
+          }}
+          transaction={selectedTxnForEdit}
+          envelopes={envelopes}
+          groups={envelopeGroups}
+          onSubmit={handleUpdateTxn}
+          onDelete={handleDeleteTxn}
+        />
+      )}
 
       {/* New Category Modal */}
       <NewCategoryModal

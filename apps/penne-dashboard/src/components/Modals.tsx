@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Input, Select, Button } from '@packages/ui';
 import { Transaction, EnvelopeGroup, Envelope, amountToE5, e5ToAmount, formatCurrency } from '@packages/types';
-import { Trash2, AlertTriangle, Receipt } from 'lucide-react';
+import { Trash2, AlertTriangle, Receipt, Sparkles, Gift, ExternalLink, CreditCard, Landmark, CheckCircle2 } from 'lucide-react';
 import { EnvelopeMonogramBadge } from '../utils/envelopeVisuals';
+import { WishlistItem } from '../services/api';
 
 // --- New Transaction Modal ---
 interface NewTxnModalProps {
@@ -457,6 +458,312 @@ export const EditTxnModal: React.FC<EditTxnModalProps> = ({
                 disabled={isDeleting}
               >
                 {isDeleting ? 'Deleting...' : 'Confirm Delete'}
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+    </>
+  );
+};
+
+// --- Wishlist Transaction Modal ---
+export interface WishlistModalItem {
+  id?: string;
+  title?: string;
+  target_amount_e5: number;
+  saved_amount_e5: number;
+  status?: string;
+}
+
+export interface WishlistTxnModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  transaction: Transaction | null;
+  wishlistItem?: WishlistModalItem | null;
+  onSubmit: (
+    txnId: string,
+    amountE5: number,
+    txnType: string,
+    paymentMethod: string,
+    envelopeId?: string | null,
+    description?: string,
+    wishlistItemId?: string | null
+  ) => Promise<void> | void;
+  onDelete?: (txnId: string) => Promise<void> | void;
+  onNavigateToWishlist?: () => void;
+}
+
+export const WishlistTxnModal: React.FC<WishlistTxnModalProps> = ({
+  isOpen,
+  onClose,
+  transaction,
+  wishlistItem,
+  onSubmit,
+  onDelete,
+  onNavigateToWishlist
+}) => {
+  const [amount, setAmount] = useState<string>('');
+  const [paymentMethod, setPaymentMethod] = useState<string>('bank_account');
+  const [loading, setLoading] = useState<boolean>(false);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState<boolean>(false);
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (transaction) {
+      setAmount(e5ToAmount(transaction.amount_e5 || 0).toString());
+      setPaymentMethod(transaction.payment_method || 'bank_account');
+    }
+    if (!isOpen) {
+      setIsDeleteConfirmOpen(false);
+    }
+  }, [transaction, isOpen]);
+
+  if (!transaction) return null;
+
+  const currentAmt = e5ToAmount(transaction.amount_e5 || 0);
+  const parsedAmt = parseFloat(amount) || 0;
+  const delta = parsedAmt - currentAmt;
+
+  const itemTitle =
+    wishlistItem?.title ||
+    transaction.description?.replace(/^wishlist:\s*/i, '').trim() ||
+    'Wishlist Goal';
+
+  const targetAmt = wishlistItem ? e5ToAmount(wishlistItem.target_amount_e5) : null;
+  const savedAmt = wishlistItem ? e5ToAmount(wishlistItem.saved_amount_e5) : null;
+  const currentPct = targetAmt && targetAmt > 0 && savedAmt !== null
+    ? Math.min(100, Math.round((savedAmt / targetAmt) * 100))
+    : null;
+
+  const projectedSaved = savedAmt !== null ? Math.max(0, savedAmt + delta) : null;
+  const projectedPct = targetAmt && targetAmt > 0 && projectedSaved !== null
+    ? Math.min(100, Math.round((projectedSaved / targetAmt) * 100))
+    : null;
+
+  const isFulfilled = wishlistItem?.status === 'fulfilled' || (projectedSaved !== null && targetAmt !== null && projectedSaved >= targetAmt);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isNaN(parsedAmt) || parsedAmt <= 0) return;
+
+    setLoading(true);
+    try {
+      await onSubmit(
+        transaction.id,
+        amountToE5(parsedAmt),
+        'debit',
+        paymentMethod,
+        transaction.envelope_id,
+        transaction.description,
+        transaction.wishlist_item_id
+      );
+      onClose();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!onDelete) return;
+    setIsDeleting(true);
+    try {
+      await onDelete(transaction.id);
+      setIsDeleteConfirmOpen(false);
+      onClose();
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  return (
+    <>
+      <Modal isOpen={isOpen} onClose={onClose} title="Wishlist Allocation Entry">
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Linked Wishlist Item Card */}
+          <div className="p-3.5 bg-[#232044] rounded-2xl border border-[#A8E6CF]/25 space-y-2.5">
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="w-7 h-7 rounded-lg bg-[#A8E6CF]/20 text-[#A8E6CF] border border-[#A8E6CF]/30 flex items-center justify-center shrink-0">
+                  <Sparkles className="w-3.5 h-3.5" />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-[10px] font-mono text-[#A8E6CF] uppercase font-bold tracking-wider">
+                    Funding Target
+                  </div>
+                  <h4 className="text-sm font-bold text-white truncate">
+                    {itemTitle}
+                  </h4>
+                </div>
+              </div>
+              <span
+                className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold shrink-0 uppercase tracking-wider ${
+                  isFulfilled
+                    ? 'bg-[#A8E6CF]/20 text-[#A8E6CF] border border-[#A8E6CF]/40'
+                    : 'bg-[#C8B6FF]/20 text-[#C8B6FF] border border-[#C8B6FF]/40'
+                }`}
+              >
+                {isFulfilled ? 'Fulfilled 🎯' : 'Active Goal'}
+              </span>
+            </div>
+
+            {targetAmt !== null && savedAmt !== null && (
+              <div className="space-y-1.5 pt-1 border-t border-white/5">
+                <div className="flex items-center justify-between text-[11px] font-mono">
+                  <span className="text-slate-400">
+                    Saved: <strong className="text-white">₹{Math.round(savedAmt).toLocaleString('en-IN')}</strong> of ₹{Math.round(targetAmt).toLocaleString('en-IN')}
+                  </span>
+                  <span className="text-[#A8E6CF] font-bold">
+                    {currentPct}%
+                  </span>
+                </div>
+                <div className="w-full h-1.5 bg-black/40 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-[#A8E6CF] to-[#85D6B8] rounded-full transition-all duration-300"
+                    style={{ width: `${currentPct}%` }}
+                  />
+                </div>
+                {delta !== 0 && projectedSaved !== null && (
+                  <p className="text-[10px] font-mono text-slate-300 pt-0.5">
+                    Preview after change: <span className="text-[#FBD8B3] font-bold">₹{Math.round(projectedSaved).toLocaleString('en-IN')}</span> ({projectedPct}%)
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Allocation Amount */}
+          <div>
+            <label className="text-[11px] font-bold font-mono tracking-wider text-slate-300 uppercase block mb-1">
+              Allocation Amount (₹)
+            </label>
+            <div className="relative flex items-center">
+              <span className="absolute left-3.5 text-xl font-mono text-[#A8E6CF] font-bold">₹</span>
+              <input
+                type="number"
+                step="0.01"
+                required
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                className="w-full pl-9 pr-4 py-3 bg-[#232044] border border-white/10 rounded-2xl text-2xl font-mono font-black text-white focus:outline-none focus:border-[#A8E6CF]"
+              />
+            </div>
+            <p className="text-[10px] font-mono text-slate-400 mt-1">
+              Modifying this value directly updates the wishlist item balance and your ledger expenses.
+            </p>
+          </div>
+
+          {/* Payment Method Rail */}
+          <div>
+            <label className="text-[11px] font-bold font-mono tracking-wider text-slate-300 uppercase block mb-1">
+              Payment Rail
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { id: 'bank_account', label: 'Primary Bank (UPI/BA)', icon: Landmark },
+                { id: 'bank_card', label: 'Obsidian CC', icon: CreditCard }
+              ].map((m) => {
+                const Icon = m.icon;
+                const active = paymentMethod === m.id;
+                return (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => setPaymentMethod(m.id)}
+                    className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl border text-xs font-mono transition-all cursor-pointer ${
+                      active
+                        ? 'bg-[#A8E6CF]/20 text-[#A8E6CF] border-[#A8E6CF]/50 font-bold shadow-sm'
+                        : 'bg-[#232044] border-white/5 text-slate-400 hover:text-white hover:bg-white/5'
+                    }`}
+                  >
+                    <Icon className="w-3.5 h-3.5" />
+                    <span>{m.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Modal Actions */}
+          <div className="flex items-center justify-between pt-2 border-t border-white/10">
+            <div className="flex items-center gap-2">
+              {onDelete && (
+                <button
+                  type="button"
+                  onClick={() => setIsDeleteConfirmOpen(true)}
+                  className="p-2.5 text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 rounded-xl transition-all cursor-pointer"
+                  title="Refund & Remove Allocation"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              )}
+              {onNavigateToWishlist && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    onNavigateToWishlist();
+                  }}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white text-[11px] font-mono transition-colors cursor-pointer"
+                >
+                  <ExternalLink className="w-3 h-3 text-[#A8E6CF]" />
+                  <span>View in Wishlist</span>
+                </button>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Button type="button" variant="ghost" onClick={onClose} disabled={loading}>
+                Cancel
+              </Button>
+              <Button type="submit" variant="primary" disabled={loading}>
+                {loading ? 'Saving...' : 'Save Allocation'}
+              </Button>
+            </div>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      {isDeleteConfirmOpen && (
+        <Modal
+          isOpen={isDeleteConfirmOpen}
+          onClose={() => setIsDeleteConfirmOpen(false)}
+          title="Refund Wishlist Allocation?"
+        >
+          <div className="space-y-4">
+            <div className="flex items-start gap-3 p-3.5 bg-rose-500/10 border border-rose-500/20 rounded-2xl text-[#FFB5A7]">
+              <div className="p-2 rounded-xl bg-rose-500/20 text-rose-300 shrink-0">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div className="space-y-1">
+                <h4 className="text-sm font-bold text-white">Refund Allocation to {itemTitle}?</h4>
+                <p className="text-xs text-slate-300 leading-relaxed font-mono">
+                  This transaction of{' '}
+                  <span className="font-bold text-[#FFB5A7]">
+                    {formatCurrency(transaction?.amount_e5 || 0)}
+                  </span>{' '}
+                  will be removed from your ledger, and the saved progress on this item will be reduced accordingly.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-2">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setIsDeleteConfirmOpen(false)}
+                disabled={isDeleting}
+              >
+                Keep Allocation
+              </Button>
+              <Button
+                type="button"
+                variant="danger"
+                onClick={handleConfirmDelete}
+                disabled={isDeleting}
+              >
+                {isDeleting ? 'Refunding...' : 'Confirm Refund & Delete'}
               </Button>
             </div>
           </div>

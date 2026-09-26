@@ -10,7 +10,8 @@ import {
   Search,
   WifiOff,
   RefreshCw,
-  ChevronRight
+  ChevronRight,
+  Sparkles
 } from 'lucide-react';
 import { EnvelopeMonogramBadge, getEnvelopeMonogram } from '../utils/envelopeVisuals';
 import { calculateSafeDailySpend } from '../utils/cadence';
@@ -21,6 +22,7 @@ interface HomePageProps {
   envelopes?: Envelope[];
   envelopeGroups?: EnvelopeGroup[];
   categories?: ActiveCategory[];
+  wishlistItemsMap?: Map<string, any>;
   dashboardSummary?: DashboardSummary | null;
   isServerOffline?: boolean;
   isMockMode?: boolean;
@@ -60,6 +62,7 @@ export const HomePage: React.FC<HomePageProps> = ({
   transactions,
   envelopes = [],
   categories = [],
+  wishlistItemsMap,
   dashboardSummary,
   isServerOffline,
   isMockMode,
@@ -493,11 +496,21 @@ export const HomePage: React.FC<HomePageProps> = ({
               const isWishlist = !!(tx.wishlist_item_id || (tx.description && tx.description.toLowerCase().startsWith('wishlist')));
               const { dateStr, timeStr } = formatTransactionDateTime(tx.created_at || tx.CreatedAt);
               const assignedEnv = tx.envelope_id ? envelopeMap.get(tx.envelope_id) : null;
-              const heading = tx.description || assignedEnv?.name || (isCredit
+              let heading = tx.description || assignedEnv?.name || (isCredit
                 ? 'Income Inflow'
                 : isTransfer
                 ? 'Account Transfer'
                 : 'Uncategorized');
+
+              if (isWishlist) {
+                let targetTitle = '';
+                if (tx.wishlist_item_id && wishlistItemsMap?.has(tx.wishlist_item_id)) {
+                  targetTitle = wishlistItemsMap.get(tx.wishlist_item_id)?.title || '';
+                } else if (tx.description) {
+                  targetTitle = tx.description.replace(/^wishlist:\s*/i, '').trim();
+                }
+                heading = targetTitle ? `Funding: ${targetTitle}` : 'Wishlist Funding';
+              }
 
               return (
                 <div
@@ -513,7 +526,7 @@ export const HomePage: React.FC<HomePageProps> = ({
                           : isTransfer
                           ? 'bg-[#FBD8B3]/20 text-[#FBD8B3] border border-[#FBD8B3]/30'
                           : isWishlist
-                          ? 'bg-[#A8E6CF]/20 text-[#A8E6CF] border border-[#A8E6CF]/35'
+                          ? 'bg-[#A8E6CF]/20 text-[#A8E6CF] border border-[#A8E6CF]/40 shadow-sm shadow-[#A8E6CF]/10'
                           : tx.payment_method === 'bank_card'
                           ? 'bg-[#C8B6FF]/20 text-[#C8B6FF] border border-[#C8B6FF]/35'
                           : 'bg-[#64D2FF]/20 text-[#64D2FF] border border-[#64D2FF]/35'
@@ -523,6 +536,8 @@ export const HomePage: React.FC<HomePageProps> = ({
                         <ArrowDownLeft className="w-4 h-4 text-[#A8E6CF]" />
                       ) : isTransfer ? (
                         <ArrowLeftRight className="w-4 h-4 text-[#FBD8B3]" />
+                      ) : isWishlist ? (
+                        <Sparkles className="w-4 h-4 text-[#A8E6CF]" />
                       ) : tx.payment_method === 'bank_card' ? (
                         <CreditCard className="w-4 h-4 text-[#C8B6FF]" />
                       ) : (

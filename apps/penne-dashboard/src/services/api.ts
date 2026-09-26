@@ -943,7 +943,9 @@ export class PenneApiClient {
     txnType: string,
     paymentMethod: string,
     envelopeId?: string | null,
-    existingCreatedAt?: string
+    existingCreatedAt?: string,
+    description?: string,
+    wishlistItemId?: string | null
   ): Promise<Transaction> {
     let targetEnvelopeId = envelopeId || null;
     if (!targetEnvelopeId) {
@@ -960,7 +962,9 @@ export class PenneApiClient {
           amount_e5: roundedAmount,
           txn_type: txnType,
           payment_method: paymentMethod,
-          envelope_id: targetEnvelopeId
+          envelope_id: targetEnvelopeId,
+          ...(description !== undefined ? { description } : {}),
+          ...(wishlistItemId !== undefined ? { wishlist_item_id: wishlistItemId || undefined } : {})
         };
         this.saveMockStore('penne_mock_transactions', this.mockTransactions);
         this.notifyApiResult({
@@ -977,17 +981,25 @@ export class PenneApiClient {
       throw new Error('Transaction not found in mock store');
     }
 
+    const payload: Record<string, any> = {
+      id,
+      user_id: this.userUUID,
+      amount_e5: roundedAmount,
+      txn_type: txnType,
+      payment_method: paymentMethod,
+      envelope_id: targetEnvelopeId,
+      country_iso2: 'IN'
+    };
+    if (description !== undefined) {
+      payload.description = description;
+    }
+    if (wishlistItemId !== undefined) {
+      payload.wishlist_item_id = wishlistItemId;
+    }
+
     const updated = await this.request<Transaction>('/transaction', {
       method: 'PUT',
-      body: JSON.stringify({
-        id,
-        user_id: this.userUUID,
-        amount_e5: roundedAmount,
-        txn_type: txnType,
-        payment_method: paymentMethod,
-        envelope_id: targetEnvelopeId,
-        country_iso2: 'IN'
-      })
+      body: JSON.stringify(payload)
     });
 
     const finalCreatedAt =
@@ -1003,6 +1015,8 @@ export class PenneApiClient {
       payment_method: (updated && updated.payment_method) ? updated.payment_method : paymentMethod,
       envelope_id: (updated && updated.envelope_id) ? updated.envelope_id : targetEnvelopeId,
       country_iso2: (updated && updated.country_iso2) ? updated.country_iso2 : 'IN',
+      description: (updated && updated.description) ? updated.description : description,
+      wishlist_item_id: (updated && updated.wishlist_item_id) ? updated.wishlist_item_id : (wishlistItemId || undefined),
       created_at: finalCreatedAt
     };
     return result;

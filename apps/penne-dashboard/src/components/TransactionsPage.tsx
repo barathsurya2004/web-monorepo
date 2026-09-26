@@ -12,7 +12,9 @@ import {
   X,
   Plus,
   RefreshCw,
-  WifiOff
+  WifiOff,
+  Sparkles,
+  Gift
 } from 'lucide-react';
 import { formatTransactionDateTime } from './HomePage';
 import { TransactionListSkeleton } from './Skeleton';
@@ -22,6 +24,7 @@ interface TransactionsPageProps {
   envelopeGroups?: EnvelopeGroup[];
   envelopes?: Envelope[];
   categories?: ActiveCategory[];
+  wishlistItemsMap?: Map<string, any>;
   isServerOffline?: boolean;
   isMockMode?: boolean;
   onRetryConnection?: () => void;
@@ -42,6 +45,7 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
   transactions,
   envelopes = [],
   categories = [],
+  wishlistItemsMap,
   isServerOffline,
   isMockMode,
   onRetryConnection,
@@ -111,11 +115,12 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
         const desc = (t.description || '').toLowerCase();
         const method = (t.payment_method || '').toLowerCase();
         const type = (t.txn_type || '').toLowerCase();
-        return envName.includes(q) || desc.includes(q) || method.includes(q) || type.includes(q);
+        const wishTitle = (t.wishlist_item_id && wishlistItemsMap?.get(t.wishlist_item_id)?.title || '').toLowerCase();
+        return envName.includes(q) || desc.includes(q) || method.includes(q) || type.includes(q) || wishTitle.includes(q) || (t.wishlist_item_id && 'wishlist'.includes(q));
       }
       return true;
     });
-  }, [sortedTxns, filterMethod, filterType, search, envelopeMap]);
+  }, [sortedTxns, filterMethod, filterType, search, envelopeMap, wishlistItemsMap]);
 
   interface DateGroupedTransactions {
     key: string;
@@ -374,11 +379,21 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
                   const isWishlist = !!(tx.wishlist_item_id || (tx.description && tx.description.toLowerCase().startsWith('wishlist')));
                   const assignedEnv = tx.envelope_id ? envelopeMap.get(tx.envelope_id) : null;
                   const { timeStr } = formatTransactionDateTime(tx.created_at || tx.CreatedAt);
-                  const heading = tx.description || assignedEnv?.name || (isCredit
+                  let heading = tx.description || assignedEnv?.name || (isCredit
                     ? 'Direct Inflow'
                     : isTransfer
                     ? 'Account Transfer'
                     : 'Uncategorized');
+
+                  if (isWishlist) {
+                    let targetTitle = '';
+                    if (tx.wishlist_item_id && wishlistItemsMap?.has(tx.wishlist_item_id)) {
+                      targetTitle = wishlistItemsMap.get(tx.wishlist_item_id)?.title || '';
+                    } else if (tx.description) {
+                      targetTitle = tx.description.replace(/^wishlist:\s*/i, '').trim();
+                    }
+                    heading = targetTitle ? `Funding: ${targetTitle}` : 'Wishlist Funding';
+                  }
 
                   return (
                     <div
@@ -394,7 +409,7 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
                               : isTransfer
                               ? 'bg-[#FBD8B3]/20 text-[#FBD8B3] border border-[#FBD8B3]/30'
                               : isWishlist
-                              ? 'bg-[#A8E6CF]/20 text-[#A8E6CF] border border-[#A8E6CF]/35'
+                              ? 'bg-[#A8E6CF]/20 text-[#A8E6CF] border border-[#A8E6CF]/40 shadow-sm shadow-[#A8E6CF]/10'
                               : tx.payment_method === 'bank_card'
                               ? 'bg-[#C8B6FF]/20 text-[#C8B6FF] border border-[#C8B6FF]/35'
                               : 'bg-[#64D2FF]/20 text-[#64D2FF] border border-[#64D2FF]/35'
@@ -404,6 +419,8 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
                             <ArrowDownLeft className="w-4 h-4 text-[#A8E6CF]" />
                           ) : isTransfer ? (
                             <ArrowLeftRight className="w-4 h-4 text-[#FBD8B3]" />
+                          ) : isWishlist ? (
+                            <Sparkles className="w-4 h-4 text-[#A8E6CF]" />
                           ) : tx.payment_method === 'bank_card' ? (
                             <CreditCard className="w-4 h-4 text-[#C8B6FF]" />
                           ) : (
@@ -417,9 +434,10 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
                             </p>
                             {isWishlist && (
                               <span
-                                className="px-1.5 py-0.5 rounded text-[9px] font-mono font-black shrink-0 tracking-wider uppercase leading-none shadow-sm bg-[#A8E6CF]/20 text-[#A8E6CF] border border-[#A8E6CF]/40"
-                                title="Wishlist Allocation"
+                                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono font-black shrink-0 tracking-wider uppercase leading-none shadow-sm bg-[#A8E6CF]/20 text-[#A8E6CF] border border-[#A8E6CF]/40"
+                                title="Wishlist Funding Allocation"
                               >
+                                <Sparkles className="w-2.5 h-2.5" />
                                 WISH
                               </span>
                             )}

@@ -10,6 +10,7 @@ export interface ToastItem {
   statusCode?: string | number;
   title: string;
   message?: string;
+  children?: React.ReactNode;
   method?: string;
   endpoint?: string;
   duration?: number; // ms
@@ -206,6 +207,13 @@ const AlertBannerItem: React.FC<{
             <p className="text-xs sm:text-xs text-[#D8D2C9] leading-relaxed break-words font-medium">
               {toast.message}
             </p>
+          )}
+
+          {/* Optional custom children (e.g., breakdown list) */}
+          {toast.children && (
+            <div className="mt-1 text-xs">
+              {toast.children}
+            </div>
           )}
 
           {/* Endpoint details */}

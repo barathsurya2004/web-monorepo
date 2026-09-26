@@ -19,6 +19,7 @@ import {
   type CreateWishlistItemPayload,
 } from '../services/api';
 import { QUERY_KEYS } from '../hooks/useDashboardData';
+import { useToast } from './AlertBanner';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -579,47 +580,6 @@ const AllocateMoneyModal: React.FC<AllocateMoneyModalProps> = ({ item, onClose, 
   );
 };
 
-// ─── Distribute Toast ────────────────────────────────────────────────────────
-
-const DistributeToast: React.FC<{ results: ItemAllocationSimulation[]; onClose: () => void }> = ({ results, onClose }) => {
-  useEffect(() => {
-    const t = setTimeout(onClose, 6000);
-    return () => clearTimeout(t);
-  }, [onClose]);
-
-  const isSingle = results.length === 1;
-
-  return (
-    <div className="fixed bottom-24 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-sm z-50 animate-slide-down">
-      <div className="velvet-card p-4">
-        <div className="flex items-center gap-2 mb-3">
-          <div className="w-7 h-7 rounded-full flex items-center justify-center" style={{ background: 'rgba(168,230,207,0.2)' }}>
-            <Sparkles className="w-4 h-4" style={{ color: '#A8E6CF' }} />
-          </div>
-          <span className="font-bold text-sm text-[#F5F3FF]">
-            {isSingle ? 'Funds Allocated!' : 'Surplus Distributed!'}
-          </span>
-          <button onClick={onClose} className="ml-auto cursor-pointer"><X className="w-4 h-4 text-slate-400" /></button>
-        </div>
-        <div className="space-y-1.5">
-          {results.map((r) => (
-            <div key={r.item_id} className="flex items-center gap-2 text-xs">
-              {r.is_fulfilled
-                ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0" style={{ color: '#A8E6CF' }} />
-                : <TrendingUp className="w-3.5 h-3.5 shrink-0" style={{ color: '#FBD8B3' }} />
-              }
-              <span className="text-slate-300 truncate">{r.item_title}</span>
-              <span className="ml-auto shrink-0 font-mono font-bold" style={{ color: '#A8E6CF' }}>
-                +{e5ToINR(r.allocated_e5)}
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-};
-
 // ─── Wishlist Card ───────────────────────────────────────────────────────────
 
 const URGENCY_COLORS = ['#A7D7F9', '#A8E6CF', '#FBD8B3', '#FFB5A7', '#C8B6FF'];
@@ -758,6 +718,7 @@ const WishlistCard: React.FC<{
 
 export const WishlistPage: React.FC = () => {
   const queryClient = useQueryClient();
+  const { addToast } = useToast();
 
   const {
     data: forecast = null,
@@ -778,7 +739,6 @@ export const WishlistPage: React.FC = () => {
   const [addModal, setAddModal] = useState<{ open: boolean; editItem?: ItemForecast | null }>({ open: false });
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [distributing, setDistributing] = useState(false);
-  const [distributeResult, setDistributeResult] = useState<ItemAllocationSimulation[] | null>(null);
   const [allocateModalItem, setAllocateModalItem] = useState<ItemForecast | null>(null);
 
   const error = actionError || (queryError ? (queryError as any).message || 'Failed to load wishlist' : null);
@@ -796,12 +756,34 @@ export const WishlistPage: React.FC = () => {
     try {
       if (payload.id) {
         await wishlistApi.updateItem({ ...payload, id: payload.id });
+        addToast({
+          type: 'success',
+          statusCode: 'OK',
+          title: 'Wish Updated',
+          message: `Saved changes to "${payload.title}"`,
+          method: 'PUT',
+          endpoint: '/wishlist/items',
+        });
       } else {
         await wishlistApi.createItem(payload);
+        addToast({
+          type: 'success',
+          statusCode: 'CREATED',
+          title: 'Wish Created',
+          message: `Added "${payload.title}" to wishlist`,
+          method: 'POST',
+          endpoint: '/wishlist/items',
+        });
       }
       await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.wishlist });
     } catch (e: any) {
       setActionError(e.message || 'Failed to save wish');
+      addToast({
+        type: 'error',
+        statusCode: e.status || 'ERROR',
+        title: 'Save Failed',
+        message: e.message || 'Failed to save wish',
+      });
     }
   };
 
@@ -811,8 +793,22 @@ export const WishlistPage: React.FC = () => {
       await wishlistApi.deleteItem(id);
       setDeleteConfirm(null);
       await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.wishlist });
+      addToast({
+        type: 'success',
+        statusCode: 'OK',
+        title: 'Wish Deleted',
+        message: 'Wishlist item was removed',
+        method: 'DELETE',
+        endpoint: '/wishlist/items',
+      });
     } catch (e: any) {
       setActionError(e.message || 'Failed to delete wish');
+      addToast({
+        type: 'error',
+        statusCode: e.status || 'ERROR',
+        title: 'Delete Failed',
+        message: e.message || 'Failed to delete wish',
+      });
     }
   };
 
@@ -821,10 +817,39 @@ export const WishlistPage: React.FC = () => {
     setActionError(null);
     try {
       const res = await wishlistApi.distributeSurplus();
-      setDistributeResult(res.allocations);
       await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.wishlist });
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.transactions });
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.dashboardSummary });
+      const allocations = res.allocations || [];
+      const totalAllocated = allocations.reduce((acc, a) => acc + (a.allocated_e5 || 0), 0);
+
+      addToast({
+        type: 'success',
+        statusCode: 'OK',
+        title: 'Surplus Distributed!',
+        message: `Allocated ${e5ToINR(totalAllocated)} across ${allocations.length} goal${allocations.length === 1 ? '' : 's'}`,
+        method: 'POST',
+        endpoint: '/wishlist/distribute',
+        duration: 4500,
+        children: allocations.length > 0 ? (
+          <div className="space-y-1 pt-1.5 border-t border-white/10 mt-1">
+            {allocations.map((r) => (
+              <div key={r.item_id} className="flex items-center justify-between gap-2 text-[11px]">
+                <span className="text-slate-300 truncate max-w-[200px]">{r.item_title}</span>
+                <span className="font-mono font-bold text-[#A8E6CF] shrink-0">+{e5ToINR(r.allocated_e5)}</span>
+              </div>
+            ))}
+          </div>
+        ) : undefined,
+      });
     } catch (e: any) {
       setActionError(e.message || 'Distribution failed');
+      addToast({
+        type: 'error',
+        statusCode: e.status || 'ERROR',
+        title: 'Distribution Failed',
+        message: e.message || 'Distribution failed',
+      });
     } finally {
       setDistributing(false);
     }
@@ -1078,8 +1103,25 @@ export const WishlistPage: React.FC = () => {
         <BudgetModal
           currentBudgetE5={budget}
           onSave={async (e5, day) => {
-            await wishlistApi.updateBudgetSettings(e5, day);
-            await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.wishlist });
+            try {
+              await wishlistApi.updateBudgetSettings(e5, day);
+              await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.wishlist });
+              addToast({
+                type: 'success',
+                statusCode: 'OK',
+                title: 'Budget Settings Saved',
+                message: `Monthly budget updated to ₹${Math.round(e5 / 100000).toLocaleString('en-IN')}`,
+                method: 'PUT',
+                endpoint: '/wishlist/budget',
+              });
+            } catch (err: any) {
+              addToast({
+                type: 'error',
+                statusCode: err.status || 'ERROR',
+                title: 'Update Failed',
+                message: err.message || 'Failed to update budget settings',
+              });
+            }
           }}
           onClose={() => setShowBudgetModal(false)}
         />
@@ -1126,15 +1168,21 @@ export const WishlistPage: React.FC = () => {
           item={allocateModalItem}
           onClose={() => setAllocateModalItem(null)}
           onSuccess={async (sim) => {
-            setDistributeResult([sim]);
             await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.wishlist });
             await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.transactions });
             await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.dashboardSummary });
+            addToast({
+              type: 'success',
+              statusCode: 'OK',
+              title: sim.is_fulfilled ? 'Goal Fulfilled! 🎉' : 'Funds Allocated!',
+              message: `Allocated +${e5ToINR(sim.allocated_e5)} to ${sim.item_title}${sim.is_fulfilled ? ' (Goal 100% Reached!)' : ''}`,
+              method: 'POST',
+              endpoint: '/wishlist/allocate',
+              duration: 3500,
+            });
           }}
         />
       )}
-
-      {distributeResult && <DistributeToast results={distributeResult} onClose={() => setDistributeResult(null)} />}
     </div>
   );
 };
