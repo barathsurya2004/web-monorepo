@@ -14,6 +14,8 @@ interface HeaderProps {
   isLoadingUser?: boolean;
   isLoadingAny?: boolean;
   isFetching?: boolean;
+  isProfileActive?: boolean;
+  onOpenProfile?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -24,6 +26,8 @@ export const Header: React.FC<HeaderProps> = ({
   isLoadingUser,
   isLoadingAny,
   isFetching = false,
+  isProfileActive = false,
+  onOpenProfile,
 }) => {
   const userName = user?.name || 'Barath';
   const firstLetter = userName.charAt(0).toUpperCase();
@@ -145,14 +149,19 @@ export const Header: React.FC<HeaderProps> = ({
               </button>
             )}
 
-            {/* User Avatar Circle */}
+            {/* User Avatar Circle - Open Profile/Settings */}
             {isLoadingUser ? (
               <UserHeaderSkeleton />
             ) : (
               <button
-                className="w-9 h-9 rounded-full bg-[#232044] border-2 border-[#FBD8B3]/80 hover:border-[#FBD8B3] hover:shadow-[0_0_12px_rgba(251,216,179,0.4)] flex items-center justify-center text-xs font-black text-[#FBD8B3] shadow-[0_4px_12px_rgba(0,0,0,0.3)] shrink-0 transition-all duration-200 active:scale-95 cursor-pointer"
-                title={`Logged in as ${userName}`}
-                aria-label={userName}
+                onClick={onOpenProfile}
+                className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-black shadow-[0_4px_12px_rgba(0,0,0,0.3)] shrink-0 transition-all duration-200 active:scale-95 cursor-pointer ${
+                  isProfileActive
+                    ? 'bg-[#FBD8B3] text-[#1A1835] border-2 border-[#FBD8B3] ring-2 ring-[#FBD8B3]/50 shadow-[0_0_16px_rgba(251,216,179,0.5)] scale-105'
+                    : 'bg-[#232044] text-[#FBD8B3] border-2 border-[#FBD8B3]/80 hover:border-[#FBD8B3] hover:shadow-[0_0_12px_rgba(251,216,179,0.4)] hover:scale-105'
+                }`}
+                title={`Logged in as ${userName} • Open Settings & Vault`}
+                aria-label={`${userName} - Settings & Profile`}
               >
                 {firstLetter}
               </button>

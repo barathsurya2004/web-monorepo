@@ -13,7 +13,8 @@ import {
   TrendingDown,
   CreditCard,
   Landmark,
-  Sparkles
+  Sparkles,
+  ArrowLeft
 } from 'lucide-react';
 import { UserProfileSkeleton } from './Skeleton';
 
@@ -29,6 +30,7 @@ interface AccountViewProps {
   isLoadingUser?: boolean;
   isLoadingTransactions?: boolean;
   isLoadingSummary?: boolean;
+  onBack?: () => void;
 }
 
 const formatINR = (val: number) => {
@@ -46,7 +48,8 @@ export const AccountView: React.FC<AccountViewProps> = ({
   onLogout,
   isLoadingUser,
   isLoadingTransactions,
-  isLoadingSummary
+  isLoadingSummary,
+  onBack
 }) => {
   const [copied, setCopied] = useState(false);
 
@@ -190,6 +193,24 @@ export const AccountView: React.FC<AccountViewProps> = ({
 
   return (
     <div className="w-full max-w-md mx-auto px-4 py-3 space-y-4 animate-fadeIn pb-28 overflow-x-hidden">
+      {/* Top Header / Back Button */}
+      <div className="flex items-center justify-between pb-1">
+        {onBack ? (
+          <button
+            onClick={onBack}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white transition-all text-xs font-mono border border-white/10 active:scale-95 cursor-pointer"
+          >
+            <ArrowLeft className="w-3.5 h-3.5 text-[#FBD8B3]" />
+            <span>Back to Dashboard</span>
+          </button>
+        ) : (
+          <div />
+        )}
+        <span className="text-[11px] font-mono uppercase tracking-widest text-[#FBD8B3] font-bold">
+          Settings & Vault
+        </span>
+      </div>
+
       {/* Profile Card */}
       {isLoadingUser ? (
         <UserProfileSkeleton />

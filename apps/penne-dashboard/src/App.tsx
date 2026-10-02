@@ -13,6 +13,7 @@ import { TransactionsPage } from './components/TransactionsPage';
 import { BudgetPage } from './components/BudgetPage';
 import { AccountView } from './components/AccountView';
 import { WishlistPage } from './components/WishlistPage';
+import { InsightsPage } from './components/InsightsPage';
 import { BottomTabBar, NavTab } from './components/BottomTabBar';
 import { NewTxnModal, NewCategoryModal, EditTxnModal, EditCategoryModal, EditGroupModal, WishlistTxnModal, WishlistModalItem } from './components/Modals';
 import { ToastProvider, useToast } from './components/AlertBanner';
@@ -32,7 +33,17 @@ const AppInner: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => !!api.getToken());
   const [authView, setAuthView] = useState<'login' | 'signup'>('signup');
   const [activeTab, setActiveTab] = useState<NavTab>('home');
+  const [previousTab, setPreviousTab] = useState<NavTab>('home');
   const mainRef = useRef<HTMLElement | null>(null);
+
+  const handleOpenProfile = () => {
+    if (activeTab === 'account') {
+      setActiveTab(previousTab !== 'account' ? previousTab : 'home');
+    } else {
+      setPreviousTab(activeTab);
+      setActiveTab('account');
+    }
+  };
 
   // TanStack Query Request Caching & Optimistic UI Data
   const {
@@ -630,6 +641,8 @@ const AppInner: React.FC = () => {
         isLoadingUser={loadingState.user}
         isLoadingAny={isLoadingAny}
         isFetching={isFetching}
+        isProfileActive={activeTab === 'account'}
+        onOpenProfile={handleOpenProfile}
       />
 
       {/* Dynamic Tab Contents: Home, Budget & Account */}
@@ -711,16 +724,22 @@ const AppInner: React.FC = () => {
             isLoadingUser={loadingState.user}
             isLoadingTransactions={loadingState.transactions}
             isLoadingSummary={loadingState.summary}
+            onBack={() => setActiveTab(previousTab !== 'account' ? previousTab : 'home')}
           />
         )}
 
         {activeTab === 'wishlist' && <WishlistPage />}
+
+        {activeTab === 'insights' && <InsightsPage />}
       </main>
 
       {/* Mobile Fixed Bottom Navigation Bar */}
       <BottomTabBar
         activeTab={activeTab}
-        onTabChange={(tab) => setActiveTab(tab)}
+        onTabChange={(tab) => {
+          setPreviousTab(tab);
+          setActiveTab(tab);
+        }}
         onOpenNewTxnModal={() => setIsTxnModalOpen(true)}
       />
 

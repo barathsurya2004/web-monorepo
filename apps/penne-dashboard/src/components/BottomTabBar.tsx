@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Wallet, ArrowLeftRight, PieChart, Plus, User, ShoppingBag } from 'lucide-react';
+import { Wallet, ArrowLeftRight, PieChart, Plus, ShoppingBag, LineChart } from 'lucide-react';
 
-export type NavTab = 'home' | 'transactions' | 'budget' | 'wishlist' | 'account';
+export type NavTab = 'home' | 'transactions' | 'budget' | 'wishlist' | 'insights' | 'account';
 
 interface BottomTabBarProps {
   activeTab: NavTab;
@@ -101,7 +101,7 @@ export const BottomTabBar: React.FC<BottomTabBarProps> = ({
         {tab('transactions', <ArrowLeftRight className="w-5 h-5" />, 'Ledger')}
         {tab('budget', <PieChart className="w-5 h-5" />, 'Budgets')}
         {tab('wishlist', <ShoppingBag className="w-5 h-5" />, 'Wishlist')}
-        {tab('account', <User className="w-5 h-5" />, 'Vault')}
+        {tab('insights', <LineChart className="w-5 h-5" />, 'Insights')}
       </nav>
     </>
   );
