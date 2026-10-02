@@ -174,21 +174,30 @@ export const SpendingHeatmap: React.FC<SpendingHeatmapProps> = ({
           {selectedItem.transactions && selectedItem.transactions.length > 0 ? (
             <div className="space-y-1.5 pt-1.5 border-t border-white/5">
               <span className="text-[9px] font-mono uppercase tracking-wider text-slate-400 font-bold block">
-                Discretionary Expenses ({selectedItem.transactions.length}):
+                Expenses on this day ({selectedItem.transactions.length}):
               </span>
-              {selectedItem.transactions.map((tx) => (
-                <div
-                  key={tx.id}
-                  className="flex items-center justify-between text-[11px] font-mono bg-white/[0.03] px-2.5 py-1.5 rounded-lg border border-white/5"
-                >
-                  <span className="text-slate-300 truncate max-w-[200px]">
-                    {tx.description}
-                  </span>
-                  <span className="text-white font-bold shrink-0">
-                    {formatCurrency(tx.amount_e5)}
-                  </span>
-                </div>
-              ))}
+              {selectedItem.transactions.map((tx) => {
+                const categoryLabel = tx.category || tx.envelope_name || 'General';
+                const displayName = tx.envelope_name || tx.description || categoryLabel;
+                return (
+                  <div
+                    key={tx.id}
+                    className="flex items-center justify-between text-[11px] font-mono bg-white/[0.03] hover:bg-white/[0.06] px-2.5 py-1.5 rounded-lg border border-white/5 transition-colors gap-2"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[#C8B6FF]/15 text-[#C8B6FF] border border-[#C8B6FF]/30 shrink-0 font-bold">
+                        {categoryLabel}
+                      </span>
+                      <span className="text-slate-200 truncate font-medium">
+                        {displayName}
+                      </span>
+                    </div>
+                    <span className="text-white font-bold shrink-0 ml-2">
+                      {formatCurrency(tx.amount_e5)}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           ) : !selectedItem.is_future ? (
             <div className="flex items-center gap-1.5 text-[11px] font-mono text-[#A8E6CF] pt-1">

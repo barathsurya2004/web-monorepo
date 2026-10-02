@@ -215,6 +215,8 @@ export interface PeakSpendDayInfo {
     description: string;
     amount_e5: number;
     payment_method?: string;
+    category?: string;
+    envelope_name?: string;
   }>;
 }
 
@@ -232,6 +234,8 @@ export interface DailySpendingHeatmapItem {
     description: string;
     amount_e5: number;
     payment_method?: string;
+    category?: string;
+    envelope_name?: string;
   }>;
 }
 
@@ -272,6 +276,8 @@ export interface MonthlyInsightsReport {
     description: string;
     amount_e5: number;
     date: string;
+    category?: string;
+    envelope_name?: string;
   } | null;
 
   // Payment Method Breakdown

@@ -210,6 +210,23 @@ export function computeMonthlyInsights(
     }
   }
 
+  const resolveTxnDetails = (t: Transaction) => {
+    const env = t.envelope_id ? envelopeMap.get(t.envelope_id) : undefined;
+    const category = (env?.envelope_group_id ? groupMap.get(env.envelope_group_id) : '') || 'General';
+    const envelopeName = env?.name || '';
+    let description = t.description?.trim();
+    if (!description || description.toLowerCase() === 'discretionary purchase' || description.toLowerCase() === 'single expense') {
+      if (envelopeName) {
+        description = envelopeName;
+      } else if (category && category !== 'General') {
+        description = category;
+      } else {
+        description = 'Discretionary Purchase';
+      }
+    }
+    return { category, envelopeName, description: description || 'Discretionary Purchase' };
+  };
+
   // Peak spending day (excluding subscriptions)
   let peakDay: PeakSpendDayInfo | null = null;
   let maxDailyE5 = 0;
@@ -221,12 +238,17 @@ export function computeMonthlyInsights(
       const sortedTxns = [...daily.txns]
         .sort((a, b) => b.amount_e5 - a.amount_e5)
         .slice(0, 3)
-        .map((t) => ({
-          id: t.id,
-          description: t.description || 'Discretionary Purchase',
-          amount_e5: t.amount_e5,
-          payment_method: t.payment_method,
-        }));
+        .map((t) => {
+          const details = resolveTxnDetails(t);
+          return {
+            id: t.id,
+            description: details.description,
+            amount_e5: t.amount_e5,
+            payment_method: t.payment_method,
+            category: details.category,
+            envelope_name: details.envelopeName,
+          };
+        });
 
       peakDay = {
         date: daily.date,
@@ -356,12 +378,17 @@ export function computeMonthlyInsights(
       transaction_count: txnCount,
       intensity_level: intensityLevel,
       is_future: isFuture,
-      transactions: dailyData?.txns.map((t) => ({
-        id: t.id,
-        description: t.description || 'Discretionary Purchase',
-        amount_e5: t.amount_e5,
-        payment_method: t.payment_method,
-      })),
+      transactions: dailyData?.txns.map((t) => {
+        const details = resolveTxnDetails(t);
+        return {
+          id: t.id,
+          description: details.description,
+          amount_e5: t.amount_e5,
+          payment_method: t.payment_method,
+          category: details.category,
+          envelope_name: details.envelopeName,
+        };
+      }),
     });
   }
 
@@ -386,12 +413,17 @@ export function computeMonthlyInsights(
     no_spend_days_count: noSpendDaysCount,
     daily_average_e5: dailyAverageE5,
     largest_transaction: largestTxn
-      ? {
-          id: largestTxn.id,
-          description: largestTxn.description || 'Single Expense',
-          amount_e5: largestTxn.amount_e5,
-          date: largestTxn.created_at || largestTxn.CreatedAt || '',
-        }
+      ? (() => {
+          const details = resolveTxnDetails(largestTxn);
+          return {
+            id: largestTxn.id,
+            description: details.description,
+            amount_e5: largestTxn.amount_e5,
+            date: largestTxn.created_at || (largestTxn as any).CreatedAt || '',
+            category: details.category,
+            envelope_name: details.envelopeName,
+          };
+        })()
       : null,
     payment_method_splits: paymentMethodSplits,
     previous_month: previousMonth,

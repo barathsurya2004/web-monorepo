@@ -475,19 +475,28 @@ export const InsightsPage: React.FC<InsightsPageProps> = ({
                       <span className="text-[9px] font-mono uppercase tracking-wider text-slate-400 font-bold block">
                         Primary Purchases on this Day:
                       </span>
-                      {report.peak_day.top_transactions.map((tx) => (
-                        <div
-                          key={tx.id}
-                          className="flex items-center justify-between text-[11px] font-mono bg-white/[0.03] px-2 py-1.5 rounded-lg"
-                        >
-                          <span className="text-slate-300 truncate max-w-[200px]">
-                            {tx.description}
-                          </span>
-                          <span className="text-white font-bold shrink-0">
-                            {formatCurrency(tx.amount_e5)}
-                          </span>
-                        </div>
-                      ))}
+                      {report.peak_day.top_transactions.map((tx) => {
+                        const categoryLabel = tx.category || tx.envelope_name || 'General';
+                        const displayName = tx.envelope_name || tx.description || categoryLabel;
+                        return (
+                          <div
+                            key={tx.id}
+                            className="flex items-center justify-between text-[11px] font-mono bg-white/[0.03] hover:bg-white/[0.06] px-2.5 py-1.5 rounded-lg border border-white/5 transition-colors gap-2"
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[#FBD8B3]/15 text-[#FBD8B3] border border-[#FBD8B3]/30 shrink-0 font-bold">
+                                {categoryLabel}
+                              </span>
+                              <span className="text-slate-200 truncate font-medium">
+                                {displayName}
+                              </span>
+                            </div>
+                            <span className="text-white font-bold shrink-0 ml-2">
+                              {formatCurrency(tx.amount_e5)}
+                            </span>
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -612,11 +621,18 @@ export const InsightsPage: React.FC<InsightsPageProps> = ({
                     {formatDate(report.largest_transaction.date)}
                   </span>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-white truncate max-w-[200px]">
-                    {report.largest_transaction.description}
-                  </span>
-                  <span className="text-sm font-mono font-black text-[#FFB5A7]">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    {(report.largest_transaction.category || report.largest_transaction.envelope_name) && (
+                      <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[#FFB5A7]/15 text-[#FFB5A7] border border-[#FFB5A7]/30 shrink-0 font-bold">
+                        {report.largest_transaction.category || report.largest_transaction.envelope_name}
+                      </span>
+                    )}
+                    <span className="text-xs font-bold text-white truncate max-w-[200px]">
+                      {report.largest_transaction.envelope_name || report.largest_transaction.description}
+                    </span>
+                  </div>
+                  <span className="text-sm font-mono font-black text-[#FFB5A7] shrink-0 ml-2">
                     {formatCurrency(report.largest_transaction.amount_e5)}
                   </span>
                 </div>
