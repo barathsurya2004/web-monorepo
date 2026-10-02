@@ -162,3 +162,37 @@ export function formatDate(dateVal?: string | Date | null): string {
   }
 }
 
+// Subscription Types
+export type SubscriptionCycle = 'weekly' | 'monthly' | 'quarterly' | 'yearly';
+export type SubscriptionStatus = 'active' | 'paused' | 'cancelled';
+
+export interface Subscription {
+  id: string;
+  user_uuid: string;
+  envelope_id?: string | null;
+  name: string;
+  amount_e5: number;
+  billing_cycle: SubscriptionCycle;
+  next_billing_date: string;
+  payment_method: 'bank_card' | 'bank_account' | 'upi' | string;
+  status: SubscriptionStatus;
+  auto_renew: boolean;
+  notes?: string;
+  last_charged_at?: string | null;
+  last_transaction_id?: string | null;
+  merchant_pattern?: string;
+  charge_window_hours?: number;
+  occurrence_count?: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface SubscriptionSummary {
+  total_monthly_commitment_e5: number;
+  active_count: number;
+  paused_count: number;
+  next_upcoming?: Subscription | null;
+  subscriptions: Subscription[];
+}
+
+

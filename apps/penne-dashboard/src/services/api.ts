@@ -8,7 +8,9 @@ import {
   AuthSession,
   ActiveCategory,
   DashboardSummary,
-  amountToE5
+  amountToE5,
+  Subscription,
+  SubscriptionSummary
 } from '@packages/types';
 
 // Read API Base URL from Vite Environment Variable VITE_API_BASE_URL (defaults to /api proxy)
@@ -1722,6 +1724,216 @@ export const PRIORITY_LABELS: Record<number, string> = {
 };
 export const URGENCY_LABELS: Record<number, string> = {
   1: 'Whenever', 2: 'Eventually', 3: 'This Year', 4: 'This Quarter', 5: 'This Month',
+};
+
+// ==========================================
+// Subscriptions API Service
+// ==========================================
+const INITIAL_DEMO_SUBSCRIPTIONS: Subscription[] = [
+  {
+    id: 'sub-demo-1',
+    user_uuid: TEST_USER_UUID,
+    name: 'Netflix Premium',
+    amount_e5: 64900000,
+    billing_cycle: 'monthly',
+    next_billing_date: new Date(Date.now() + 4 * 86400000).toISOString().split('T')[0],
+    payment_method: 'bank_card',
+    status: 'active',
+    auto_renew: true,
+    notes: '4K Ultra HD Family Plan',
+  },
+  {
+    id: 'sub-demo-2',
+    user_uuid: TEST_USER_UUID,
+    name: 'Spotify Duo',
+    amount_e5: 14900000,
+    billing_cycle: 'monthly',
+    next_billing_date: new Date(Date.now() + 11 * 86400000).toISOString().split('T')[0],
+    payment_method: 'bank_card',
+    status: 'active',
+    auto_renew: true,
+    notes: 'Ad-free high-fidelity streaming',
+  },
+  {
+    id: 'sub-demo-3',
+    user_uuid: TEST_USER_UUID,
+    name: 'Amazon Prime',
+    amount_e5: 149900000,
+    billing_cycle: 'yearly',
+    next_billing_date: new Date(Date.now() + 42 * 86400000).toISOString().split('T')[0],
+    payment_method: 'bank_card',
+    status: 'active',
+    auto_renew: true,
+    notes: 'Free 1-day delivery and Prime Video',
+  },
+  {
+    id: 'sub-demo-4',
+    user_uuid: TEST_USER_UUID,
+    name: 'Fitness & Cult Gym',
+    amount_e5: 220000000,
+    billing_cycle: 'monthly',
+    next_billing_date: new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0],
+    payment_method: 'bank_account',
+    status: 'active',
+    auto_renew: true,
+    notes: 'Unlimited gym access pass',
+  },
+  {
+    id: 'sub-demo-5',
+    user_uuid: TEST_USER_UUID,
+    name: 'Apple iCloud (200GB)',
+    amount_e5: 21900000,
+    billing_cycle: 'monthly',
+    next_billing_date: new Date(Date.now() + 19 * 86400000).toISOString().split('T')[0],
+    payment_method: 'bank_card',
+    status: 'active',
+    auto_renew: true,
+    notes: 'Cloud backup & photo sync',
+  },
+];
+
+function getMockSubscriptions(): Subscription[] {
+  try {
+    const raw = localStorage.getItem('penne_mock_subscriptions');
+    if (raw) return JSON.parse(raw);
+  } catch {
+    // ignore
+  }
+  return [...INITIAL_DEMO_SUBSCRIPTIONS];
+}
+
+function saveMockSubscriptions(subs: Subscription[]) {
+  try {
+    localStorage.setItem('penne_mock_subscriptions', JSON.stringify(subs));
+  } catch {
+    // ignore
+  }
+}
+
+function calculateMockSubscriptionSummary(subs: Subscription[]): SubscriptionSummary {
+  let totalMonthlyCommitmentE5 = 0;
+  let activeCount = 0;
+  let pausedCount = 0;
+  let nextUpcoming: Subscription | null = null;
+  const nowStr = new Date().toISOString().split('T')[0];
+
+  for (const s of subs) {
+    if (s.status === 'active') {
+      activeCount++;
+      let monthly = s.amount_e5;
+      if (s.billing_cycle === 'yearly') monthly = Math.round(s.amount_e5 / 12);
+      else if (s.billing_cycle === 'quarterly') monthly = Math.round(s.amount_e5 / 3);
+      else if (s.billing_cycle === 'weekly') monthly = Math.round((s.amount_e5 * 52) / 12);
+      totalMonthlyCommitmentE5 += monthly;
+
+      if (!nextUpcoming) {
+        nextUpcoming = s;
+      } else if (s.next_billing_date >= nowStr && s.next_billing_date < nextUpcoming.next_billing_date) {
+        nextUpcoming = s;
+      }
+    } else if (s.status === 'paused') {
+      pausedCount++;
+    }
+  }
+
+  return {
+    total_monthly_commitment_e5: totalMonthlyCommitmentE5,
+    active_count: activeCount,
+    paused_count: pausedCount,
+    next_upcoming: nextUpcoming,
+    subscriptions: subs,
+  };
+}
+
+export const subscriptionsApi = {
+  async getSubscriptions(): Promise<SubscriptionSummary> {
+    try {
+      return await wishlistFetch<SubscriptionSummary>('/subscriptions');
+    } catch {
+      const subs = getMockSubscriptions();
+      return calculateMockSubscriptionSummary(subs);
+    }
+  },
+
+  async createSubscription(sub: Partial<Subscription>): Promise<Subscription> {
+    try {
+      return await wishlistFetch<Subscription>('/subscription', {
+        method: 'POST',
+        body: JSON.stringify(sub),
+      });
+    } catch {
+      const subs = getMockSubscriptions();
+      const newSub: Subscription = {
+        id: `sub-${Date.now()}`,
+        user_uuid: TEST_USER_UUID,
+        name: sub.name || 'Untitled Subscription',
+        amount_e5: sub.amount_e5 || 10000000,
+        billing_cycle: sub.billing_cycle || 'monthly',
+        next_billing_date: sub.next_billing_date || new Date().toISOString().split('T')[0],
+        payment_method: sub.payment_method || 'bank_card',
+        envelope_id: sub.envelope_id || null,
+        status: sub.status || 'active',
+        auto_renew: sub.auto_renew !== undefined ? sub.auto_renew : true,
+        notes: sub.notes || '',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      subs.unshift(newSub);
+      saveMockSubscriptions(subs);
+      return newSub;
+    }
+  },
+
+  async updateSubscription(sub: Partial<Subscription> & { id: string }): Promise<Subscription> {
+    try {
+      return await wishlistFetch<Subscription>('/subscription', {
+        method: 'PUT',
+        body: JSON.stringify(sub),
+      });
+    } catch {
+      const subs = getMockSubscriptions();
+      const idx = subs.findIndex((s) => s.id === sub.id);
+      if (idx < 0) throw new Error('Subscription not found');
+      subs[idx] = { ...subs[idx], ...sub, updated_at: new Date().toISOString() };
+      saveMockSubscriptions(subs);
+      return subs[idx];
+    }
+  },
+
+  async deleteSubscription(id: string): Promise<{ message: string }> {
+    try {
+      return await wishlistFetch<{ message: string }>(`/subscription?id=${id}`, {
+        method: 'DELETE',
+      });
+    } catch {
+      const subs = getMockSubscriptions().filter((s) => s.id !== id);
+      saveMockSubscriptions(subs);
+      return { message: 'Subscription deleted successfully' };
+    }
+  },
+
+  async renewSubscription(id: string): Promise<{ message: string; transaction?: any }> {
+    try {
+      return await wishlistFetch<{ message: string; transaction: any }>('/subscription/renew', {
+        method: 'POST',
+        body: JSON.stringify({ id }),
+      });
+    } catch {
+      const subs = getMockSubscriptions();
+      const idx = subs.findIndex((s) => s.id === id);
+      if (idx >= 0) {
+        const sub = subs[idx];
+        const next = new Date(sub.next_billing_date);
+        if (sub.billing_cycle === 'yearly') next.setFullYear(next.getFullYear() + 1);
+        else if (sub.billing_cycle === 'quarterly') next.setMonth(next.getMonth() + 3);
+        else if (sub.billing_cycle === 'weekly') next.setDate(next.getDate() + 7);
+        else next.setMonth(next.getMonth() + 1);
+        sub.next_billing_date = next.toISOString().split('T')[0];
+        saveMockSubscriptions(subs);
+      }
+      return { message: 'Subscription renewed successfully (demo mode)' };
+    }
+  },
 };
 
 
