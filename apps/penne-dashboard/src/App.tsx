@@ -730,7 +730,12 @@ const AppInner: React.FC = () => {
 
         {activeTab === 'wishlist' && <WishlistPage />}
 
-        {activeTab === 'insights' && <InsightsPage />}
+        {activeTab === 'insights' && (
+          <InsightsPage
+            transactions={transactions}
+            onOpenNewTxnModal={() => setIsTxnModalOpen(true)}
+          />
+        )}
       </main>
 
       {/* Mobile Fixed Bottom Navigation Bar */}

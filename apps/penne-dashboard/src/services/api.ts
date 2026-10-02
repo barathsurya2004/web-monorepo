@@ -10,7 +10,8 @@ import {
   DashboardSummary,
   amountToE5,
   Subscription,
-  SubscriptionSummary
+  SubscriptionSummary,
+  MonthlyInsightsReport
 } from '@packages/types';
 
 // Read API Base URL from Vite Environment Variable VITE_API_BASE_URL (defaults to /api proxy)
@@ -1257,6 +1258,51 @@ export class PenneApiClient {
       console.warn('[Penne API] GET /api/dashboard-summary failed, calculating fallback summary', err);
       const txns = await this.getTransactions();
       return this.calculateBufferedSummary(txns, cardLimit, bankLimit);
+    }
+  }
+
+  async getMonthlyInsights(year: number, month: number): Promise<MonthlyInsightsReport> {
+    if (this.useMock) {
+      await this.simulateDemoDelay(900, 150);
+      const { computeMonthlyInsights } = await import('../utils/insightsCalculator');
+      const subSummary = await subscriptionsApi.getSubscriptions();
+      return computeMonthlyInsights(
+        this.mockTransactions,
+        this.mockEnvelopes,
+        this.mockGroups,
+        subSummary.subscriptions,
+        year,
+        month
+      );
+    }
+
+    try {
+      const res = await this.request<MonthlyInsightsReport>(
+        `/insights/monthly?user_uuid=${this.userUUID}&year=${year}&month=${month}`,
+        { method: 'GET' }
+      );
+      if (res && typeof res.total_expense_e5 === 'number') {
+        return res;
+      }
+      throw new Error('Invalid monthly insights response');
+    } catch (err) {
+      console.warn('[Penne API] GET /api/insights/monthly failed, falling back to local computation', err);
+      const [txns, envelopes, groups, subSummary] = await Promise.allSettled([
+        this.getTransactions(),
+        this.getEnvelopes(),
+        this.getEnvelopeGroups(),
+        subscriptionsApi.getSubscriptions()
+      ]);
+      const { computeMonthlyInsights } = await import('../utils/insightsCalculator');
+      const subsArr = subSummary.status === 'fulfilled' ? (subSummary.value as SubscriptionSummary).subscriptions : [];
+      return computeMonthlyInsights(
+        txns.status === 'fulfilled' ? txns.value : [],
+        envelopes.status === 'fulfilled' ? envelopes.value : [],
+        groups.status === 'fulfilled' ? groups.value : [],
+        subsArr,
+        year,
+        month
+      );
     }
   }
 }

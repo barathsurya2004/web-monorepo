@@ -195,4 +195,101 @@ export interface SubscriptionSummary {
   subscriptions: Subscription[];
 }
 
+// Monthly Insights & Analytics Models
+export interface CategorySpendSplit {
+  envelope_id: string;
+  envelope_name: string;
+  group_name: string;
+  spent_e5: number;
+  percentage: number;
+  transaction_count: number;
+}
+
+export interface PeakSpendDayInfo {
+  date: string; // YYYY-MM-DD
+  day_name: string; // "Saturday"
+  total_spent_e5: number;
+  transaction_count: number;
+  top_transactions: Array<{
+    id: string;
+    description: string;
+    amount_e5: number;
+    payment_method?: string;
+  }>;
+}
+
+export interface DailySpendingHeatmapItem {
+  date: string; // YYYY-MM-DD
+  day: number; // 1 - 31
+  day_of_week: number; // 0 - 6 (0 = Sun)
+  day_name: string; // "Saturday"
+  total_spent_e5: number;
+  transaction_count: number;
+  intensity_level: 0 | 1 | 2 | 3 | 4;
+  is_future: boolean;
+  transactions?: Array<{
+    id: string;
+    description: string;
+    amount_e5: number;
+    payment_method?: string;
+  }>;
+}
+
+export interface MonthlyInsightsReport {
+  year: number;
+  month: number; // 1-12
+  month_label: string; // e.g. "October 2026"
+  days_in_month: number;
+  days_elapsed: number;
+
+  // Executive Totals
+  total_income_e5: number;
+  total_expense_e5: number;
+  net_savings_e5: number;
+  savings_rate_pct: number;
+
+  // Subscriptions vs Discretionary
+  subscription_expense_e5: number;
+  discretionary_expense_e5: number;
+  subscription_count: number;
+
+  // Peak Day (Excluding Subscriptions)
+  peak_day?: PeakSpendDayInfo | null;
+
+  // Daily Spending Heatmap (All days in month)
+  daily_heatmap: DailySpendingHeatmapItem[];
+  first_day_offset: number; // 0 = Sun, 1 = Mon ...
+  max_daily_spend_e5: number;
+
+  // Category Breakdown
+  category_splits: CategorySpendSplit[];
+
+  // Habits & Extremes
+  no_spend_days_count: number;
+  daily_average_e5: number;
+  largest_transaction?: {
+    id: string;
+    description: string;
+    amount_e5: number;
+    date: string;
+  } | null;
+
+  // Payment Method Breakdown
+  payment_method_splits: Array<{
+    method: string;
+    label: string;
+    spent_e5: number;
+    count: number;
+  }>;
+
+  // Month-over-Month Delta (vs previous month)
+  previous_month?: {
+    total_expense_e5: number;
+    delta_pct: number;
+    is_lower: boolean;
+  } | null;
+}
+
+
+
 

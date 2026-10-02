@@ -18,6 +18,7 @@ export const QUERY_KEYS = {
   dashboardSummary: ['dashboardSummary'] as const,
   wishlist: ['wishlist'] as const,
   subscriptions: ['subscriptions'] as const,
+  monthlyInsights: (year: number, month: number) => ['monthlyInsights', year, month] as const,
 };
 
 export interface CreateTxnVariables {
