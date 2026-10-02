@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Input, Select, Button } from '@packages/ui';
-import { Transaction, EnvelopeGroup, Envelope, amountToE5, e5ToAmount, formatCurrency } from '@packages/types';
-import { Trash2, AlertTriangle, Receipt, Sparkles, Gift, ExternalLink, CreditCard, Landmark, CheckCircle2 } from 'lucide-react';
+import { Transaction, EnvelopeGroup, Envelope, Subscription, SubscriptionCycle, SubscriptionStatus, amountToE5, e5ToAmount, formatCurrency } from '@packages/types';
+import { Trash2, AlertTriangle, Receipt, Sparkles, Gift, ExternalLink, CreditCard, Landmark, CheckCircle2, Calendar, Zap, RefreshCw } from 'lucide-react';
 import { EnvelopeMonogramBadge } from '../utils/envelopeVisuals';
 import { WishlistItem } from '../services/api';
 
@@ -1197,3 +1197,361 @@ export const EditGroupModal: React.FC<EditGroupModalProps> = ({
     </Modal>
   );
 };
+
+// --- Add / Edit Subscription Modal ---
+interface SubscriptionModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  subscriptionToEdit?: Subscription | null;
+  envelopes?: Envelope[];
+  onSubmit: (sub: Partial<Subscription>) => Promise<void> | void;
+  onDelete?: (id: string) => Promise<void> | void;
+}
+
+export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
+  isOpen,
+  onClose,
+  subscriptionToEdit,
+  envelopes = [],
+  onSubmit,
+  onDelete,
+}) => {
+  const isEditing = !!subscriptionToEdit;
+
+  const [name, setName] = useState('');
+  const [amount, setAmount] = useState('');
+  const [billingCycle, setBillingCycle] = useState<SubscriptionCycle>('monthly');
+  const [nextBillingDate, setNextBillingDate] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('bank_card');
+  const [envelopeId, setEnvelopeId] = useState<string>('');
+  const [notes, setNotes] = useState('');
+  const [autoRenew, setAutoRenew] = useState(true);
+  const [status, setStatus] = useState<SubscriptionStatus>('active');
+  const [loading, setLoading] = useState(false);
+  const [showConfirmDelete, setShowConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  useEffect(() => {
+    if (subscriptionToEdit) {
+      setName(subscriptionToEdit.name || '');
+      setAmount(subscriptionToEdit.amount_e5 ? e5ToAmount(subscriptionToEdit.amount_e5).toString() : '');
+      setBillingCycle(subscriptionToEdit.billing_cycle || 'monthly');
+      const dateStr = subscriptionToEdit.next_billing_date ? subscriptionToEdit.next_billing_date.split('T')[0] : '';
+      setNextBillingDate(dateStr);
+      setPaymentMethod(subscriptionToEdit.payment_method || 'bank_card');
+      setEnvelopeId(subscriptionToEdit.envelope_id || '');
+      setNotes(subscriptionToEdit.notes || '');
+      setAutoRenew(subscriptionToEdit.auto_renew ?? true);
+      setStatus(subscriptionToEdit.status || 'active');
+    } else {
+      setName('');
+      setAmount('');
+      setBillingCycle('monthly');
+      const defaultDate = new Date();
+      defaultDate.setDate(defaultDate.getDate() + 30);
+      setNextBillingDate(defaultDate.toISOString().split('T')[0]);
+      setPaymentMethod('bank_card');
+      setEnvelopeId('');
+      setNotes('');
+      setAutoRenew(true);
+      setStatus('active');
+    }
+    setShowConfirmDelete(false);
+  }, [subscriptionToEdit, isOpen]);
+
+  const PRESETS = [
+    { name: 'Netflix Premium', amount: 649, cycle: 'monthly' as SubscriptionCycle },
+    { name: 'Spotify Duo', amount: 149, cycle: 'monthly' as SubscriptionCycle },
+    { name: 'YouTube Premium', amount: 149, cycle: 'monthly' as SubscriptionCycle },
+    { name: 'Amazon Prime', amount: 299, cycle: 'monthly' as SubscriptionCycle },
+    { name: 'ChatGPT Plus', amount: 1999, cycle: 'monthly' as SubscriptionCycle },
+    { name: 'GitHub Copilot', amount: 820, cycle: 'monthly' as SubscriptionCycle },
+    { name: 'iCloud+ 50GB', amount: 75, cycle: 'monthly' as SubscriptionCycle },
+  ];
+
+  const handleApplyPreset = (preset: typeof PRESETS[0]) => {
+    setName(preset.name);
+    setAmount(preset.amount.toString());
+    setBillingCycle(preset.cycle);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const parsedAmount = parseFloat(amount);
+    if (!name.trim() || isNaN(parsedAmount) || parsedAmount <= 0) return;
+
+    setLoading(true);
+    try {
+      const payload: Partial<Subscription> = {
+        name: name.trim(),
+        amount_e5: amountToE5(parsedAmount),
+        billing_cycle: billingCycle,
+        next_billing_date: nextBillingDate ? new Date(nextBillingDate).toISOString() : new Date().toISOString(),
+        payment_method: paymentMethod,
+        envelope_id: envelopeId || undefined,
+        notes: notes.trim(),
+        auto_renew: autoRenew,
+        status: status,
+      };
+
+      if (subscriptionToEdit?.id) {
+        payload.id = subscriptionToEdit.id;
+      }
+
+      await onSubmit(payload);
+      onClose();
+    } catch (err) {
+      console.error('[SubscriptionModal] Submit error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!subscriptionToEdit?.id || !onDelete) return;
+    setDeleting(true);
+    try {
+      await onDelete(subscriptionToEdit.id);
+      onClose();
+    } catch (err) {
+      console.error('[SubscriptionModal] Delete error:', err);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={isEditing ? 'Edit Subscription' : 'Add New Subscription'}
+    >
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Preset Quick Select Pills (Only on create) */}
+        {!isEditing && (
+          <div className="space-y-1.5">
+            <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400 font-bold block">
+              Quick Presets
+            </span>
+            <div className="flex flex-wrap gap-1.5">
+              {PRESETS.map((p) => (
+                <button
+                  key={p.name}
+                  type="button"
+                  onClick={() => handleApplyPreset(p)}
+                  className={`text-[11px] font-mono px-2.5 py-1 rounded-lg border transition-all cursor-pointer ${
+                    name === p.name
+                      ? 'bg-[#FBD8B3]/20 border-[#FBD8B3] text-[#FBD8B3] font-bold'
+                      : 'bg-white/5 border-white/10 text-slate-300 hover:border-white/20 hover:text-white'
+                  }`}
+                >
+                  {p.name} (₹{p.amount})
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Subscription Name */}
+        <div>
+          <label className="block text-xs font-mono text-slate-400 mb-1 font-bold">
+            Service / Subscription Name <span className="text-[#FFB5A7]">*</span>
+          </label>
+          <Input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="e.g. Netflix, Spotify, Gym, Cloud Storage"
+            required
+            autoFocus={!isEditing}
+          />
+        </div>
+
+        {/* Amount & Cycle Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-mono text-slate-400 mb-1 font-bold">
+              Amount (₹) <span className="text-[#FFB5A7]">*</span>
+            </label>
+            <Input
+              type="number"
+              step="any"
+              min="1"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="e.g. 649"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-mono text-slate-400 mb-1 font-bold">
+              Billing Cycle
+            </label>
+            <Select
+              value={billingCycle}
+              onChange={(e) => setBillingCycle(e.target.value as SubscriptionCycle)}
+              options={[
+                { value: 'monthly', label: 'Monthly' },
+                { value: 'yearly', label: 'Yearly (Annual)' },
+                { value: 'quarterly', label: 'Quarterly (Every 3 mos)' },
+                { value: 'weekly', label: 'Weekly' },
+              ]}
+            />
+          </div>
+        </div>
+
+        {/* Next Billing Date & Payment Method */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-mono text-slate-400 mb-1 font-bold">
+              Next Billing Date <span className="text-[#FFB5A7]">*</span>
+            </label>
+            <Input
+              type="date"
+              value={nextBillingDate}
+              onChange={(e) => setNextBillingDate(e.target.value)}
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-mono text-slate-400 mb-1 font-bold">
+              Payment Method
+            </label>
+            <Select
+              value={paymentMethod}
+              onChange={(e) => setPaymentMethod(e.target.value)}
+              options={[
+                { value: 'bank_card', label: 'Debit / Credit Card' },
+                { value: 'bank_account', label: 'Bank Auto-Debit / ECS' },
+                { value: 'upi', label: 'UPI AutoPay' },
+              ]}
+            />
+          </div>
+        </div>
+
+        {/* Envelope Linking & Status (if editing) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-mono text-slate-400 mb-1 font-bold">
+              Link to Envelope (Optional)
+            </label>
+            <Select
+              value={envelopeId}
+              onChange={(e) => setEnvelopeId(e.target.value)}
+              options={[
+                { value: '', label: 'None (Unassigned)' },
+                ...envelopes
+                  .filter((e) => !e.is_system)
+                  .map((e) => ({
+                    value: e.id,
+                    label: e.name || 'Category Envelope',
+                  })),
+              ]}
+            />
+          </div>
+
+          {isEditing ? (
+            <div>
+              <label className="block text-xs font-mono text-slate-400 mb-1 font-bold">
+                Subscription Status
+              </label>
+              <Select
+                value={status}
+                onChange={(e) => setStatus(e.target.value as SubscriptionStatus)}
+                options={[
+                  { value: 'active', label: 'Active (Ongoing)' },
+                  { value: 'paused', label: 'Paused (Temporarily stopped)' },
+                  { value: 'cancelled', label: 'Cancelled' },
+                ]}
+              />
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 pt-6">
+              <input
+                type="checkbox"
+                id="autoRenew"
+                checked={autoRenew}
+                onChange={(e) => setAutoRenew(e.target.checked)}
+                className="w-4 h-4 rounded border-white/20 bg-white/5 text-[#FBD8B3] focus:ring-[#FBD8B3] cursor-pointer"
+              />
+              <label htmlFor="autoRenew" className="text-xs text-slate-300 font-mono cursor-pointer select-none">
+                Auto-Renew Cycle
+              </label>
+            </div>
+          )}
+        </div>
+
+        {/* Plan Notes */}
+        <div>
+          <label className="block text-xs font-mono text-slate-400 mb-1 font-bold">
+            Notes / Plan Details (Optional)
+          </label>
+          <Input
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="e.g. 4K Family plan, split with Alex"
+          />
+        </div>
+
+        {/* Delete Confirmation Box (when editing) */}
+        {showConfirmDelete ? (
+          <div className="p-3.5 rounded-xl border border-rose-500/30 bg-rose-950/30 space-y-2">
+            <div className="flex items-center gap-2 text-rose-300 text-xs font-bold">
+              <AlertTriangle className="w-4 h-4" />
+              <span>Delete this subscription?</span>
+            </div>
+            <p className="text-[11px] text-slate-300 font-mono">
+              This will remove tracking for "{name}". Existing past transactions will remain in your ledger.
+            </p>
+            <div className="flex gap-2 pt-1">
+              <Button
+                type="button"
+                variant="pastelRose"
+                size="sm"
+                onClick={handleDelete}
+                disabled={deleting}
+                className="w-full text-xs font-bold"
+              >
+                {deleting ? 'Deleting...' : 'Yes, Delete'}
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => setShowConfirmDelete(false)}
+                className="w-full text-xs"
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center justify-between pt-3 border-t border-white/10">
+            {isEditing && onDelete ? (
+              <button
+                type="button"
+                onClick={() => setShowConfirmDelete(true)}
+                className="text-xs font-bold text-[#FFB5A7] hover:underline flex items-center gap-1.5 cursor-pointer font-mono"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>Delete</span>
+              </button>
+            ) : (
+              <div />
+            )}
+            <div className="flex gap-2">
+              <Button type="button" variant="ghost" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button type="submit" variant="primary" disabled={loading}>
+                {loading ? 'Saving...' : isEditing ? 'Save Changes' : 'Add Subscription'}
+              </Button>
+            </div>
+          </div>
+        )}
+      </form>
+    </Modal>
+  );
+};
+

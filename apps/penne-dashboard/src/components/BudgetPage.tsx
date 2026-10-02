@@ -1,5 +1,17 @@
 import React, { useState, useMemo } from 'react';
-import { ActiveCategory, Transaction, EnvelopeGroup, Envelope, DashboardSummary, e5ToAmount } from '@packages/types';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  ActiveCategory,
+  Transaction,
+  EnvelopeGroup,
+  Envelope,
+  DashboardSummary,
+  Subscription,
+  SubscriptionSummary,
+  SubscriptionStatus,
+  SubscriptionCycle,
+  e5ToAmount,
+} from '@packages/types';
 import { Button } from '@packages/ui';
 import {
   Folder,
@@ -8,12 +20,67 @@ import {
   Receipt,
   ChevronDown,
   WifiOff,
-  RefreshCw
+  RefreshCw,
+  Calendar,
+  Clock,
+  Zap,
+  Play,
+  Pause,
+  Trash2,
+  Sparkles,
+  AlertTriangle,
+  CheckCircle2,
+  AlertCircle,
 } from 'lucide-react';
 import { EnvelopeMonogramBadge } from '../utils/envelopeVisuals';
 import { calculateSafeDailySpend } from '../utils/cadence';
 import { BudgetOverviewSkeleton, CategoryListSkeleton } from './Skeleton';
 import { PageTagHeader } from './PageTagHeader';
+import { QUERY_KEYS } from '../hooks/useDashboardData';
+import { subscriptionsApi } from '../services/api';
+import { SubscriptionModal } from './Modals';
+
+const getSubscriptionBrand = (name: string) => {
+  const lower = name.toLowerCase();
+  if (lower.includes('netflix')) {
+    return { bg: 'bg-red-500/15 text-red-400 border-red-500/30', monogram: 'NF' };
+  }
+  if (lower.includes('spotify')) {
+    return { bg: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30', monogram: 'SP' };
+  }
+  if (lower.includes('youtube')) {
+    return { bg: 'bg-rose-500/15 text-rose-400 border-rose-500/30', monogram: 'YT' };
+  }
+  if (lower.includes('apple') || lower.includes('icloud')) {
+    return { bg: 'bg-slate-300/15 text-slate-200 border-slate-400/30', monogram: '' };
+  }
+  if (lower.includes('prime') || lower.includes('amazon')) {
+    return { bg: 'bg-sky-500/15 text-sky-400 border-sky-500/30', monogram: 'PR' };
+  }
+  if (lower.includes('chatgpt') || lower.includes('openai')) {
+    return { bg: 'bg-teal-500/15 text-teal-300 border-teal-500/30', monogram: 'AI' };
+  }
+  if (lower.includes('github') || lower.includes('copilot')) {
+    return { bg: 'bg-purple-500/15 text-purple-300 border-purple-500/30', monogram: 'GH' };
+  }
+  if (lower.includes('disney') || lower.includes('hotstar')) {
+    return { bg: 'bg-blue-600/15 text-blue-300 border-blue-500/30', monogram: 'D+' };
+  }
+  const parts = name.trim().split(/\s+/);
+  const monogram = parts.length > 1
+    ? (parts[0][0] + parts[1][0]).toUpperCase()
+    : name.slice(0, 2).toUpperCase();
+  return { bg: 'bg-[#FBD8B3]/15 text-[#FBD8B3] border-[#FBD8B3]/30', monogram };
+};
+
+const getDaysUntil = (dateStr?: string) => {
+  if (!dateStr) return null;
+  const target = new Date(dateStr);
+  const now = new Date();
+  const utcTarget = Date.UTC(target.getFullYear(), target.getMonth(), target.getDate());
+  const utcNow = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  return Math.round((utcTarget - utcNow) / (1000 * 60 * 60 * 24));
+};
 
 interface BudgetPageProps {
   categories: ActiveCategory[];
@@ -58,6 +125,118 @@ export const BudgetPage: React.FC<BudgetPageProps> = ({
 }) => {
   const [filterTab, setFilterTab] = useState<'all' | 'healthy' | 'warning' | 'over' | 'untracked'>('all');
   const [expandedEnvId, setExpandedEnvId] = useState<string | null>(null);
+
+  // Sub-view Toggle
+  const [activeSubView, setActiveSubView] = useState<'envelopes' | 'subscriptions'>('envelopes');
+  const [isSubModalOpen, setIsSubModalOpen] = useState(false);
+  const [subToEdit, setSubToEdit] = useState<Subscription | null>(null);
+  const [subFilter, setSubFilter] = useState<'all' | 'due_soon' | 'monthly' | 'annual' | 'paused'>('all');
+  const [renewingSubId, setRenewingSubId] = useState<string | null>(null);
+  const [actionFeedback, setActionFeedback] = useState<{ id?: string; type: 'success' | 'error'; message: string } | null>(null);
+
+  const queryClient = useQueryClient();
+
+  const {
+    data: subscriptionsData,
+    isLoading: isLoadingSubs,
+  } = useQuery<SubscriptionSummary>({
+    queryKey: QUERY_KEYS.subscriptions,
+    queryFn: () => subscriptionsApi.getSubscriptions(),
+    staleTime: 1000 * 60 * 2,
+    refetchOnWindowFocus: true,
+  });
+
+  const subscriptionsList = useMemo(() => {
+    return Array.isArray(subscriptionsData?.subscriptions) ? subscriptionsData.subscriptions : [];
+  }, [subscriptionsData]);
+
+  const filteredSubscriptions = useMemo(() => {
+    return subscriptionsList.filter((s) => {
+      if (subFilter === 'all') return true;
+      if (subFilter === 'paused') return s.status === 'paused';
+      if (subFilter === 'monthly') return s.billing_cycle === 'monthly' && s.status !== 'paused';
+      if (subFilter === 'annual') return s.billing_cycle === 'yearly' && s.status !== 'paused';
+      if (subFilter === 'due_soon') {
+        if (s.status === 'paused') return false;
+        const days = getDaysUntil(s.next_billing_date);
+        return days !== null && days >= 0 && days <= 7;
+      }
+      return true;
+    });
+  }, [subscriptionsList, subFilter]);
+
+  const handleRenewSubscription = async (sub: Subscription) => {
+    setRenewingSubId(sub.id);
+    setActionFeedback(null);
+    try {
+      await subscriptionsApi.renewSubscription(sub.id);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.subscriptions }),
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.transactions }),
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.dashboardSummary }),
+      ]);
+      setActionFeedback({
+        id: sub.id,
+        type: 'success',
+        message: `Renewed ${sub.name}! Next charge scheduled for next cycle.`,
+      });
+      setTimeout(() => setActionFeedback(null), 4000);
+    } catch (err: any) {
+      setActionFeedback({
+        id: sub.id,
+        type: 'error',
+        message: `Renewal failed: ${err.message || 'Error'}`,
+      });
+      setTimeout(() => setActionFeedback(null), 4000);
+    } finally {
+      setRenewingSubId(null);
+    }
+  };
+
+  const handleToggleSubStatus = async (sub: Subscription) => {
+    try {
+      const nextStatus: SubscriptionStatus = sub.status === 'active' ? 'paused' : 'active';
+      await subscriptionsApi.updateSubscription({
+        id: sub.id,
+        name: sub.name,
+        amount_e5: sub.amount_e5,
+        billing_cycle: sub.billing_cycle,
+        next_billing_date: sub.next_billing_date,
+        payment_method: sub.payment_method,
+        status: nextStatus,
+        envelope_id: sub.envelope_id || undefined,
+        auto_renew: sub.auto_renew,
+        notes: sub.notes,
+      });
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.subscriptions });
+    } catch (err: any) {
+      console.error('Failed to toggle status:', err);
+    }
+  };
+
+  const handleSaveSubscription = async (payload: Partial<Subscription>) => {
+    try {
+      if (payload.id) {
+        await subscriptionsApi.updateSubscription(payload as any);
+      } else {
+        await subscriptionsApi.createSubscription(payload as any);
+      }
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.subscriptions });
+    } catch (err: any) {
+      console.error('Failed to save subscription:', err);
+      throw err;
+    }
+  };
+
+  const handleDeleteSubscription = async (id: string) => {
+    try {
+      await subscriptionsApi.deleteSubscription(id);
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.subscriptions });
+    } catch (err: any) {
+      console.error('Failed to delete subscription:', err);
+      throw err;
+    }
+  };
 
   const safeTxns = Array.isArray(transactions) ? transactions : [];
 
@@ -235,10 +414,42 @@ export const BudgetPage: React.FC<BudgetPageProps> = ({
     <div className="w-full max-w-md mx-auto px-4 py-3 space-y-4 animate-fadeIn pb-28 overflow-x-hidden">
       {/* Top Tag Header */}
       <PageTagHeader
-        title="Budgets & Envelopes"
-        dotColor="#C8B6FF"
-        badgeText={`${unifiedEnvelopes.filter((e) => !e.is_system).length} Envelopes`}
+        title={activeSubView === 'subscriptions' ? 'Subscriptions & Recurring' : 'Budgets & Envelopes'}
+        dotColor={activeSubView === 'subscriptions' ? '#A8E6CF' : '#C8B6FF'}
+        badgeText={
+          activeSubView === 'subscriptions'
+            ? `${subscriptionsData?.active_count ?? subscriptionsList.filter(s => s.status === 'active').length} Active`
+            : `${unifiedEnvelopes.filter((e) => !e.is_system).length} Envelopes`
+        }
       />
+
+      {/* Segmented Sub-view Navigation Toggle */}
+      <div className="flex items-center p-1 rounded-2xl bg-[#14122B]/90 border border-white/10 shadow-inner">
+        <button
+          type="button"
+          onClick={() => setActiveSubView('envelopes')}
+          className={`flex-1 py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all duration-200 cursor-pointer ${
+            activeSubView === 'envelopes'
+              ? 'bg-gradient-to-r from-[#2A2454] to-[#1E1A3D] text-white shadow-md border border-white/15'
+              : 'text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <Folder className="w-3.5 h-3.5 text-[#FBD8B3]" />
+          <span>Envelopes ({unifiedEnvelopes.filter((e) => !e.is_system).length})</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveSubView('subscriptions')}
+          className={`flex-1 py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all duration-200 cursor-pointer ${
+            activeSubView === 'subscriptions'
+              ? 'bg-gradient-to-r from-[#2A2454] to-[#1E1A3D] text-white shadow-md border border-white/15'
+              : 'text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <Receipt className="w-3.5 h-3.5 text-[#A8E6CF]" />
+          <span>Subscriptions ({subscriptionsData?.active_count ?? subscriptionsList.length})</span>
+        </button>
+      </div>
 
       {/* Offline Banner */}
       {isServerOffline && !isMockMode && (
@@ -266,9 +477,12 @@ export const BudgetPage: React.FC<BudgetPageProps> = ({
         </div>
       )}
 
-      {/* Hero Budget Allocation Card */}
-      {isLoadingCategories ? (
-        <BudgetOverviewSkeleton />
+      {/* SUB-VIEW 1: ENVELOPES */}
+      {activeSubView === 'envelopes' && (
+        <div className="space-y-4">
+          {/* Hero Budget Allocation Card */}
+          {isLoadingCategories ? (
+            <BudgetOverviewSkeleton />
       ) : (
         <div className="velvet-card p-5 relative overflow-hidden shadow-2xl">
           <div className="flex justify-between items-start mb-3">
@@ -547,6 +761,374 @@ export const BudgetPage: React.FC<BudgetPageProps> = ({
           })}
         </div>
       )}
+        </div>
+      )}
+
+      {/* SUB-VIEW 2: SUBSCRIPTIONS TRACKER */}
+      {activeSubView === 'subscriptions' && (
+        <div className="space-y-4">
+          {/* Action Feedback Banner */}
+          {actionFeedback && (
+            <div
+              className={`p-3 rounded-xl border text-xs font-mono flex items-center gap-2 animate-fadeIn ${
+                actionFeedback.type === 'success'
+                  ? 'bg-emerald-950/40 border-emerald-500/30 text-emerald-300'
+                  : 'bg-rose-950/40 border-rose-500/30 text-rose-300'
+              }`}
+            >
+              {actionFeedback.type === 'success' ? (
+                <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
+              ) : (
+                <AlertTriangle className="w-4 h-4 shrink-0 text-rose-400" />
+              )}
+              <span>{actionFeedback.message}</span>
+            </div>
+          )}
+
+          {/* Hero Subscription Commitment Card */}
+          <div className="velvet-card p-5 relative overflow-hidden shadow-2xl">
+            <div className="flex justify-between items-start mb-3">
+              <div>
+                <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider block font-bold">
+                  Total Monthly Commitment
+                </span>
+                <div className="text-2xl sm:text-3xl font-black text-white font-mono mt-0.5">
+                  {formatINR(e5ToAmount(subscriptionsData?.total_monthly_commitment_e5 ?? 0))}
+                  <span className="text-xs text-slate-400 font-normal ml-1">/ month</span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setSubToEdit(null);
+                  setIsSubModalOpen(true);
+                }}
+                className="px-3.5 py-1.5 rounded-xl bg-[#FBD8B3] hover:bg-[#f7c495] text-[#1A1835] font-black text-xs flex items-center gap-1.5 shadow-[0_2px_12px_rgba(251,216,179,0.35)] active:scale-95 transition-all duration-200 cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5 stroke-[3] text-[#1A1835]" />
+                <span>Subscription</span>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2 pt-3 border-t border-white/5 font-mono text-xs">
+              <div>
+                <span className="text-[10px] text-slate-400 block font-bold uppercase">Active</span>
+                <span className="text-[#A8E6CF] font-bold text-sm">
+                  {subscriptionsData?.active_count ?? subscriptionsList.filter((s) => s.status === 'active').length}
+                </span>
+              </div>
+              <div className="text-center">
+                <span className="text-[10px] text-slate-400 block font-bold uppercase">Paused</span>
+                <span className="text-slate-400 font-bold text-sm">
+                  {subscriptionsData?.paused_count ?? subscriptionsList.filter((s) => s.status === 'paused').length}
+                </span>
+              </div>
+              <div className="text-right">
+                <span className="text-[10px] text-slate-400 block font-bold uppercase">Annualized</span>
+                <span className="text-[#C8B6FF] font-bold text-sm">
+                  {formatINR(e5ToAmount((subscriptionsData?.total_monthly_commitment_e5 ?? 0) * 12))}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Next Upcoming Banner */}
+          {subscriptionsData?.next_upcoming && (
+            <div className="velvet-card p-3.5 border-indigo-500/30 bg-[#1D1A3B] flex items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-xl bg-[#232044] border border-[#A8E6CF]/30 flex items-center justify-center text-[#A8E6CF] shrink-0 font-bold text-xs">
+                  <Calendar className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[9px] font-mono uppercase tracking-wider text-slate-400 font-bold">
+                      Next Renewal
+                    </span>
+                    {(() => {
+                      const days = getDaysUntil(subscriptionsData.next_upcoming.next_billing_date);
+                      if (days === null) return null;
+                      if (days <= 3) {
+                        return (
+                          <span className="px-1.5 py-0.2 rounded-full bg-rose-500/20 text-[#FFB5A7] text-[9px] font-mono font-bold animate-pulse">
+                            {days <= 0 ? 'Today' : `In ${days}d`}
+                          </span>
+                        );
+                      }
+                      return (
+                        <span className="px-1.5 py-0.2 rounded-full bg-[#A8E6CF]/20 text-[#A8E6CF] text-[9px] font-mono font-bold">
+                          In {days}d
+                        </span>
+                      );
+                    })()}
+                  </div>
+                  <div className="font-bold text-white truncate text-xs sm:text-sm">
+                    {subscriptionsData.next_upcoming.name} • {formatINR(e5ToAmount(subscriptionsData.next_upcoming.amount_e5))}
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleRenewSubscription(subscriptionsData.next_upcoming!)}
+                disabled={renewingSubId === subscriptionsData.next_upcoming.id}
+                className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-white/10 text-[10px] font-mono font-bold shrink-0 transition-all cursor-pointer flex items-center gap-1"
+              >
+                {renewingSubId === subscriptionsData.next_upcoming.id ? (
+                  <RefreshCw className="w-3 h-3 animate-spin" />
+                ) : (
+                  <Zap className="w-3 h-3 text-[#FBD8B3]" />
+                )}
+                <span>Renew Early</span>
+              </button>
+            </div>
+          )}
+
+          {/* Filter Pills */}
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+            {[
+              { id: 'all', label: `All (${subscriptionsList.length})` },
+              { id: 'due_soon', label: 'Due Soon' },
+              { id: 'monthly', label: 'Monthly' },
+              { id: 'annual', label: 'Annual' },
+              { id: 'paused', label: 'Paused' },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setSubFilter(tab.id as any)}
+                className={`px-3 py-1.5 rounded-xl font-mono text-xs font-bold transition-all shrink-0 cursor-pointer ${
+                  subFilter === tab.id
+                    ? 'bg-white/15 text-white shadow-sm border border-white/20'
+                    : 'bg-white/5 text-slate-400 hover:text-slate-200 border border-white/5'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Subscriptions List */}
+          {isLoadingSubs ? (
+            <CategoryListSkeleton />
+          ) : filteredSubscriptions.length === 0 ? (
+            <div className="velvet-card p-8 text-center space-y-3">
+              <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mx-auto text-slate-400">
+                <Receipt className="w-6 h-6" />
+              </div>
+              <div>
+                <h4 className="font-extrabold text-sm text-white">No Subscriptions Found</h4>
+                <p className="text-xs text-slate-400 mt-1 max-w-xs mx-auto">
+                  {subFilter === 'all'
+                    ? 'Track your monthly Netflix, Spotify, gym, and cloud subscriptions with adaptive Cadence matching.'
+                    : `No subscriptions match the "${subFilter}" filter.`}
+                </p>
+              </div>
+              {subFilter === 'all' && (
+                <Button
+                  size="sm"
+                  variant="primary"
+                  onClick={() => {
+                    setSubToEdit(null);
+                    setIsSubModalOpen(true);
+                  }}
+                  className="gap-1.5 text-xs font-bold mx-auto"
+                >
+                  <Plus className="w-3.5 h-3.5 stroke-[3]" />
+                  <span>Add First Subscription</span>
+                </Button>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {filteredSubscriptions.map((sub) => {
+                const brand = getSubscriptionBrand(sub.name);
+                const days = getDaysUntil(sub.next_billing_date);
+                const isPaused = sub.status === 'paused';
+                const isDueSoon = !isPaused && days !== null && days >= 0 && days <= 7;
+                const isRenewing = renewingSubId === sub.id;
+                const linkedEnvelope = sub.envelope_id ? unifiedEnvelopes.find((e) => e.id === sub.envelope_id) : null;
+
+                return (
+                  <div
+                    key={sub.id}
+                    className={`velvet-card p-4 transition-all duration-200 relative overflow-hidden group ${
+                      isPaused ? 'opacity-70 border-white/5' : 'hover:border-white/20 hover:shadow-lg'
+                    }`}
+                  >
+                    {/* Top Row: Brand Monogram + Title + Amount */}
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div
+                          className={`w-10 h-10 rounded-2xl border flex items-center justify-center font-black text-xs shrink-0 shadow-sm ${brand.bg}`}
+                        >
+                          {brand.monogram}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <h4 className="font-bold text-sm text-white truncate">{sub.name}</h4>
+                            <span className="px-1.5 py-0.5 rounded text-[9px] font-mono uppercase tracking-wider bg-white/5 text-slate-400 border border-white/10">
+                              {sub.billing_cycle}
+                            </span>
+                            {isPaused && (
+                              <span className="px-1.5 py-0.5 rounded text-[9px] font-mono uppercase tracking-wider bg-amber-500/15 text-amber-300 border border-amber-500/20">
+                                Paused
+                              </span>
+                            )}
+                          </div>
+                          {sub.notes && (
+                            <p className="text-[11px] text-slate-400 truncate mt-0.5 font-mono">
+                              {sub.notes}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Price */}
+                      <div className="text-right shrink-0">
+                        <div className="text-base sm:text-lg font-black font-mono text-white">
+                          {formatINR(e5ToAmount(sub.amount_e5))}
+                        </div>
+                        <span className="text-[10px] font-mono text-slate-400 block -mt-0.5">
+                          /{sub.billing_cycle === 'yearly' ? 'yr' : sub.billing_cycle === 'quarterly' ? 'qtr' : sub.billing_cycle === 'weekly' ? 'wk' : 'mo'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Meta Row: Next Billing Date + Linked Envelope */}
+                    <div className="flex items-center justify-between gap-2 pt-3 mt-3 border-t border-white/5 text-xs font-mono">
+                      <div className="flex items-center gap-2 text-slate-300">
+                        <Clock className="w-3.5 h-3.5 text-slate-400" />
+                        <span>
+                          Next: {sub.next_billing_date ? new Date(sub.next_billing_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : 'N/A'}
+                        </span>
+                        {days !== null && !isPaused && (
+                          <span
+                            className={`px-1.5 py-0.2 rounded-full text-[9px] font-bold ${
+                              isDueSoon ? 'bg-rose-500/20 text-[#FFB5A7]' : 'bg-white/5 text-slate-400'
+                            }`}
+                          >
+                            {days <= 0 ? 'Due Today' : `In ${days}d`}
+                          </span>
+                        )}
+                      </div>
+
+                      {linkedEnvelope && (
+                        <div className="flex items-center gap-1 text-[11px] text-[#FBD8B3] bg-[#FBD8B3]/10 px-2 py-0.5 rounded-lg border border-[#FBD8B3]/20">
+                          <EnvelopeMonogramBadge name={linkedEnvelope.name} size="xs" />
+                          <span className="truncate max-w-[100px]">{linkedEnvelope.name}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Adaptive Smart Intent Pill */}
+                    <div className="mt-2.5 flex items-center justify-between text-[10px] font-mono bg-white/[0.02] border border-white/5 rounded-xl px-2.5 py-1.5">
+                      <div className="flex items-center gap-1.5 text-slate-400 truncate mr-2">
+                        {sub.occurrence_count && sub.occurrence_count >= 2 ? (
+                          <>
+                            <Zap className="w-3 h-3 text-[#A8E6CF] shrink-0" />
+                            <span className="text-[#A8E6CF] font-bold">Calibrated (±12h)</span>
+                          </>
+                        ) : sub.occurrence_count && sub.occurrence_count === 1 ? (
+                          <>
+                            <RefreshCw className="w-3 h-3 text-[#FBD8B3] shrink-0" />
+                            <span className="text-[#FBD8B3] font-bold">Learning (±24h)</span>
+                          </>
+                        ) : (
+                          <>
+                            <Clock className="w-3 h-3 text-[#C8B6FF] shrink-0" />
+                            <span className="text-[#C8B6FF] font-bold">Initial (±48h)</span>
+                          </>
+                        )}
+                        {sub.merchant_pattern && (
+                          <span className="text-slate-400 truncate max-w-[140px]" title={sub.merchant_pattern}>
+                            • {sub.merchant_pattern}
+                          </span>
+                        )}
+                      </div>
+
+                      <span className="text-slate-400 shrink-0 capitalize">
+                        {sub.payment_method === 'bank_card' ? 'Card' : sub.payment_method === 'upi' ? 'UPI' : 'Bank'}
+                      </span>
+                    </div>
+
+                    {/* Action Row */}
+                    <div className="flex items-center justify-between pt-3 mt-2 border-t border-white/5">
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleSubStatus(sub)}
+                          className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-white/10 text-[11px] font-mono flex items-center gap-1 transition-all cursor-pointer"
+                        >
+                          {isPaused ? (
+                            <>
+                              <Play className="w-3 h-3 text-[#A8E6CF]" />
+                              <span>Resume</span>
+                            </>
+                          ) : (
+                            <>
+                              <Pause className="w-3 h-3 text-slate-400" />
+                              <span>Pause</span>
+                            </>
+                          )}
+                        </button>
+
+                        {!isPaused && (
+                          <button
+                            type="button"
+                            onClick={() => handleRenewSubscription(sub)}
+                            disabled={isRenewing}
+                            className="px-2.5 py-1 rounded-lg bg-[#A8E6CF]/10 hover:bg-[#A8E6CF]/20 text-[#A8E6CF] border border-[#A8E6CF]/20 text-[11px] font-mono font-bold flex items-center gap-1 transition-all cursor-pointer disabled:opacity-50"
+                          >
+                            {isRenewing ? (
+                              <RefreshCw className="w-3 h-3 animate-spin" />
+                            ) : (
+                              <Zap className="w-3 h-3" />
+                            )}
+                            <span>Renew Now</span>
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSubToEdit(sub);
+                            setIsSubModalOpen(true);
+                          }}
+                          className="p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                          title="Edit Subscription"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteSubscription(sub.id)}
+                          className="p-1.5 rounded-lg hover:bg-rose-500/20 text-slate-400 hover:text-[#FFB5A7] transition-colors cursor-pointer"
+                          title="Delete Subscription"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Subscription Add / Edit Modal */}
+      <SubscriptionModal
+        isOpen={isSubModalOpen}
+        onClose={() => {
+          setIsSubModalOpen(false);
+          setSubToEdit(null);
+        }}
+        subscriptionToEdit={subToEdit}
+        envelopes={envelopes}
+        onSubmit={handleSaveSubscription}
+        onDelete={handleDeleteSubscription}
+      />
     </div>
   );
 };
