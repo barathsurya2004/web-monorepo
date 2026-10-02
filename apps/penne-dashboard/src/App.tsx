@@ -329,6 +329,9 @@ const AppInner: React.FC = () => {
     // 1. Snapshot previous state for rollback
     const prevTxns = queryClient.getQueryData<Transaction[]>(QUERY_KEYS.transactions) || [];
     const existingTxn = prevTxns.find((t) => t.id === txnId);
+    const cachedEnvelopes = queryClient.getQueryData<Envelope[]>(QUERY_KEYS.envelopes) || [];
+    const systemEnv = cachedEnvelopes.find((e) => e && (e.is_system || e.name?.toLowerCase() === 'default' || e.name === 'Unallocated Budget'));
+    const resolvedEnvId = envelopeId || systemEnv?.id || null;
 
     // 2. Immediate optimistic update in cache
     const optimisticTxn: Transaction = {
@@ -341,7 +344,7 @@ const AppInner: React.FC = () => {
       amount_e5: Math.round(amountE5),
       txn_type: txnType,
       payment_method: bankName,
-      envelope_id: envelopeId || null,
+      envelope_id: resolvedEnvId,
       description: description !== undefined ? description : existingTxn?.description,
       wishlist_item_id: wishlistItemId !== undefined ? (wishlistItemId || undefined) : existingTxn?.wishlist_item_id,
     };

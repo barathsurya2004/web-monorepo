@@ -200,7 +200,7 @@ export const TransactionTracker: React.FC<TransactionTrackerProps> = ({
                             {assignedEnv ? (
                               <Badge variant="indigo" className="gap-1">
                                 <Tag className="w-3 h-3" />
-                                <span>{assignedEnv.name || (assignedEnv.is_system ? 'Unallocated Pool' : `Envelope #${assignedEnv.id.slice(-4)}`)}</span>
+                                <span>{assignedEnv.name?.toLowerCase() === 'default' ? 'Default' : (assignedEnv.name || (assignedEnv.is_system ? 'Unallocated Pool' : `Envelope #${assignedEnv.id.slice(-4)}`))}</span>
                               </Badge>
                             ) : (
                               <Badge variant="amber">Uncategorized</Badge>

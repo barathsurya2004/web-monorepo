@@ -385,11 +385,12 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
                   const isWishlist = !!(tx.wishlist_item_id || (tx.description && tx.description.toLowerCase().startsWith('wishlist')));
                   const assignedEnv = tx.envelope_id ? envelopeMap.get(tx.envelope_id) : null;
                   const { timeStr } = formatTransactionDateTime(tx.created_at || tx.CreatedAt);
-                  let heading = tx.description || assignedEnv?.name || (isCredit
+                  const envDisplayName = assignedEnv?.name?.toLowerCase() === 'default' ? 'Default' : assignedEnv?.name;
+                  let heading = tx.description || envDisplayName || (isCredit
                     ? 'Direct Inflow'
                     : isTransfer
                     ? 'Account Transfer'
-                    : 'Uncategorized');
+                    : 'Default');
 
                   if (isWishlist) {
                     let targetTitle = '';

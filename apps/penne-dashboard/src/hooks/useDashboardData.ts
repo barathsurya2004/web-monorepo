@@ -142,11 +142,16 @@ export function useDashboardData(isAuthenticated: boolean) {
       const nowIso = newTxnVars.createdAt || new Date().toISOString();
       const roundedAmt = Math.round(newTxnVars.amountE5);
 
-      // 3. Optimistic transaction
+      // 3. Resolve envelope ID (if not provided, immediately fall back to system default envelope)
+      const cachedEnvelopes = queryClient.getQueryData<Envelope[]>(QUERY_KEYS.envelopes) || [];
+      const systemEnv = cachedEnvelopes.find((e) => e && (e.is_system || e.name?.toLowerCase() === 'default' || e.name === 'Unallocated Budget'));
+      const resolvedEnvId = newTxnVars.envelopeId || systemEnv?.id || null;
+
+      // 4. Optimistic transaction
       const optimisticTxn: Transaction = {
         id: optimisticId,
         user_id: api.getUserUUID() || 'current-user',
-        envelope_id: newTxnVars.envelopeId || null,
+        envelope_id: resolvedEnvId,
         amount_e5: roundedAmt,
         txn_type: newTxnVars.txnType,
         payment_method: newTxnVars.paymentMethod,
@@ -154,17 +159,17 @@ export function useDashboardData(isAuthenticated: boolean) {
         created_at: nowIso,
       };
 
-      // 4. Instantly update transactions list
+      // 5. Instantly update transactions list
       queryClient.setQueryData<Transaction[]>(QUERY_KEYS.transactions, (old = []) => [
         optimisticTxn,
         ...old,
       ]);
 
-      // 5. Instantly update active category spent amount if envelope assigned
-      if (newTxnVars.txnType === 'debit' && newTxnVars.envelopeId) {
+      // 6. Instantly update active category spent amount if envelope assigned
+      if (newTxnVars.txnType === 'debit' && resolvedEnvId) {
         queryClient.setQueryData<ActiveCategory[]>(QUERY_KEYS.categories, (old = []) =>
           old.map((cat) =>
-            cat.envelope_id === newTxnVars.envelopeId
+            cat.envelope_id === resolvedEnvId
               ? { ...cat, spent_amount_e5: (cat.spent_amount_e5 || 0) + roundedAmt }
               : cat
           )
