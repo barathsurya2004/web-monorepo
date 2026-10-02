@@ -17,6 +17,7 @@ import {
   Zap
 } from 'lucide-react';
 import { useToast } from './AlertBanner';
+import { PageTagHeader } from './PageTagHeader';
 
 interface FeatureCardProps {
   id: string;
@@ -143,17 +144,11 @@ export const InsightsPage: React.FC = () => {
   return (
     <div className="w-full max-w-md mx-auto px-4 py-3 space-y-4 animate-fadeIn pb-28 overflow-x-hidden">
       {/* Top Tag Header */}
-      <div className="flex items-center justify-between pb-1">
-        <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-[#C8B6FF] animate-pulse" />
-          <span className="text-[11px] font-mono uppercase tracking-widest text-[#C8B6FF] font-bold">
-            Analytics & Insights
-          </span>
-        </div>
-        <span className="px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-[10px] font-mono text-slate-400">
-          Engine v0.3
-        </span>
-      </div>
+      <PageTagHeader
+        title="Analytics & Insights"
+        dotColor="#C8B6FF"
+        badgeText="Engine v0.3"
+      />
 
       {/* Main Coming Soon Velvet Hero Card */}
       <div className="velvet-card p-5 sm:p-6 rounded-3xl border border-white/10 relative overflow-hidden space-y-4 shadow-2xl">

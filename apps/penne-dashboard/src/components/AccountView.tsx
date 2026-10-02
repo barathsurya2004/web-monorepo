@@ -17,6 +17,7 @@ import {
   ArrowLeft
 } from 'lucide-react';
 import { UserProfileSkeleton } from './Skeleton';
+import { PageTagHeader } from './PageTagHeader';
 
 interface AccountViewProps {
   user: User | null;
@@ -193,23 +194,26 @@ export const AccountView: React.FC<AccountViewProps> = ({
 
   return (
     <div className="w-full max-w-md mx-auto px-4 py-3 space-y-4 animate-fadeIn pb-28 overflow-x-hidden">
-      {/* Top Header / Back Button */}
-      <div className="flex items-center justify-between pb-1">
-        {onBack ? (
-          <button
-            onClick={onBack}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white transition-all text-xs font-mono border border-white/10 active:scale-95 cursor-pointer"
-          >
-            <ArrowLeft className="w-3.5 h-3.5 text-[#FBD8B3]" />
-            <span>Back to Dashboard</span>
-          </button>
-        ) : (
-          <div />
-        )}
-        <span className="text-[11px] font-mono uppercase tracking-widest text-[#FBD8B3] font-bold">
-          Settings & Vault
-        </span>
-      </div>
+      {/* Top Tag Header */}
+      <PageTagHeader
+        title="Settings & Vault"
+        dotColor="#FBD8B3"
+        rightContent={
+          onBack ? (
+            <button
+              onClick={onBack}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white transition-all text-[10px] font-mono border border-white/10 active:scale-95 cursor-pointer"
+            >
+              <ArrowLeft className="w-3 h-3 text-[#FBD8B3]" />
+              <span>Back</span>
+            </button>
+          ) : (
+            <span className="px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-[10px] font-mono text-slate-400">
+              Security & Profile
+            </span>
+          )
+        }
+      />
 
       {/* Profile Card */}
       {isLoadingUser ? (

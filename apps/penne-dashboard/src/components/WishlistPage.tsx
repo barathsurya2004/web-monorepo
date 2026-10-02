@@ -20,6 +20,7 @@ import {
 } from '../services/api';
 import { QUERY_KEYS } from '../hooks/useDashboardData';
 import { useToast } from './AlertBanner';
+import { PageTagHeader } from './PageTagHeader';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -876,35 +877,42 @@ export const WishlistPage: React.FC = () => {
   const savingsRate = forecast?.savings_rate_percent ?? 0;
 
   return (
-    <div className="w-full max-w-2xl mx-auto px-4 pt-4 pb-32 space-y-4">
+    <div className="w-full max-w-md mx-auto px-4 py-3 space-y-4 animate-fadeIn pb-28 overflow-x-hidden">
+      {/* Top Tag Header */}
+      <PageTagHeader
+        title="Wishlist & Goals"
+        dotColor="#C8B6FF"
+        badgeText={`${items.length} ${items.length === 1 ? 'Wish' : 'Wishes'}`}
+      />
 
-      {/* ── Header ─────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-[#F5F3FF] tracking-tight">Wishlist</h1>
-          <p className="text-xs text-slate-400 mt-0.5">Intentions guided by surplus · weighted cascade</p>
-        </div>
-        <div className="flex items-center gap-2">
+      {/* Actions Controls Bar */}
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs text-slate-400 font-sans truncate">
+          Intentions guided by surplus
+        </p>
+        <div className="flex items-center gap-1.5 shrink-0">
           <button
-            onClick={() => { setActionError(null); refetch(); }} disabled={isFetching}
-            className="w-9 h-9 rounded-xl flex items-center justify-center bg-white/5 hover:bg-white/10 border border-white/10 transition-all cursor-pointer"
+            onClick={() => { setActionError(null); refetch(); }}
+            disabled={isFetching}
+            className="w-8 h-8 rounded-xl flex items-center justify-center bg-white/5 hover:bg-white/10 border border-white/10 transition-all cursor-pointer"
+            title="Refresh Wishlist"
           >
-            <RefreshCw className={`w-4 h-4 text-slate-400 ${isFetching ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 text-slate-400 ${isFetching ? 'animate-spin' : ''}`} />
           </button>
           <button
             onClick={() => setShowBudgetModal(true)}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold text-slate-300 transition-all cursor-pointer"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold text-slate-300 transition-all cursor-pointer"
           >
             <Settings2 className="w-3.5 h-3.5" />
-            Budget
+            <span>Budget</span>
           </button>
           <button
             onClick={() => setAddModal({ open: true })}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer hover:opacity-90"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer hover:opacity-90 shadow-sm"
             style={{ background: '#FBD8B3', color: '#1A1735' }}
           >
-            <Plus className="w-3.5 h-3.5" />
-            Add Wish
+            <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+            <span>Add Wish</span>
           </button>
         </div>
       </div>

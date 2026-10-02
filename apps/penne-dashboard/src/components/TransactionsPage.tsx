@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { formatTransactionDateTime } from './HomePage';
 import { TransactionListSkeleton } from './Skeleton';
+import { PageTagHeader } from './PageTagHeader';
 
 interface TransactionsPageProps {
   transactions: Transaction[];
@@ -192,6 +193,26 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
 
   return (
     <div className="w-full max-w-md mx-auto px-4 py-3 space-y-4 animate-fadeIn pb-28 overflow-x-hidden">
+      {/* Top Tag Header */}
+      <PageTagHeader
+        title="Ledger & Records"
+        dotColor="#FBD8B3"
+        rightContent={
+          <div className="flex items-center gap-2">
+            <span className="px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-[10px] font-mono text-slate-400">
+              {filteredTxns.length} {filteredTxns.length === 1 ? 'entry' : 'entries'}
+            </span>
+            <button
+              onClick={onOpenNewTxnModal}
+              className="px-2.5 py-1 rounded-full bg-[#FBD8B3] hover:bg-[#f7c495] text-[#1A1835] font-black text-[10px] font-mono flex items-center gap-1 shadow-sm active:scale-95 transition-all cursor-pointer"
+            >
+              <Plus className="w-3 h-3 stroke-[3]" />
+              <span>New</span>
+            </button>
+          </div>
+        }
+      />
+
       {/* Offline Banner */}
       {isServerOffline && !isMockMode && (
         <div className="velvet-card p-4 space-y-3 text-left border-rose-500/30 bg-rose-950/30">
@@ -217,21 +238,6 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
           </div>
         </div>
       )}
-
-      {/* Header & New Button */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-lg font-black text-white leading-tight">Ledger Records</h2>
-          <p className="text-xs font-mono text-slate-400">{filteredTxns.length} entries filtered</p>
-        </div>
-        <button
-          onClick={onOpenNewTxnModal}
-          className="px-3.5 py-1.5 rounded-xl bg-[#FBD8B3] hover:bg-[#f7c495] text-[#1A1835] font-black text-xs flex items-center gap-1.5 shadow-[0_2px_12px_rgba(251,216,179,0.35)] active:scale-95 transition-all duration-200 cursor-pointer"
-        >
-          <Plus className="w-3.5 h-3.5 stroke-[3] text-[#1A1835]" />
-          <span>New Entry</span>
-        </button>
-      </div>
 
       {/* Search Bar & Segment Pills */}
       <div className="space-y-2.5">

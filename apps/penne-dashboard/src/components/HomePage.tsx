@@ -16,6 +16,7 @@ import {
 import { EnvelopeMonogramBadge, getEnvelopeMonogram } from '../utils/envelopeVisuals';
 import { calculateSafeDailySpend } from '../utils/cadence';
 import { StatCardsSkeleton, PaymentLimitsSkeleton, TransactionListSkeleton } from './Skeleton';
+import { PageTagHeader } from './PageTagHeader';
 
 interface HomePageProps {
   transactions: Transaction[];
@@ -172,6 +173,13 @@ export const HomePage: React.FC<HomePageProps> = ({
 
   return (
     <div className="w-full max-w-md mx-auto px-4 py-3 space-y-4 animate-fadeIn pb-28 overflow-x-hidden">
+      {/* Top Tag Header */}
+      <PageTagHeader
+        title="Overview & Pulse"
+        dotColor="#A8E6CF"
+        badgeText="Live Balances"
+      />
+
       {/* Explicit Server Offline Banner */}
       {isServerOffline && !isMockMode && (
         <div className="velvet-card p-4 space-y-3 text-left border-rose-500/30 bg-rose-950/30">
