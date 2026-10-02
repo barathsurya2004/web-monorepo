@@ -1259,22 +1259,6 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
     setShowConfirmDelete(false);
   }, [subscriptionToEdit, isOpen]);
 
-  const PRESETS = [
-    { name: 'Netflix Premium', amount: 649, cycle: 'monthly' as SubscriptionCycle },
-    { name: 'Spotify Duo', amount: 149, cycle: 'monthly' as SubscriptionCycle },
-    { name: 'YouTube Premium', amount: 149, cycle: 'monthly' as SubscriptionCycle },
-    { name: 'Amazon Prime', amount: 299, cycle: 'monthly' as SubscriptionCycle },
-    { name: 'ChatGPT Plus', amount: 1999, cycle: 'monthly' as SubscriptionCycle },
-    { name: 'GitHub Copilot', amount: 820, cycle: 'monthly' as SubscriptionCycle },
-    { name: 'iCloud+ 50GB', amount: 75, cycle: 'monthly' as SubscriptionCycle },
-  ];
-
-  const handleApplyPreset = (preset: typeof PRESETS[0]) => {
-    setName(preset.name);
-    setAmount(preset.amount.toString());
-    setBillingCycle(preset.cycle);
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const parsedAmount = parseFloat(amount);
@@ -1320,71 +1304,67 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
     }
   };
 
+  const parsedAmt = parseFloat(amount);
+
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={isEditing ? 'Edit Subscription' : 'Add New Subscription'}
+      title={isEditing ? 'Edit Subscription' : 'Add Subscription'}
     >
-      <form onSubmit={handleSubmit} className="space-y-4">
-        {/* Preset Quick Select Pills (Only on create) */}
-        {!isEditing && (
-          <div className="space-y-1.5">
-            <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400 font-bold block">
-              Quick Presets
-            </span>
-            <div className="flex flex-wrap gap-1.5">
-              {PRESETS.map((p) => (
-                <button
-                  key={p.name}
-                  type="button"
-                  onClick={() => handleApplyPreset(p)}
-                  className={`text-[11px] font-mono px-2.5 py-1 rounded-lg border transition-all cursor-pointer ${
-                    name === p.name
-                      ? 'bg-[#FBD8B3]/20 border-[#FBD8B3] text-[#FBD8B3] font-bold'
-                      : 'bg-white/5 border-white/10 text-slate-300 hover:border-white/20 hover:text-white'
-                  }`}
-                >
-                  {p.name} (₹{p.amount})
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
+      <form onSubmit={handleSubmit} className="space-y-3.5 sm:space-y-4">
+        {/* Mobile Drag Indicator Handle */}
+        <div className="w-10 h-1 bg-white/20 rounded-full mx-auto -mt-1 mb-1 sm:hidden" />
 
-        {/* Subscription Name */}
+        {/* Service / Plan Name */}
         <div>
-          <label className="block text-xs font-mono text-slate-400 mb-1 font-bold">
-            Service / Subscription Name <span className="text-[#FFB5A7]">*</span>
+          <label className="text-[11px] font-bold font-mono tracking-wider text-slate-300 uppercase block mb-1">
+            Service / Plan Name <span className="text-[#FFB5A7]">*</span>
           </label>
           <Input
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="e.g. Netflix, Spotify, Gym, Cloud Storage"
             required
-            autoFocus={!isEditing}
+            autoFocus={false}
           />
         </div>
 
-        {/* Amount & Cycle Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs font-mono text-slate-400 mb-1 font-bold">
-              Amount (₹) <span className="text-[#FFB5A7]">*</span>
-            </label>
-            <Input
+        {/* Billing Amount (Hero Touchpad input with Currency Symbol) */}
+        <div>
+          <label className="text-[11px] font-bold font-mono tracking-wider text-slate-300 uppercase block mb-1">
+            Billing Amount <span className="text-[#FFB5A7]">*</span>
+          </label>
+          <div className="relative flex items-center">
+            <span className="absolute left-3.5 text-xl font-mono text-[#FBD8B3] font-bold select-none pointer-events-none">
+              ₹
+            </span>
+            <input
               type="number"
               step="any"
               min="1"
+              inputMode="decimal"
+              required
+              placeholder="0.00"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              placeholder="e.g. 649"
-              required
+              className="w-full pl-9 pr-4 py-2.5 sm:py-3 bg-[#232044] border border-white/10 rounded-2xl text-xl sm:text-2xl font-mono font-black text-white placeholder-slate-500 focus:outline-none focus:border-[#FBD8B3] focus:ring-2 focus:ring-[#FBD8B3]/20 min-h-[46px] shadow-inner"
             />
           </div>
+          {parsedAmt > 0 && (
+            <div className="flex items-center justify-between text-[10px] font-mono text-slate-400 mt-1 px-1">
+              <span>Equivalent E5: {amountToE5(parsedAmt).toLocaleString()}</span>
+              <span className="text-[#FBD8B3] font-bold">
+                {billingCycle === 'monthly' ? `~₹${(parsedAmt * 12).toLocaleString()}/yr` : billingCycle === 'yearly' ? `~₹${Math.round(parsedAmt / 12).toLocaleString()}/mo` : ''}
+              </span>
+            </div>
+          )}
+        </div>
 
+        {/* Billing Cycle & Next Date (Side-by-side 2 cols on mobile) */}
+        <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
           <div>
-            <label className="block text-xs font-mono text-slate-400 mb-1 font-bold">
+            <label className="text-[11px] font-bold font-mono tracking-wider text-slate-300 uppercase block mb-1 truncate">
               Billing Cycle
             </label>
             <Select
@@ -1392,30 +1372,31 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
               onChange={(e) => setBillingCycle(e.target.value as SubscriptionCycle)}
               options={[
                 { value: 'monthly', label: 'Monthly' },
-                { value: 'yearly', label: 'Yearly (Annual)' },
-                { value: 'quarterly', label: 'Quarterly (Every 3 mos)' },
+                { value: 'yearly', label: 'Yearly' },
+                { value: 'quarterly', label: 'Quarterly' },
                 { value: 'weekly', label: 'Weekly' },
               ]}
             />
           </div>
-        </div>
 
-        {/* Next Billing Date & Payment Method */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs font-mono text-slate-400 mb-1 font-bold">
-              Next Billing Date <span className="text-[#FFB5A7]">*</span>
+            <label className="text-[11px] font-bold font-mono tracking-wider text-slate-300 uppercase block mb-1 truncate">
+              Next Date <span className="text-[#FFB5A7]">*</span>
             </label>
-            <Input
+            <input
               type="date"
               value={nextBillingDate}
               onChange={(e) => setNextBillingDate(e.target.value)}
               required
+              className="bg-[#232044] border border-white/10 text-white text-base sm:text-sm rounded-2xl focus:outline-none focus:border-[#FBD8B3] focus:ring-2 focus:ring-[#FBD8B3]/20 px-3 py-2.5 sm:py-3 transition-all w-full min-h-[44px] shadow-inner font-mono cursor-pointer"
             />
           </div>
+        </div>
 
+        {/* Payment Method & Linked Envelope (Grid 1 col on xs, 2 cols on sm) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
           <div>
-            <label className="block text-xs font-mono text-slate-400 mb-1 font-bold">
+            <label className="text-[11px] font-bold font-mono tracking-wider text-slate-300 uppercase block mb-1">
               Payment Method
             </label>
             <Select
@@ -1428,13 +1409,10 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
               ]}
             />
           </div>
-        </div>
 
-        {/* Envelope Linking & Status (if editing) */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs font-mono text-slate-400 mb-1 font-bold">
-              Link to Envelope (Optional)
+            <label className="text-[11px] font-bold font-mono tracking-wider text-slate-300 uppercase block mb-1">
+              Envelope (Optional)
             </label>
             <Select
               value={envelopeId}
@@ -1450,42 +1428,86 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
               ]}
             />
           </div>
-
-          {isEditing ? (
-            <div>
-              <label className="block text-xs font-mono text-slate-400 mb-1 font-bold">
-                Subscription Status
-              </label>
-              <Select
-                value={status}
-                onChange={(e) => setStatus(e.target.value as SubscriptionStatus)}
-                options={[
-                  { value: 'active', label: 'Active (Ongoing)' },
-                  { value: 'paused', label: 'Paused (Temporarily stopped)' },
-                  { value: 'cancelled', label: 'Cancelled' },
-                ]}
-              />
-            </div>
-          ) : (
-            <div className="flex items-center gap-2 pt-6">
-              <input
-                type="checkbox"
-                id="autoRenew"
-                checked={autoRenew}
-                onChange={(e) => setAutoRenew(e.target.checked)}
-                className="w-4 h-4 rounded border-white/20 bg-white/5 text-[#FBD8B3] focus:ring-[#FBD8B3] cursor-pointer"
-              />
-              <label htmlFor="autoRenew" className="text-xs text-slate-300 font-mono cursor-pointer select-none">
-                Auto-Renew Cycle
-              </label>
-            </div>
-          )}
         </div>
 
-        {/* Plan Notes */}
+        {/* Status Selection (When Editing) */}
+        {isEditing && (
+          <div>
+            <label className="text-[11px] font-bold font-mono tracking-wider text-slate-300 uppercase block mb-1.5">
+              Subscription Status
+            </label>
+            <div className="grid grid-cols-3 gap-1.5 p-1 bg-[#232044] rounded-2xl border border-white/10 font-mono text-xs">
+              {[
+                { id: 'active', label: 'Active', dotColor: 'bg-[#A8E6CF]' },
+                { id: 'paused', label: 'Paused', dotColor: 'bg-[#FDE2B8]' },
+                { id: 'cancelled', label: 'Cancelled', dotColor: 'bg-[#FFB5A7]' },
+              ].map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => setStatus(s.id as SubscriptionStatus)}
+                  className={`py-2 px-1 text-xs font-bold rounded-xl transition-all cursor-pointer min-h-[38px] flex items-center justify-center gap-1.5 ${
+                    status === s.id
+                      ? 'bg-white/15 text-white shadow-sm border border-white/20'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <span className={`w-2 h-2 rounded-full ${s.dotColor}`} />
+                  <span>{s.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Auto-Renew Interactive Card Toggle (Mobile Ergonomic) */}
+        <div
+          onClick={() => setAutoRenew(!autoRenew)}
+          className="flex items-center justify-between p-3.5 rounded-2xl bg-white/[0.04] border border-white/10 cursor-pointer active:bg-white/[0.08] transition-all select-none min-h-[52px]"
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === ' ' || e.key === 'Enter') {
+              e.preventDefault();
+              setAutoRenew(!autoRenew);
+            }
+          }}
+        >
+          <div className="flex items-center gap-3 min-w-0 pr-2">
+            <div className="p-2 rounded-xl bg-indigo-950/70 text-[#A8E6CF] border border-white/10 shrink-0">
+              <RefreshCw
+                className={`w-4 h-4 transition-transform duration-500 ${
+                  autoRenew ? 'rotate-180 text-[#A8E6CF]' : 'text-slate-500'
+                }`}
+              />
+            </div>
+            <div className="min-w-0">
+              <span className="text-xs font-bold text-white block">Auto-Renew Cycle</span>
+              <span className="text-[11px] text-slate-400 block font-mono truncate">
+                {autoRenew
+                  ? 'Advances next billing date automatically'
+                  : 'Manual confirmation needed each cycle'}
+              </span>
+            </div>
+          </div>
+          {/* Switch Pill */}
+          <div
+            className={`w-11 h-6 shrink-0 flex items-center rounded-full p-0.5 transition-colors ${
+              autoRenew ? 'bg-[#A8E6CF]' : 'bg-white/15'
+            }`}
+          >
+            <div
+              className={`bg-[#1A1735] w-5 h-5 rounded-full shadow-md transform transition-transform duration-200 ${
+                autoRenew ? 'translate-x-5' : 'translate-x-0'
+              }`}
+            />
+          </div>
+        </div>
+
+        {/* Plan Notes / Memo */}
         <div>
-          <label className="block text-xs font-mono text-slate-400 mb-1 font-bold">
-            Notes / Plan Details (Optional)
+          <label className="text-[11px] font-bold font-mono tracking-wider text-slate-300 uppercase block mb-1">
+            Notes / Memo (Optional)
           </label>
           <Input
             value={notes}
@@ -1496,55 +1518,63 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
 
         {/* Delete Confirmation Box (when editing) */}
         {showConfirmDelete ? (
-          <div className="p-3.5 rounded-xl border border-rose-500/30 bg-rose-950/30 space-y-2">
-            <div className="flex items-center gap-2 text-rose-300 text-xs font-bold">
-              <AlertTriangle className="w-4 h-4" />
+          <div className="p-4 rounded-2xl border border-rose-500/30 bg-rose-950/30 space-y-3 animate-fadeIn">
+            <div className="flex items-center gap-2 text-rose-300 text-xs font-bold font-mono">
+              <AlertTriangle className="w-4 h-4 shrink-0 text-rose-400" />
               <span>Delete this subscription?</span>
             </div>
-            <p className="text-[11px] text-slate-300 font-mono">
-              This will remove tracking for "{name}". Existing past transactions will remain in your ledger.
+            <p className="text-xs text-slate-300 font-mono leading-relaxed">
+              This will remove recurring tracking for <strong className="text-white">"{name}"</strong>. Past transactions will remain intact in your ledger.
             </p>
-            <div className="flex gap-2 pt-1">
-              <Button
-                type="button"
-                variant="pastelRose"
-                size="sm"
-                onClick={handleDelete}
-                disabled={deleting}
-                className="w-full text-xs font-bold"
-              >
-                {deleting ? 'Deleting...' : 'Yes, Delete'}
-              </Button>
+            <div className="flex flex-col-reverse sm:flex-row gap-2 pt-1">
               <Button
                 type="button"
                 variant="secondary"
-                size="sm"
                 onClick={() => setShowConfirmDelete(false)}
-                className="w-full text-xs"
+                className="w-full min-h-[44px] text-xs"
               >
-                Cancel
+                Keep Subscription
+              </Button>
+              <Button
+                type="button"
+                variant="pastelRose"
+                onClick={handleDelete}
+                disabled={deleting}
+                className="w-full min-h-[44px] text-xs font-bold"
+              >
+                {deleting ? 'Deleting...' : 'Yes, Delete'}
               </Button>
             </div>
           </div>
         ) : (
-          <div className="flex items-center justify-between pt-3 border-t border-white/10">
+          <div className="pt-3 pb-3 sm:pb-0 border-t border-white/10 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-2.5">
             {isEditing && onDelete ? (
               <button
                 type="button"
                 onClick={() => setShowConfirmDelete(true)}
-                className="text-xs font-bold text-[#FFB5A7] hover:underline flex items-center gap-1.5 cursor-pointer font-mono"
+                className="w-full sm:w-auto py-2.5 px-3 text-xs font-bold text-[#FFB5A7] hover:bg-rose-950/30 rounded-xl flex items-center justify-center gap-1.5 cursor-pointer font-mono border border-transparent hover:border-rose-500/20 active:scale-95 transition-all min-h-[44px]"
               >
                 <Trash2 className="w-4 h-4" />
-                <span>Delete</span>
+                <span>Delete Subscription</span>
               </button>
             ) : (
-              <div />
+              <div className="hidden sm:block" />
             )}
-            <div className="flex gap-2">
-              <Button type="button" variant="ghost" onClick={onClose}>
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={onClose}
+                className="flex-1 sm:flex-none min-h-[46px] text-slate-300 hover:text-white"
+              >
                 Cancel
               </Button>
-              <Button type="submit" variant="primary" disabled={loading}>
+              <Button
+                type="submit"
+                variant="primary"
+                disabled={loading}
+                className="flex-1 sm:flex-none min-h-[46px] font-bold shadow-lg"
+              >
                 {loading ? 'Saving...' : isEditing ? 'Save Changes' : 'Add Subscription'}
               </Button>
             </div>
