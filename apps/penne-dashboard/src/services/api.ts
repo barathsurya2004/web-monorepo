@@ -1276,19 +1276,29 @@ export class PenneApiClient {
       );
     }
 
+    const userUuid = this.getUserUUID();
     try {
-      const res = await this.request<MonthlyInsightsReport>(
-        `/insights/monthly?user_uuid=${this.userUUID}&year=${year}&month=${month}`,
-        { method: 'GET' }
-      );
+      let res: MonthlyInsightsReport | null = null;
+      try {
+        res = await this.request<MonthlyInsightsReport>(
+          `/insights/monthly?user_uuid=${userUuid}&year=${year}&month=${month}`,
+          { method: 'GET' }
+        );
+      } catch {
+        res = await this.request<MonthlyInsightsReport>(
+          `/api/insights/monthly?user_uuid=${userUuid}&year=${year}&month=${month}`,
+          { method: 'GET' }
+        );
+      }
+
       if (res && typeof res.total_expense_e5 === 'number') {
         return res;
       }
       throw new Error('Invalid monthly insights response');
     } catch (err) {
-      console.warn('[Penne API] GET /api/insights/monthly failed, falling back to local computation', err);
+      console.warn('[Penne API] GET monthly insights failed, falling back to local computation', err);
       const [txns, envelopes, groups, subSummary] = await Promise.allSettled([
-        this.getTransactions(),
+        this.getTransactions(userUuid, 1000),
         this.getEnvelopes(),
         this.getEnvelopeGroups(),
         subscriptionsApi.getSubscriptions()

@@ -94,12 +94,19 @@ export function computeMonthlyInsights(
   const prevMonth = targetMonth === 1 ? 12 : targetMonth - 1;
 
   for (const t of transactions) {
-    const d = parseUtcDate(t.created_at || t.CreatedAt);
+    const d = parseUtcDate(t.created_at || (t as any).CreatedAt);
     if (!d) continue;
 
-    if (d.getFullYear() === targetYear && d.getMonth() === monthIndex) {
+    const matchesMonth =
+      (d.getUTCFullYear() === targetYear && d.getUTCMonth() === monthIndex) ||
+      (d.getFullYear() === targetYear && d.getMonth() === monthIndex);
+    const matchesPrevMonth =
+      (d.getUTCFullYear() === prevYear && d.getUTCMonth() === prevMonth - 1) ||
+      (d.getFullYear() === prevYear && d.getMonth() === prevMonth - 1);
+
+    if (matchesMonth) {
       monthTxns.push(t);
-    } else if (d.getFullYear() === prevYear && d.getMonth() === prevMonth - 1) {
+    } else if (matchesPrevMonth) {
       prevMonthTxns.push(t);
     }
   }
@@ -144,23 +151,25 @@ export function computeMonthlyInsights(
   let largestTxn: Transaction | null = null;
 
   for (const t of monthTxns) {
-    const isCredit = t.txn_type === 'credit';
-    const isDebit = t.txn_type === 'debit';
+    const txnType = (t.txn_type || (t as any).Type || (t as any).type || '').toLowerCase();
+    const isCredit = txnType === 'credit';
+    const isDebit = txnType === 'debit';
+    const amt = Number(t.amount_e5 || (t as any).AmountE5 || 0);
 
     if (isCredit) {
-      totalIncomeE5 += t.amount_e5;
+      totalIncomeE5 += amt;
     } else if (isDebit) {
-      totalExpenseE5 += t.amount_e5;
+      totalExpenseE5 += amt;
 
       const isSub = isSubscriptionTxn(t);
       if (isSub) {
-        subscriptionExpenseE5 += t.amount_e5;
+        subscriptionExpenseE5 += amt;
         subscriptionCount++;
       } else {
-        discretionaryExpenseE5 += t.amount_e5;
+        discretionaryExpenseE5 += amt;
 
         // Track largest discretionary expense
-        if (!largestTxn || t.amount_e5 > largestTxn.amount_e5) {
+        if (!largestTxn || amt > Number(largestTxn.amount_e5 || (largestTxn as any).AmountE5 || 0)) {
           largestTxn = t;
         }
 
@@ -175,7 +184,7 @@ export function computeMonthlyInsights(
             totalE5: 0,
             txns: [],
           };
-          existing.totalE5 += t.amount_e5;
+          existing.totalE5 += amt;
           existing.txns.push(t);
           dailyDiscretionaryMap.set(dateKey, existing);
         }
@@ -188,14 +197,14 @@ export function computeMonthlyInsights(
         spentE5: 0,
         count: 0,
       };
-      c.spentE5 += t.amount_e5;
+      c.spentE5 += amt;
       c.count += 1;
       categorySpendMap.set(envId, c);
 
       // Payment method breakdown
       const pm = (t.payment_method || 'bank_card').toLowerCase();
       const p = paymentMethodMap.get(pm) || { spentE5: 0, count: 0 };
-      p.spentE5 += t.amount_e5;
+      p.spentE5 += amt;
       p.count += 1;
       paymentMethodMap.set(pm, p);
     }
