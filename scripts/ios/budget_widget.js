@@ -3,46 +3,34 @@
 // icon-color: purple; icon-glyph: chart-pie;
 
 /**
- * Penne Budget & Financial Summary Widget for iOS (Scriptable)
- *
- * Designed for iOS Scriptable Small (Square) Widget.
- * Displays three core financial metrics listed one by one:
- *   1. Income (Authoritative monthly / cycle income)
- *   2. Expenses (Authoritative monthly / cycle debit spend)
- *   3. Remaining Budget (Uses user's fixed monthly budget from Wishlist/Settings minus expenses)
- *
- * API Endpoints Hit:
- *   - GET /api/dashboard-summary?user_uuid={uuid} (Income & Expenses)
- *   - GET /wishlists?user_uuid={uuid} (Fixed Monthly Budget & Cycle Expense Surplus)
- *     (with fallback to /wishlist/forecast?user_uuid={uuid})
+ * Penne Budget Widget v2 (iOS Scriptable, small)
+ * Glass-safe: hierarchy by brightness,
+ * size, glyphs. Not hue alone.
  */
 
 // ==========================================
-// CONFIGURATION
+// CONFIG
 // ==========================================
-// Base URL of your Penne backend server (e.g. ngrok tunnel or LAN IP)
 const BASE_URL = "https://yak-crisp-vulture.ngrok-free.app/";
-
-// Test/User credentials (matches default Penne user session)
 const USER_UUID = "f66dcebd-e275-4b22-83bd-e446e0a45624";
 const BEARER_TOKEN = "78504dcf-6683-4acc-84ae-417bd41ae6bc";
 
-// Velvet Theme Color Palette
+const REFRESH_MINUTES = 15;
+
+// Text brightness tiers survive tinting
 const THEME = {
-  bgTop: "#1A1735",
-  bgBottom: "#0F0D24",
-  cardBg: "rgba(255, 255, 255, 0.04)",
-  textWhite: "#F5F3FF",
-  textMuted: "#94A3B8",
-  textDim: "#64748B",
-  mint: "#A8E6CF",     // Income & positive remaining
-  coral: "#FFB5A7",    // Expenses & deficit
-  peach: "#FBD8B3",    // Budget accent
-  lavender: "#C8B6FF"  // Secondary highlight
+  bgTop: "#221E45",
+  bgBottom: "#0D0B20",
+  white: "#FFFFFF",
+  mint: "#A8E6CF",
+  coral: "#FFB5A7",
+  peach: "#FBD8B3",
+  lavender: "#C8B6FF"
 };
+const ALPHA = { primary: 1, secondary: 0.72, tertiary: 0.55 };
 
 // ==========================================
-// CACHE HELPERS (Offline Resilience)
+// CACHE
 // ==========================================
 const CACHE_FILE = "penne_budget_widget_cache.json";
 
@@ -53,10 +41,9 @@ function getCachePath() {
 
 function saveCache(data) {
   try {
-    const fm = FileManager.local();
-    fm.writeString(getCachePath(), JSON.stringify(data));
+    FileManager.local().writeString(getCachePath(), JSON.stringify(data));
   } catch (err) {
-    console.warn("Failed to write cache: " + err);
+    console.warn("cache write: " + err);
   }
 }
 
@@ -64,25 +51,30 @@ function readCache() {
   try {
     const fm = FileManager.local();
     const path = getCachePath();
-    if (fm.fileExists(path)) {
-      return JSON.parse(fm.readString(path));
-    }
+    if (fm.fileExists(path)) return JSON.parse(fm.readString(path));
   } catch (err) {
-    console.warn("Failed to read cache: " + err);
+    console.warn("cache read: " + err);
   }
   return null;
 }
 
 // ==========================================
-// FORMATTING HELPERS
+// HELPERS
 // ==========================================
 function formatINR(amount) {
-  if (amount === undefined || amount === null || isNaN(amount)) {
-    return "₹0";
-  }
-  const isNegative = amount < 0;
-  const absVal = Math.round(Math.abs(amount));
-  return `${isNegative ? "-" : ""}₹${absVal.toLocaleString("en-IN")}`;
+  if (amount === undefined || amount === null || isNaN(amount)) return "₹0";
+  const neg = amount < 0;
+  const abs = Math.round(Math.abs(amount));
+  return `${neg ? "-" : ""}₹${abs.toLocaleString("en-IN")}`;
+}
+
+function formatShort(amount) {
+  const abs = Math.abs(amount);
+  const sign = amount < 0 ? "-" : "";
+  if (abs >= 10000000) return `${sign}₹${(abs / 10000000).toFixed(1)}Cr`;
+  if (abs >= 100000) return `${sign}₹${(abs / 100000).toFixed(1)}L`;
+  if (abs >= 10000) return `${sign}₹${(abs / 1000).toFixed(1)}k`;
+  return formatINR(amount);
 }
 
 function e5ToAmount(e5) {
@@ -90,8 +82,21 @@ function e5ToAmount(e5) {
   return e5 / 100000;
 }
 
+function daysLeft(endStr) {
+  if (!endStr) return null;
+  const end = new Date(endStr);
+  if (isNaN(end.getTime())) return null;
+  const diff = Math.ceil((end.getTime() - Date.now()) / 86400000);
+  return diff < 0 ? 0 : diff;
+}
+
+function rounded(size, heavy) {
+  if (Font.boldRoundedSystemFont) return Font.boldRoundedSystemFont(size);
+  return heavy ? Font.heavySystemFont(size) : Font.boldSystemFont(size);
+}
+
 // ==========================================
-// API CLIENT
+// API
 // ==========================================
 async function fetchEndpoint(url, token) {
   const req = new Request(url);
@@ -105,201 +110,206 @@ async function fetchEndpoint(url, token) {
   return await req.loadJSON();
 }
 
+async function safeFetch(url, token) {
+  try {
+    return await fetchEndpoint(url, token);
+  } catch (err) {
+    console.warn(`fetch fail: ${err.message || err}`);
+    return null;
+  }
+}
+
 async function loadData(baseUrl, userUuid, token) {
-  const cleanBase = baseUrl.replace(/\/+$/, "");
-  const summaryUrl = `${cleanBase}/api/dashboard-summary?user_uuid=${encodeURIComponent(userUuid)}`;
-  const wishlistUrl = `${cleanBase}/wishlists?user_uuid=${encodeURIComponent(userUuid)}`;
-  const forecastFallbackUrl = `${cleanBase}/wishlist/forecast?user_uuid=${encodeURIComponent(userUuid)}`;
+  const base = baseUrl.replace(/\/+$/, "");
+  const q = `user_uuid=${encodeURIComponent(userUuid)}`;
 
-  let summaryData = null;
-  let wishlistData = null;
-  let networkFailed = false;
+  const summary = await safeFetch(`${base}/api/dashboard-summary?${q}`, token);
+  let wishlist = await safeFetch(`${base}/wishlists?${q}`, token);
+  if (!wishlist) wishlist = await safeFetch(`${base}/wishlist/forecast?${q}`, token);
 
-  // 1. Fetch dashboard summary (authoritative income & spend)
-  try {
-    summaryData = await fetchEndpoint(summaryUrl, token);
-  } catch (err) {
-    console.warn(`Error fetching dashboard summary: ${err.message || err}`);
-    networkFailed = true;
-  }
-
-  // 2. Fetch wishlist forecast (authoritative user-fixed budget)
-  try {
-    wishlistData = await fetchEndpoint(wishlistUrl, token);
-  } catch (err) {
-    console.warn(`Error fetching wishlists: ${err.message || err}, trying forecast fallback...`);
-    try {
-      wishlistData = await fetchEndpoint(forecastFallbackUrl, token);
-    } catch (fallbackErr) {
-      console.warn(`Error fetching wishlist forecast: ${fallbackErr.message || fallbackErr}`);
-      networkFailed = true;
-    }
-  }
-
-  // If live network succeeded for at least one, calculate and update cache
-  if (summaryData || wishlistData) {
-    const incomeE5 = summaryData?.total_income_e5 ?? 0;
-    const expenseE5 = summaryData?.total_expense_e5 ?? wishlistData?.cycle_expenses_e5 ?? 0;
-    const fixedBudgetE5 = wishlistData?.monthly_budget_e5 ?? 0;
-
-    const parsedData = {
-      income: e5ToAmount(incomeE5),
-      expense: e5ToAmount(expenseE5),
-      fixedBudget: e5ToAmount(fixedBudgetE5),
-      // Budget fixed by user minus current expenses (per user requirement)
-      remainingBudget: e5ToAmount(fixedBudgetE5) - e5ToAmount(expenseE5),
-      cycleStartDate: wishlistData?.cycle_start_date,
-      cycleEndDate: wishlistData?.cycle_end_date,
-      updatedAt: new Date().toISOString(),
-      isOffline: false
-    };
-
-    saveCache(parsedData);
-    return parsedData;
-  }
-
-  // If both live network requests failed, fall back to offline cache
   const cached = readCache();
-  if (cached) {
-    cached.isOffline = true;
-    return cached;
+
+  if (!summary && !wishlist) {
+    if (cached) return cached;
+    return {
+      income: 0, expense: 0, fixedBudget: 0, remainingBudget: 0,
+      updatedAt: null
+    };
   }
 
-  // Return zeroed fallback if no cache exists
-  return {
-    income: 0,
-    expense: 0,
-    fixedBudget: 0,
-    remainingBudget: 0,
-    updatedAt: null,
-    isOffline: true,
-    hasError: true
+  const c = cached || {};
+
+  const income = summary
+    ? e5ToAmount(summary.total_income_e5)
+    : (c.income ?? 0);
+
+  let expense = c.expense ?? 0;
+  if (summary && typeof summary.total_expense_e5 === "number") {
+    expense = e5ToAmount(summary.total_expense_e5);
+  } else if (wishlist && typeof wishlist.cycle_expenses_e5 === "number") {
+    expense = e5ToAmount(wishlist.cycle_expenses_e5);
+  }
+
+  const fixedBudget =
+    wishlist && typeof wishlist.monthly_budget_e5 === "number"
+      ? e5ToAmount(wishlist.monthly_budget_e5)
+      : (c.fixedBudget ?? 0);
+
+  const data = {
+    income,
+    expense,
+    fixedBudget,
+    remainingBudget: fixedBudget - expense,
+    cycleStartDate: wishlist?.cycle_start_date ?? c.cycleStartDate,
+    cycleEndDate: wishlist?.cycle_end_date ?? c.cycleEndDate,
+    updatedAt: new Date().toISOString()
   };
+
+  saveCache(data);
+  return data;
 }
 
 // ==========================================
-// WIDGET UI BUILDER
+// UI
 // ==========================================
+function progressBar(width, height, pct, hex) {
+  const ctx = new DrawContext();
+  ctx.size = new Size(width, height);
+  ctx.opaque = false;
+  ctx.respectScreenScale = true;
+
+  const r = height / 2;
+  const track = new Path();
+  track.addRoundedRect(new Rect(0, 0, width, height), r, r);
+  ctx.addPath(track);
+  ctx.setFillColor(new Color(THEME.white, 0.22));
+  ctx.fillPath();
+
+  if (pct > 0) {
+    const w = Math.max(height, width * Math.min(pct, 1));
+    const fill = new Path();
+    fill.addRoundedRect(new Rect(0, 0, w, height), r, r);
+    ctx.addPath(fill);
+    ctx.setFillColor(new Color(hex));
+    ctx.fillPath();
+  }
+  return ctx.getImage();
+}
+
+function addPill(parent, glyph, label, value, hex) {
+  const pill = parent.addStack();
+  pill.layoutVertically();
+  pill.spacing = 1;
+  pill.setPadding(6, 8, 6, 8);
+  pill.cornerRadius = 12;
+  pill.backgroundColor = new Color(THEME.white, 0.1);
+
+  const row = pill.addStack();
+  row.centerAlignContent();
+  const g = row.addText(glyph);
+  g.font = Font.heavySystemFont(8);
+  g.textColor = new Color(hex);
+  row.addSpacer(2);
+  const l = row.addText(label);
+  l.font = Font.boldSystemFont(8);
+  l.textColor = new Color(THEME.white, ALPHA.secondary);
+
+  const v = pill.addText(formatShort(value));
+  v.font = rounded(13, false);
+  v.textColor = new Color(THEME.white, ALPHA.primary);
+  v.minimumScaleFactor = 0.7;
+  v.lineLimit = 1;
+}
+
 function createWidget(data) {
   const widget = new ListWidget();
-  widget.setPadding(12, 12, 12, 12);
+  widget.setPadding(15, 15, 13, 15);
 
-  // Velvet theme background gradient
-  const gradient = new LinearGradient();
-  gradient.colors = [new Color(THEME.bgTop), new Color(THEME.bgBottom)];
-  gradient.locations = [0.0, 1.0];
-  widget.backgroundGradient = gradient;
+  // Dropped by system in clear mode
+  const g = new LinearGradient();
+  g.colors = [new Color(THEME.bgTop), new Color(THEME.bgBottom)];
+  g.locations = [0, 1];
+  g.startPoint = new Point(0, 0);
+  g.endPoint = new Point(1, 1);
+  widget.backgroundGradient = g;
 
-  // Header Row: App name & Status / Cycle Tag
-  const headerStack = widget.addStack();
-  headerStack.layoutHorizontally();
-  headerStack.centerAlignContent();
+  widget.refreshAfterDate = new Date(Date.now() + REFRESH_MINUTES * 60 * 1000);
 
-  const titleText = headerStack.addText("PENNE");
-  titleText.font = Font.heavySystemFont(10);
-  titleText.textColor = new Color(THEME.textMuted);
+  const budget = data.fixedBudget || 0;
+  const remaining = data.remainingBudget || 0;
+  const over = remaining < 0;
+  const low = !over && budget > 0 && remaining <= budget * 0.2;
+  const pctSpent = budget > 0 ? data.expense / budget : 0;
 
-  headerStack.addSpacer();
+  let accent = THEME.mint;
+  let status = "LEFT TO SPEND";
+  if (over) { accent = THEME.coral; status = "▲ OVER BUDGET"; }
+  else if (low) { accent = THEME.peach; status = "● RUNNING LOW"; }
 
-  const badgeText = headerStack.addText(data.isOffline ? "OFFLINE" : "BUDGET");
-  badgeText.font = Font.boldSystemFont(8);
-  badgeText.textColor = data.isOffline ? new Color(THEME.coral) : new Color(THEME.lavender);
+  // Header
+  const head = widget.addStack();
+  head.centerAlignContent();
+  const title = head.addText("PENNE");
+  title.font = Font.heavySystemFont(10);
+  title.textColor = new Color(THEME.white, ALPHA.secondary);
+  head.addSpacer();
+  const left = daysLeft(data.cycleEndDate);
+  if (left !== null) {
+    const tag = head.addText(left === 1 ? "1d left" : `${left}d left`);
+    tag.font = Font.semiboldSystemFont(9);
+    tag.textColor = new Color(THEME.white, ALPHA.secondary);
+  }
+
+  widget.addSpacer(8);
+
+  // Hero
+  const cap = widget.addText(status);
+  cap.font = Font.boldSystemFont(8);
+  cap.textColor = new Color(THEME.white, ALPHA.secondary);
+
+  widget.addSpacer(1);
+
+  const hero = widget.addText(formatINR(remaining));
+  hero.font = rounded(28, true);
+  hero.textColor = new Color(accent);
+  hero.minimumScaleFactor = 0.5;
+  hero.lineLimit = 1;
 
   widget.addSpacer(5);
 
-  // 1. INCOME BLOCK
-  const incomeStack = widget.addStack();
-  incomeStack.layoutVertically();
-  incomeStack.spacing = 1;
-
-  const incomeLabelStack = incomeStack.addStack();
-  incomeLabelStack.layoutHorizontally();
-  incomeLabelStack.centerAlignContent();
-
-  const incomeDot = incomeLabelStack.addText("● ");
-  incomeDot.font = Font.systemFont(7);
-  incomeDot.textColor = new Color(THEME.mint);
-
-  const incomeLabel = incomeLabelStack.addText("INCOME");
-  incomeLabel.font = Font.boldSystemFont(9);
-  incomeLabel.textColor = new Color(THEME.textMuted);
-
-  const incomeVal = incomeStack.addText(formatINR(data.income));
-  incomeVal.font = Font.boldSystemFont(13);
-  incomeVal.textColor = new Color(THEME.mint);
-
-  widget.addSpacer(4);
-
-  // 2. EXPENSE BLOCK
-  const expenseStack = widget.addStack();
-  expenseStack.layoutVertically();
-  expenseStack.spacing = 1;
-
-  const expenseLabelStack = expenseStack.addStack();
-  expenseLabelStack.layoutHorizontally();
-  expenseLabelStack.centerAlignContent();
-
-  const expenseDot = expenseLabelStack.addText("● ");
-  expenseDot.font = Font.systemFont(7);
-  expenseDot.textColor = new Color(THEME.coral);
-
-  const expenseLabel = expenseLabelStack.addText("EXPENSE");
-  expenseLabel.font = Font.boldSystemFont(9);
-  expenseLabel.textColor = new Color(THEME.textMuted);
-
-  const expenseVal = expenseStack.addText(formatINR(data.expense));
-  expenseVal.font = Font.boldSystemFont(13);
-  expenseVal.textColor = new Color(THEME.coral);
-
-  widget.addSpacer(4);
-
-  // 3. REMAINING BUDGET BLOCK (fixed budget - expense)
-  const remainingStack = widget.addStack();
-  remainingStack.layoutVertically();
-  remainingStack.spacing = 1;
-
-  const remainingLabelStack = remainingStack.addStack();
-  remainingLabelStack.layoutHorizontally();
-  remainingLabelStack.centerAlignContent();
-
-  const isOverBudget = data.remainingBudget < 0;
-  const remainingColor = isOverBudget
-    ? new Color(THEME.coral)
-    : (data.remainingBudget > (data.fixedBudget * 0.2)
-      ? new Color(THEME.mint)
-      : new Color(THEME.peach));
-
-  const remainingDot = remainingLabelStack.addText("● ");
-  remainingDot.font = Font.systemFont(7);
-  remainingDot.textColor = remainingColor;
-
-  const remainingLabel = remainingLabelStack.addText("REMAINING BUDGET");
-  remainingLabel.font = Font.boldSystemFont(9);
-  remainingLabel.textColor = new Color(THEME.peach);
-
-  const remainingVal = remainingStack.addText(formatINR(data.remainingBudget));
-  remainingVal.font = Font.heavySystemFont(14);
-  remainingVal.textColor = remainingColor;
-
-  // Context footer: show fixed budget reference if set
-  if (data.fixedBudget > 0) {
-    const budgetContext = remainingStack.addText(`of ${formatINR(data.fixedBudget)} budget`);
-    budgetContext.font = Font.systemFont(7);
-    budgetContext.textColor = new Color(THEME.textDim);
+  if (budget > 0) {
+    const bar = widget.addImage(progressBar(260, 10, pctSpent, accent));
+    bar.imageSize = new Size(126, 5);
+    widget.addSpacer(3);
+    const sub = widget.addText(
+      `${Math.round(pctSpent * 100)}% of ${formatShort(budget)} used`
+    );
+    sub.font = Font.mediumSystemFont(8);
+    sub.textColor = new Color(THEME.white, ALPHA.tertiary);
+    sub.lineLimit = 1;
+    sub.minimumScaleFactor = 0.8;
   }
+
+  widget.addSpacer();
+
+  // Footer pills
+  const foot = widget.addStack();
+  foot.layoutHorizontally();
+  foot.spacing = 6;
+  addPill(foot, "↓", "IN", data.income, THEME.mint);
+  addPill(foot, "↑", "OUT", data.expense, THEME.coral);
 
   return widget;
 }
 
 // ==========================================
-// MAIN EXECUTION
+// MAIN
 // ==========================================
 async function main() {
   let baseUrl = BASE_URL;
   let userUuid = USER_UUID;
   let token = BEARER_TOKEN;
 
-  // Allow dynamic parameter overrides from iOS Widget settings or Apple Shortcuts
   const param = args.widgetParameter || args.shortcutParameter;
   if (param) {
     try {
@@ -308,7 +318,7 @@ async function main() {
       if (input.userUuid) userUuid = input.userUuid;
       if (input.token) token = input.token;
     } catch (e) {
-      console.log("Parameter is not JSON, continuing with default configuration.");
+      console.log("Param not JSON, using defaults.");
     }
   }
 
@@ -318,7 +328,6 @@ async function main() {
   if (config.runsInWidget) {
     Script.setWidget(widget);
   } else {
-    // Present small (square) widget for testing inside Scriptable app
     await widget.presentSmall();
   }
 
