@@ -395,12 +395,7 @@ export class PenneApiClient {
       options.signal.addEventListener('abort', () => controller.abort());
     }
 
-    let requestUrl = `${API_BASE_URL}${endpoint}`;
-    if (method === 'GET' && !requestUrl.includes('_t=')) {
-      const sep = requestUrl.includes('?') ? '&' : '?';
-      requestUrl += `${sep}_t=${Date.now()}`;
-    }
-
+    const requestUrl = `${API_BASE_URL}${endpoint}`;
     console.log(`[Penne API Request] ${method} ${requestUrl}`);
 
     const fetchOptions: RequestInit = {
