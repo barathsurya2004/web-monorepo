@@ -21,7 +21,9 @@ export const RestDrawer: React.FC = () => {
     <aside
       aria-label="Rest timer"
       className={`fixed left-1/2 z-50 -translate-x-1/2 px-4 transition-all duration-300 ${
-        hasActiveWorkoutBar ? 'bottom-[136px] sm:bottom-[144px]' : 'bottom-20 sm:bottom-20'
+        hasActiveWorkoutBar
+          ? 'bottom-[max(calc(env(safe-area-inset-bottom,0px)+8.5rem),8.5rem)] sm:bottom-[calc(env(safe-area-inset-bottom,0px)+9rem)]'
+          : 'bottom-[max(calc(env(safe-area-inset-bottom,0px)+5rem),5rem)] sm:bottom-[calc(env(safe-area-inset-bottom,0px)+5rem)]'
       }`}
     >
       {/* Minimized Pill View */}

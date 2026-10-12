@@ -127,6 +127,22 @@ export const AnalyticsView: React.FC = () => {
         subtitle="Track progressive overload, rolling 1-rep maximums, periodization curves, and muscle balance."
       />
 
+      {sessions.length === 0 && (
+        <div className="mb-6 rounded-2xl border border-lav/25 bg-lav/10 p-4 text-xs text-slate-300 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="rounded-xl bg-lav/20 p-2 text-lav shrink-0">
+              <Zap size={18} />
+            </div>
+            <div>
+              <p className="font-bold text-fg">Live User Log Mode</p>
+              <p className="text-muted text-[11px]">
+                Mock data removed. Charts and PRs will populate as you perform and log your workout sessions.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 1RM Progression Section */}
       <Card className="p-6 mb-8">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-white/[0.08] pb-4">

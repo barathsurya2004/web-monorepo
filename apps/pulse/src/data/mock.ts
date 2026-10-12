@@ -1,5 +1,5 @@
-import type { PlanDay, Routine, RoutineBlock, PlannedSet, SessionBlock, WorkoutSession, Settings, SetType } from '@/types';
-import { startOfDay, weekdayIdx } from '@/lib/calc';
+import type { PlanDay, Routine, RoutineBlock, PlannedSet, Settings, SetType } from '@/types';
+
 
 // ── Builders ───────────────────────────────────────────────
 
@@ -426,81 +426,5 @@ export const DEFAULT_SETTINGS: Settings = {
   name: 'Barath',
 };
 
-// ── Deterministic history generator ───────────────────────
+// Note: History is not mocked. Sessions only populate when the user logs and finishes workouts.
 
-function mulberry32(seed: number) {
-  return () => {
-    seed |= 0;
-    seed = (seed + 0x6d2b79f5) | 0;
-    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-const round25 = (n: number) => Math.round(n / 2.5) * 2.5;
-
-export function generateHistory(weeks = 12): WorkoutSession[] {
-  const rand = mulberry32(42);
-  const today = startOfDay(Date.now());
-  const out: WorkoutSession[] = [];
-  const totalDays = weeks * 7;
-
-  for (let d = totalDays; d >= 1; d--) {
-    const day = today - d * 86400000;
-    const wd = weekdayIdx(day);
-    const plan = MOCK_PLAN.find((p) => p.weekday === wd);
-    let routineId = plan?.routineId ?? null;
-    // Occasional bonus mobility or cardio on Sundays
-    if (!routineId && wd === 6 && rand() > 0.6) routineId = 'rest-mobility';
-    if (!routineId) continue;
-    // Skip ~10% of planned sessions — real life happens
-    if (rand() < 0.1) continue;
-
-    const routine = MOCK_ROUTINES.find((r) => r.id === routineId)!;
-    // Progressive overload: ~1.1%/week, with a deload every 5th week
-    const weekIdx = Math.floor((totalDays - d) / 7);
-    const deload = weekIdx % 5 === 4;
-    const progress = (deload ? 0.88 : 1) * (0.86 + weekIdx * 0.012);
-
-    const start = day + (17.5 + rand() * 2.5) * 3600000;
-    let t = start + 4 * 60000;
-
-    const blocks: SessionBlock[] = routine.blocks.map((b) => ({
-      id: nid('sb'),
-      exerciseId: b.exerciseId,
-      rest: b.rest,
-      supersetId: b.supersetId,
-      note: b.note,
-      targetReps: b.targetReps,
-      sets: b.sets.map((ps) => {
-        const w = ps.weight === 0 ? 0 : round25(ps.type === 'warmup' ? ps.weight : ps.weight * progress);
-        const repJitter = ps.type === 'warmup' ? 0 : Math.round((rand() - 0.55) * 2);
-        t += (ps.type === 'warmup' ? 70 : b.rest + 40) * 1000;
-        return {
-          id: nid('ls'),
-          type: ps.type,
-          reps: Math.max(1, ps.reps + repJitter),
-          weight: w,
-          rpe: ps.type === 'warmup' ? undefined : Math.min(10, Math.round((7 + rand() * 2.5) * 2) / 2),
-          done: true,
-          completedAt: t,
-        };
-      }),
-    }));
-
-    out.push({
-      id: nid('ws'),
-      routineId,
-      name: routine.name,
-      color: routine.color,
-      startedAt: start,
-      endedAt: t + 3 * 60000,
-      blocks,
-      rpe: deload ? 6 : Math.round(7 + rand() * 2.5),
-      mood: 3 + Math.round(rand() * 2),
-    });
-  }
-
-  return out;
-}

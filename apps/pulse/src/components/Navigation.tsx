@@ -28,9 +28,9 @@ export const Navigation: React.FC = () => {
 
   return (
     <>
-      {/* Top App Header */}
-      <header className="sticky top-0 z-40 border-b border-white/[0.06] bg-ink-950/80 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-3 sm:px-6 py-2.5 sm:py-3 gap-2">
+      {/* Top App Header with iOS / Android Status Bar clearance */}
+      <header className="sticky top-0 z-40 border-b border-white/[0.06] bg-ink-950/85 backdrop-blur-2xl pt-[max(calc(env(safe-area-inset-top,0px)+0.75rem),1.25rem)] pb-2.5 sm:pt-3.5 sm:pb-3 transition-all">
+        <div className="mx-auto flex max-w-5xl items-center justify-between px-3 sm:px-6 gap-2">
           {/* Brand Logo & Name */}
           <div
             onClick={() => {

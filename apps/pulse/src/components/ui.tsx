@@ -101,16 +101,27 @@ export function Card({
   id?: string;
   style?: React.CSSProperties;
 }) {
-  const Comp = onClick ? 'button' : 'div';
   return (
-    <Comp
+    <div
       id={id}
       onClick={onClick}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={
+        onClick
+          ? (e) => {
+              if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) {
+                e.preventDefault();
+                onClick();
+              }
+            }
+          : undefined
+      }
       style={style}
       className={`velvet-card ${hover || onClick ? 'velvet-card-hover cursor-pointer text-left' : ''} ${className}`}
     >
       {children}
-    </Comp>
+    </div>
   );
 }
 

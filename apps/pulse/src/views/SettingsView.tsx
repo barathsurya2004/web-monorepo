@@ -20,13 +20,13 @@ export const SettingsView: React.FC = () => {
   };
 
   const handleReset = () => {
-    if (window.confirm('Reset all app data to mock training routines and history?')) {
+    if (window.confirm('Restore default PDF training routines and clear logged workout history?')) {
       haptic.click();
       resetDemoData();
       toast({
         tone: 'mint',
-        title: 'Demo Data Restored',
-        body: 'Fresh workout routines and 12-week history loaded.',
+        title: 'Routines Restored',
+        body: 'Program routines reset and workout history cleared.',
       });
     }
   };
@@ -192,16 +192,16 @@ export const SettingsView: React.FC = () => {
           </div>
         </Card>
 
-        {/* Demo Data Reset */}
+        {/* Data Reset */}
         <div className="pt-4">
           <button
             onClick={handleReset}
             className="btn-danger w-full flex items-center justify-center gap-2 py-3"
           >
-            <RotateCcw size={16} /> Reset All Demo Data to Defaults
+            <RotateCcw size={16} /> Restore Default Program Routines & Clear History
           </button>
           <p className="mt-2 text-center text-xs text-dim">
-            Restores initial PPL routines and 12-week historical progressive overload data.
+            Restores the program routines from your PDF and wipes local workout session logs.
           </p>
         </div>
       </div>

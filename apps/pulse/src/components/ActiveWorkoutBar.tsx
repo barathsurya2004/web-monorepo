@@ -40,7 +40,7 @@ export const ActiveWorkoutBar: React.FC = () => {
     <aside
       aria-label="Active workout in progress"
       onClick={handleResume}
-      className="fixed bottom-[66px] sm:bottom-[72px] left-3 right-3 sm:left-1/2 sm:-translate-x-1/2 z-40 max-w-lg cursor-pointer rounded-2xl border border-mint/40 bg-ink-950/95 p-2.5 sm:p-3 shadow-2xl shadow-mint/20 backdrop-blur-2xl transition-all duration-200 hover:border-mint/70 hover:scale-[1.01] active:scale-[0.99] select-none"
+      className="fixed bottom-[max(calc(env(safe-area-inset-bottom,0px)+4.25rem),4.25rem)] sm:bottom-[calc(env(safe-area-inset-bottom,0px)+4.5rem)] left-3 right-3 sm:left-1/2 sm:-translate-x-1/2 z-40 max-w-lg cursor-pointer rounded-2xl border border-mint/40 bg-ink-950/95 p-2.5 sm:p-3 shadow-2xl shadow-mint/20 backdrop-blur-2xl transition-all duration-200 hover:border-mint/70 hover:scale-[1.01] active:scale-[0.99] select-none"
     >
       <div className="flex items-center justify-between gap-3">
         {/* Left: Indicator & Workout Title */}

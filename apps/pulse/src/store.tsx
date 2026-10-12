@@ -9,7 +9,7 @@ import type {
   Settings,
   WorkoutSession,
 } from '@/types';
-import { DEFAULT_SETTINGS, MOCK_PLAN, MOCK_ROUTINES, generateHistory } from '@/data/mock';
+import { DEFAULT_SETTINGS, MOCK_PLAN, MOCK_ROUTINES } from '@/data/mock';
 import { getExercise } from '@/data/exercises';
 import { computePRs, e1rm, fmtNum, todayDateKey, uid } from '@/lib/calc';
 import { configureFeedback, haptic, sound } from '@/lib/feedback';
@@ -17,7 +17,7 @@ import { configureFeedback, haptic, sound } from '@/lib/feedback';
 const KEYS = {
   routines: 'pulse_routines_v3',
   plan: 'pulse_plan_v3',
-  sessions: 'pulse_sessions_v3',
+  sessions: 'pulse_sessions_v4',
   active: 'pulse_active_v3',
   settings: 'pulse_settings_v3',
   skipped: 'pulse_skipped_v3',
@@ -221,7 +221,7 @@ function Inner({ children }: { children: React.ReactNode }) {
   });
   const [routines, setRoutines] = useState<Routine[]>(() => load(KEYS.routines, () => MOCK_ROUTINES));
   const [plan, setPlan] = useState<PlanDay[]>(() => load(KEYS.plan, () => MOCK_PLAN));
-  const [sessions, setSessions] = useState<WorkoutSession[]>(() => load(KEYS.sessions, () => generateHistory()));
+  const [sessions, setSessions] = useState<WorkoutSession[]>(() => load(KEYS.sessions, () => []));
   const [active, setActive] = useState<WorkoutSession | null>(() => load(KEYS.active, () => null));
   const [skippedDates, setSkippedDates] = useState<string[]>(() => load(KEYS.skipped, () => []));
   const [settings, setSettings] = useState<Settings>(() => ({ ...DEFAULT_SETTINGS, ...load(KEYS.settings, () => DEFAULT_SETTINGS) }));
@@ -508,7 +508,7 @@ function Inner({ children }: { children: React.ReactNode }) {
   const resetDemoData = useCallback(() => {
     setRoutines(MOCK_ROUTINES);
     setPlan(MOCK_PLAN);
-    setSessions(generateHistory());
+    setSessions([]);
     setActive(null);
     setSkippedDates([]);
     setSettings(DEFAULT_SETTINGS);

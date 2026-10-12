@@ -75,9 +75,25 @@ export const HistoryView: React.FC = () => {
       {/* Sessions Feed */}
       <div className="space-y-3">
         {filteredSessions.length === 0 ? (
-          <div className="py-20 text-center text-muted">
-            <Dumbbell size={36} className="mx-auto mb-2 opacity-30 text-lav" />
-            <p className="text-base font-semibold">No recorded workouts found</p>
+          <div className="velvet-card py-16 px-6 text-center my-4">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-lav">
+              <Dumbbell size={28} />
+            </div>
+            <h3 className="text-lg font-bold text-fg">No Logged Workouts Yet</h3>
+            <p className="mx-auto mt-1.5 max-w-sm text-xs text-muted">
+              Workouts you complete and finish will be stored here with set logs, weights, total tonnage, and PR highlights.
+            </p>
+            <div className="mt-6 flex justify-center">
+              <button
+                onClick={() => {
+                  haptic.click();
+                  navigate({ name: 'home' });
+                }}
+                className="btn-primary text-xs font-bold px-4 py-2"
+              >
+                Go to Today's Workout
+              </button>
+            </div>
           </div>
         ) : (
           filteredSessions.map((session) => {

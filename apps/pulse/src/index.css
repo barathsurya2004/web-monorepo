@@ -4,6 +4,10 @@
 
 :root {
   color-scheme: dark;
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+  --sar: env(safe-area-inset-right, 0px);
 }
 
 @layer base {
@@ -129,6 +133,14 @@
     @apply bg-clip-text text-transparent;
     background-image: linear-gradient(100deg, #f5f3ff 0%, #c8b6ff 50%, #00f5a0 100%);
   }
+}
+
+.safe-top {
+  padding-top: max(env(safe-area-inset-top, 0px), 0.75rem);
+}
+
+.status-bar-pad {
+  padding-top: max(calc(env(safe-area-inset-top, 0px) + 0.75rem), 1.25rem);
 }
 
 .safe-bottom {
