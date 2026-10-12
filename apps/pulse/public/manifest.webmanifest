@@ -1,0 +1,63 @@
+{
+  "id": "/?source=pwa",
+  "name": "Pulse — Workout Planner & Tracker",
+  "short_name": "Pulse",
+  "description": "Plan training splits, track working sets with plate & dumbbell calculators, rest timers, and progressive overload analytics.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#090812",
+  "theme_color": "#090812",
+  "orientation": "portrait-primary",
+  "lang": "en",
+  "dir": "ltr",
+  "icons": [
+    {
+      "src": "/pwa-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-maskable-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/pwa-maskable-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "categories": ["fitness", "health", "sports", "lifestyle"],
+  "shortcuts": [
+    {
+      "name": "Start Today's Workout",
+      "short_name": "Workout",
+      "description": "Jump straight into today's planned training session",
+      "url": "/",
+      "icons": [{ "src": "/pwa-192x192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "View Routines",
+      "short_name": "Routines",
+      "description": "Explore Upper/Lower splits, sets, and rep targets",
+      "url": "/?view=routines",
+      "icons": [{ "src": "/pwa-192x192.png", "sizes": "192x192" }]
+    }
+  ]
+}
