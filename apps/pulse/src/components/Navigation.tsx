@@ -28,9 +28,9 @@ export const Navigation: React.FC = () => {
 
   return (
     <>
-      {/* Top App Header with iOS / Android Status Bar clearance */}
-      <header className="sticky top-0 z-40 border-b border-white/[0.06] bg-ink-950/85 backdrop-blur-2xl pt-[max(calc(env(safe-area-inset-top,0px)+0.75rem),1.25rem)] pb-2.5 sm:pt-3.5 sm:pb-3 transition-all">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-3 sm:px-6 gap-2">
+      {/* Top App Header with iOS / Android Status Bar clearance - Opaque solid velvet to prevent status bar blur & compositing artifacts on iOS PWAs */}
+      <header className="sticky top-0 z-40 w-full max-w-full overflow-x-hidden border-b border-white/[0.08] bg-ink-950 shadow-[0_4px_24px_rgba(0,0,0,0.5)] pt-[max(calc(env(safe-area-inset-top,0px)+0.75rem),3.25rem)] pb-2.5 sm:pt-4 sm:pb-3 transition-all">
+        <div className="mx-auto flex max-w-5xl items-center justify-between px-3 sm:px-6 gap-2 min-w-0">
           {/* Brand Logo & Name */}
           <div
             onClick={() => {
@@ -122,7 +122,7 @@ export const Navigation: React.FC = () => {
       {/* Bottom Floating Navigation Dock */}
       <nav
         aria-label="Main navigation"
-        className="fixed bottom-0 left-0 right-0 z-40 border-t border-white/[0.08] bg-ink-950/90 pb-[max(env(safe-area-inset-bottom,0px),0.5rem)] pt-1.5 sm:pt-2 backdrop-blur-2xl"
+        className="fixed bottom-0 left-0 right-0 z-40 glass-dock px-2 pt-2 pb-[max(calc(env(safe-area-inset-bottom,0px)+0.25rem),0.875rem)] select-none"
       >
         <div className="mx-auto flex max-w-md items-center justify-around px-1 sm:px-2">
           {navItems.map((item) => {
@@ -136,23 +136,22 @@ export const Navigation: React.FC = () => {
                   haptic.tap();
                   navigate({ name: item.name });
                 }}
-                className={`relative flex flex-col items-center gap-0.5 sm:gap-1 rounded-2xl px-2.5 sm:px-3 py-1 sm:py-1.5 transition-all active:scale-95 shrink-0 ${
-                  isActive ? 'text-peach' : 'text-muted hover:text-fg'
+                className={`flex-1 flex flex-col items-center gap-1 py-1 px-1 rounded-2xl transition-all duration-200 cursor-pointer active:scale-90 ${
+                  isActive ? 'text-peach font-bold' : 'text-slate-400 hover:text-slate-200'
                 }`}
               >
-                <Icon
-                  size={19}
-                  className={`transition-transform duration-200 ${
-                    isActive ? 'scale-110' : ''
+                <div
+                  className={`p-1.5 rounded-xl transition-all duration-200 ${
+                    isActive
+                      ? 'bg-peach/20 text-peach scale-110 shadow-[0_0_12px_rgba(251,216,179,0.25)]'
+                      : ''
                   }`}
-                />
-                <span className="text-[10px] font-bold tracking-tight whitespace-nowrap">
+                >
+                  <Icon size={19} className="transition-transform duration-200" />
+                </div>
+                <span className="text-[10px] tracking-tight font-medium font-mono whitespace-nowrap">
                   {item.label}
                 </span>
-
-                {isActive && (
-                  <span className="absolute -bottom-1 h-1 w-5 sm:w-6 rounded-full bg-peach shadow-[0_0_8px_rgba(251,216,179,0.8)]" />
-                )}
               </button>
             );
           })}

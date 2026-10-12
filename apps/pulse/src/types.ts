@@ -128,7 +128,7 @@ export type Screen =
   | { name: 'summary'; sessionId: string }
   | { name: 'history' }
   | { name: 'session'; sessionId: string }
-  | { name: 'analytics' }
+  | { name: 'analytics'; tab?: 'all' | 'radar' | 'progress' }
   | { name: 'exercises' }
   | { name: 'exercise'; exerciseId: string }
   | { name: 'timer' }

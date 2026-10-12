@@ -133,18 +133,26 @@
     @apply bg-clip-text text-transparent;
     background-image: linear-gradient(100deg, #f5f3ff 0%, #c8b6ff 50%, #00f5a0 100%);
   }
+
+  .glass-dock {
+    background: rgba(15, 13, 36, 0.94);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border-top: 1px solid rgba(255, 255, 255, 0.09);
+    box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.6);
+  }
 }
 
 .safe-top {
-  padding-top: max(env(safe-area-inset-top, 0px), 0.75rem);
+  padding-top: max(calc(env(safe-area-inset-top, 0px) + 0.75rem), 3.25rem);
 }
 
 .status-bar-pad {
-  padding-top: max(calc(env(safe-area-inset-top, 0px) + 0.75rem), 1.25rem);
+  padding-top: max(calc(env(safe-area-inset-top, 0px) + 0.75rem), 3.25rem);
 }
 
 .safe-bottom {
-  padding-bottom: max(env(safe-area-inset-bottom, 0px), 0.75rem);
+  padding-bottom: max(calc(env(safe-area-inset-bottom, 0px) + 0.25rem), 0.875rem);
 }
 
 .no-scrollbar::-webkit-scrollbar {

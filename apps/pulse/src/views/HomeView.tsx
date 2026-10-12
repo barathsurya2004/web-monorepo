@@ -2,7 +2,6 @@ import React from 'react';
 import { useStore } from '@/store';
 import { Page, Card, Stat, Ring, SectionTitle } from '@/components/ui';
 import { StatCard, Button, Badge } from '@packages/ui';
-import { weekdayIdx, startOfWeek, fmtNum, relDay, e1rm } from '@/lib/calc';
 import { getExercise } from '@/data/exercises';
 import {
   Play,
@@ -17,7 +16,9 @@ import {
   SkipForward,
   RotateCcw,
   Moon,
+  Award,
 } from 'lucide-react';
+import { weekdayIdx, startOfWeek, fmtNum, relDay, e1rm, computeStrengthProfile } from '@/lib/calc';
 import { haptic } from '@/lib/feedback';
 
 export const HomeView: React.FC = () => {
@@ -55,6 +56,12 @@ export const HomeView: React.FC = () => {
   const recentPRList = Array.from(prs.values())
     .sort((a, b) => b.date - a.date)
     .slice(0, 3);
+
+  // Strength standards calculation
+  const strengthProfile = React.useMemo(
+    () => computeStrengthProfile(prs, settings.bodyweight || 58.5),
+    [prs, settings.bodyweight]
+  );
 
   return (
     <Page>
@@ -406,6 +413,59 @@ export const HomeView: React.FC = () => {
             </span>
           </div>
         </Card>
+      </div>
+
+      {/* Strength Standards & Kinetic Radar Card */}
+      <div className="mb-8">
+        <div
+          onClick={() => {
+            haptic.tap();
+            navigate({ name: 'analytics', tab: 'radar' });
+          }}
+          className="group cursor-pointer rounded-2xl border border-amber/25 bg-gradient-to-br from-ink-800 to-ink-850 p-5 shadow-lg transition-all hover:border-amber/50 hover:-translate-y-0.5 active:scale-[0.99]"
+        >
+          <div className="flex items-start justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="rounded-xl bg-amber/15 p-2 text-amber">
+                <Award size={20} />
+              </div>
+              <div>
+                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber">
+                  Kinetic Standards
+                </span>
+                <h3 className="text-base font-black text-fg group-hover:text-amber transition-colors">
+                  Strength Standards & Radar Matrix
+                </h3>
+              </div>
+            </div>
+            <ArrowRight size={16} className="text-muted group-hover:text-amber transition-transform group-hover:translate-x-1" />
+          </div>
+
+          <div className="mt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs font-mono">
+            <span className="text-slate-300">
+              Overall Athlete Level: <strong className="text-amber font-black text-sm">{strengthProfile.overallTier}</strong> ({strengthProfile.overallScore} / 5.0)
+            </span>
+            <span className="rounded-full bg-amber/15 border border-amber/30 px-2.5 py-0.5 text-[11px] font-bold text-amber self-start sm:self-auto">
+              {strengthProfile.symmetryBalance}
+            </span>
+          </div>
+
+          {/* 3-Movement Score Pills */}
+          <div className="mt-3 grid grid-cols-3 gap-2 text-center text-[11px] font-mono">
+            <div className="rounded-xl bg-white/5 py-1.5 border border-white/5">
+              <span className="text-muted text-[10px]">Push </span>
+              <strong className="text-fg">{strengthProfile.pushScore}</strong>
+            </div>
+            <div className="rounded-xl bg-white/5 py-1.5 border border-white/5">
+              <span className="text-muted text-[10px]">Pull </span>
+              <strong className="text-fg">{strengthProfile.pullScore}</strong>
+            </div>
+            <div className="rounded-xl bg-white/5 py-1.5 border border-white/5">
+              <span className="text-muted text-[10px]">Legs </span>
+              <strong className="text-fg">{strengthProfile.legScore}</strong>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Quick Launch Carousel / Routines */}

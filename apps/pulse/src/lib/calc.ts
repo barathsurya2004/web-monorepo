@@ -1,5 +1,5 @@
 import type { Accent, LoggedSet, SessionBlock, WorkoutSession, Muscle, PersonalRecord } from '@/types';
-import { getExercise } from '@/data/exercises';
+import { getExercise, ALL_MUSCLES, MUSCLE_LABEL } from '@/data/exercises';
 
 // ── Strength math ──────────────────────────────────────────
 
@@ -198,4 +198,186 @@ export function tonnageComparison(kg: number): string {
     }
   }
   return `${Math.round(kg / 20)} car tyres`;
+}
+
+// ── Strength Standards & Level Tiers ───────────────────────
+
+export type StrengthTier = 'Beginner' | 'Novice' | 'Intermediate' | 'Advanced' | 'Elite';
+
+export const STRENGTH_TIERS: StrengthTier[] = ['Beginner', 'Novice', 'Intermediate', 'Advanced', 'Elite'];
+
+export const TIER_COLOR: Record<StrengthTier, string> = {
+  Beginner: '#94A3B8',
+  Novice: '#7DD3FC',
+  Intermediate: '#00F5A0',
+  Advanced: '#FFD166',
+  Elite: '#FF4D6D',
+};
+
+export interface StrengthBenchmark {
+  id: string;
+  name: string;
+  movementType: 'Push' | 'Pull' | 'Legs' | 'Core';
+  userE1RM: number;
+  ratio: number;
+  tier: StrengthTier;
+  tierScore: number; // 1 to 5 scale for radar plotting
+  standards: Record<StrengthTier, number>;
+  nextTier: StrengthTier | null;
+  weightToNextTier: number;
+}
+
+export interface StrengthProfile {
+  benchmarks: StrengthBenchmark[];
+  overallTier: StrengthTier;
+  overallScore: number;
+  pushScore: number;
+  pullScore: number;
+  legScore: number;
+  symmetryBalance: 'Balanced' | 'Push-Dominant' | 'Pull-Dominant' | 'Leg-Dominant' | 'Upper-Dominant';
+  insight: string;
+}
+
+// Multipliers relative to bodyweight
+export const BENCHMARK_RATIOS: Record<string, { name: string; type: 'Push' | 'Pull' | 'Legs' | 'Core'; multipliers: Record<StrengthTier, number> }> = {
+  bench: {
+    name: 'Bench Press',
+    type: 'Push',
+    multipliers: { Beginner: 0.65, Novice: 0.95, Intermediate: 1.25, Advanced: 1.6, Elite: 2.0 },
+  },
+  squat: {
+    name: 'Back Squat',
+    type: 'Legs',
+    multipliers: { Beginner: 0.9, Novice: 1.25, Intermediate: 1.65, Advanced: 2.15, Elite: 2.65 },
+  },
+  deadlift: {
+    name: 'Deadlift',
+    type: 'Legs',
+    multipliers: { Beginner: 1.1, Novice: 1.5, Intermediate: 1.95, Advanced: 2.5, Elite: 3.1 },
+  },
+  ohp: {
+    name: 'Overhead Press',
+    type: 'Push',
+    multipliers: { Beginner: 0.45, Novice: 0.65, Intermediate: 0.85, Advanced: 1.1, Elite: 1.35 },
+  },
+  row: {
+    name: 'Barbell Row',
+    type: 'Pull',
+    multipliers: { Beginner: 0.55, Novice: 0.8, Intermediate: 1.05, Advanced: 1.35, Elite: 1.7 },
+  },
+};
+
+export function computeStrengthProfile(prs: Map<string, PersonalRecord>, bodyweight = 58.5): StrengthProfile {
+  const benchmarks: StrengthBenchmark[] = Object.entries(BENCHMARK_RATIOS).map(([id, config]) => {
+    const pr = prs.get(id);
+    const userE1RM = pr?.e1rm ?? 0;
+    const ratio = userE1RM > 0 ? userE1RM / bodyweight : 0;
+
+    const standards = {
+      Beginner: Math.round(bodyweight * config.multipliers.Beginner * 10) / 10,
+      Novice: Math.round(bodyweight * config.multipliers.Novice * 10) / 10,
+      Intermediate: Math.round(bodyweight * config.multipliers.Intermediate * 10) / 10,
+      Advanced: Math.round(bodyweight * config.multipliers.Advanced * 10) / 10,
+      Elite: Math.round(bodyweight * config.multipliers.Elite * 10) / 10,
+    };
+
+    let tier: StrengthTier = 'Beginner';
+    let tierScore = 1;
+    let nextTier: StrengthTier | null = 'Novice';
+    let weightToNextTier = Math.max(0, standards.Novice - userE1RM);
+
+    if (userE1RM >= standards.Elite) {
+      tier = 'Elite';
+      tierScore = 5;
+      nextTier = null;
+      weightToNextTier = 0;
+    } else if (userE1RM >= standards.Advanced) {
+      tier = 'Advanced';
+      const progress = (userE1RM - standards.Advanced) / (standards.Elite - standards.Advanced || 1);
+      tierScore = 4 + Math.min(0.99, progress);
+      nextTier = 'Elite';
+      weightToNextTier = Math.max(0, standards.Elite - userE1RM);
+    } else if (userE1RM >= standards.Intermediate) {
+      tier = 'Intermediate';
+      const progress = (userE1RM - standards.Intermediate) / (standards.Advanced - standards.Intermediate || 1);
+      tierScore = 3 + Math.min(0.99, progress);
+      nextTier = 'Advanced';
+      weightToNextTier = Math.max(0, standards.Advanced - userE1RM);
+    } else if (userE1RM >= standards.Novice) {
+      tier = 'Novice';
+      const progress = (userE1RM - standards.Novice) / (standards.Intermediate - standards.Novice || 1);
+      tierScore = 2 + Math.min(0.99, progress);
+      nextTier = 'Intermediate';
+      weightToNextTier = Math.max(0, standards.Intermediate - userE1RM);
+    } else {
+      tier = 'Beginner';
+      const progress = standards.Beginner > 0 ? Math.min(1, userE1RM / standards.Beginner) : 0;
+      tierScore = Math.max(0.4, 1 * progress);
+      nextTier = 'Novice';
+      weightToNextTier = Math.max(0, standards.Novice - userE1RM);
+    }
+
+    return {
+      id,
+      name: config.name,
+      movementType: config.type,
+      userE1RM: Math.round(userE1RM * 10) / 10,
+      ratio: Math.round(ratio * 100) / 100,
+      tier,
+      tierScore: Math.round(tierScore * 100) / 100,
+      standards,
+      nextTier,
+      weightToNextTier: Math.round(weightToNextTier * 10) / 10,
+    };
+  });
+
+  const testedBenchmarks = benchmarks.filter((b) => b.userE1RM > 0);
+  const avgScore =
+    testedBenchmarks.length > 0
+      ? testedBenchmarks.reduce((sum, b) => sum + b.tierScore, 0) / testedBenchmarks.length
+      : 1;
+
+  let overallTier: StrengthTier = 'Beginner';
+  if (avgScore >= 4.5) overallTier = 'Elite';
+  else if (avgScore >= 3.5) overallTier = 'Advanced';
+  else if (avgScore >= 2.5) overallTier = 'Intermediate';
+  else if (avgScore >= 1.5) overallTier = 'Novice';
+
+  const pushBench = benchmarks.filter((b) => b.movementType === 'Push');
+  const pullBench = benchmarks.filter((b) => b.movementType === 'Pull');
+  const legBench = benchmarks.filter((b) => b.movementType === 'Legs');
+
+  const pushScore = pushBench.reduce((acc, b) => acc + b.tierScore, 0) / (pushBench.length || 1);
+  const pullScore = pullBench.reduce((acc, b) => acc + b.tierScore, 0) / (pullBench.length || 1);
+  const legScore = legBench.reduce((acc, b) => acc + b.tierScore, 0) / (legBench.length || 1);
+
+  let symmetryBalance: StrengthProfile['symmetryBalance'] = 'Balanced';
+  let insight = 'Balanced full-body kinetic symmetry across push, pull, and leg compound movements.';
+
+  if (testedBenchmarks.length === 0) {
+    insight = 'Log sets in Bench Press, Squat, Deadlift, OHP, or Barbell Row to analyze your kinetic balance and strength tier.';
+  } else if (legScore > pushScore + 0.8 && legScore > pullScore + 0.8) {
+    symmetryBalance = 'Leg-Dominant';
+    insight = 'Exceptional lower body power! Prioritize horizontal & vertical pressing to build an evenly balanced upper physique.';
+  } else if (pushScore > pullScore + 0.8) {
+    symmetryBalance = 'Push-Dominant';
+    insight = 'Strong pressing strength! Add more posterior rowing & vertical pull volume to protect shoulder joint integrity.';
+  } else if (pullScore > pushScore + 0.8) {
+    symmetryBalance = 'Pull-Dominant';
+    insight = 'Superior back and pulling strength! Focus on progressive overload in Bench Press and Overhead Press.';
+  } else if (pushScore + pullScore > legScore * 2 + 0.6) {
+    symmetryBalance = 'Upper-Dominant';
+    insight = 'Upper body outpaces your legs. Prioritize squat depth and deadlift frequency to establish a solid foundation.';
+  }
+
+  return {
+    benchmarks,
+    overallTier,
+    overallScore: Math.round(avgScore * 10) / 10,
+    pushScore: Math.round(pushScore * 10) / 10,
+    pullScore: Math.round(pullScore * 10) / 10,
+    legScore: Math.round(legScore * 10) / 10,
+    symmetryBalance,
+    insight,
+  };
 }
