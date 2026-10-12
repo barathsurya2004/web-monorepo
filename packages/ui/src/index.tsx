@@ -310,3 +310,107 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }
     ? createPortal(modalNode, document.body)
     : modalNode;
 };
+
+// ProgressRing Component
+export interface ProgressRingProps {
+  /** Progress from 0 to 1. */
+  value: number;
+  size?: number;
+  stroke?: number;
+  /** Any CSS colour. Defaults to sage. */
+  color?: string;
+  trackColor?: string;
+  glow?: boolean;
+  children?: React.ReactNode;
+  className?: string;
+}
+
+export const ProgressRing: React.FC<ProgressRingProps> = ({
+  value,
+  size = 64,
+  stroke = 6,
+  color = '#A8E6CF',
+  trackColor = 'rgba(255,255,255,0.08)',
+  glow = true,
+  children,
+  className = ''
+}) => {
+  const r = (size - stroke) / 2;
+  const c = 2 * Math.PI * r;
+  const v = Math.max(0, Math.min(1, value));
+  return (
+    <div className={`relative inline-flex items-center justify-center shrink-0 ${className}`} style={{ width: size, height: size }}>
+      <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
+        <circle cx={size / 2} cy={size / 2} r={r} stroke={trackColor} strokeWidth={stroke} fill="none" />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          stroke={color}
+          strokeWidth={stroke}
+          fill="none"
+          strokeLinecap="round"
+          strokeDasharray={c}
+          strokeDashoffset={c * (1 - v)}
+          style={{
+            transition: 'stroke-dashoffset 0.6s cubic-bezier(0.22,1,0.36,1), stroke 0.3s',
+            filter: glow ? `drop-shadow(0 0 6px ${color}66)` : undefined
+          }}
+        />
+      </svg>
+      {children && <div className="absolute inset-0 flex items-center justify-center">{children}</div>}
+    </div>
+  );
+};
+
+// Toggle Component
+export interface ToggleProps {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  id?: string;
+  label?: string;
+  disabled?: boolean;
+}
+
+export const Toggle: React.FC<ToggleProps> = ({ checked, onChange, id, label, disabled }) => {
+  return (
+    <button
+      id={id}
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      disabled={disabled}
+      onClick={() => onChange(!checked)}
+      className={`relative h-7 w-12 shrink-0 rounded-full border transition-colors duration-300 cursor-pointer disabled:opacity-50 ${
+        checked ? 'bg-[#A8E6CF] border-[#A8E6CF]' : 'bg-[#232044] border-white/10'
+      }`}
+    >
+      <span
+        className={`absolute top-[3px] h-5 w-5 rounded-full shadow transition-all duration-300 ${
+          checked ? 'left-[22px] bg-[#1A1835]' : 'left-[3px] bg-slate-400'
+        }`}
+      />
+    </button>
+  );
+};
+
+// EmptyState Component
+export interface EmptyStateProps {
+  icon?: React.ReactNode;
+  title: string;
+  description?: string;
+  action?: React.ReactNode;
+  className?: string;
+}
+
+export const EmptyState: React.FC<EmptyStateProps> = ({ icon, title, description, action, className = '' }) => {
+  return (
+    <div className={`flex flex-col items-center text-center px-6 py-12 bg-[#343060]/60 border border-dashed border-white/10 rounded-3xl ${className}`}>
+      {icon && <div className="mb-4 p-4 rounded-2xl bg-[#232044] border border-white/10 text-[#C8B6FF]">{icon}</div>}
+      <h3 className="text-lg font-extrabold text-white">{title}</h3>
+      {description && <p className="mt-1 max-w-sm text-sm text-slate-400">{description}</p>}
+      {action && <div className="mt-5">{action}</div>}
+    </div>
+  );
+};

@@ -5,8 +5,9 @@
   "scripts": {
     "dev": "pnpm --filter @apps/penne-dashboard dev",
     "dev:shuchu": "pnpm --filter @apps/shuchu dev",
-    "build": "pnpm --filter \"@packages/*\" build && pnpm --filter @apps/penne-dashboard build && pnpm --filter @apps/shuchu build",
-    "typecheck": "pnpm --filter \"@packages/*\" typecheck && pnpm --filter @apps/penne-dashboard typecheck && pnpm --filter @apps/shuchu typecheck",
+    "dev:pulse": "pnpm --filter @apps/pulse dev",
+    "build": "pnpm --filter \"@packages/*\" build && pnpm --filter @apps/penne-dashboard build && pnpm --filter @apps/shuchu build && pnpm --filter @apps/pulse build",
+    "typecheck": "pnpm --filter \"@packages/*\" typecheck && pnpm --filter @apps/penne-dashboard typecheck && pnpm --filter @apps/shuchu typecheck && pnpm --filter @apps/pulse typecheck",
     "db:shadow": "bash ../penne-server/scripts/rebase_from_prod.sh"
   },
   "devDependencies": {
