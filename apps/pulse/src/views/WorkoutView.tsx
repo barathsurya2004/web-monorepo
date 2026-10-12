@@ -30,6 +30,7 @@ export const WorkoutView: React.FC = () => {
   const {
     active,
     updateSet,
+    setBlockBarWeight,
     toggleSet,
     addSet,
     removeSet,
@@ -229,6 +230,23 @@ export const WorkoutView: React.FC = () => {
                     <span className="uppercase font-mono text-[10px] text-peach font-bold">
                       {ex.equipment}
                     </span>
+                    {ex.equipment === 'barbell' && (
+                      <button
+                        onClick={() => {
+                          const firstUncompleted = block.sets.find((s) => !s.done) || block.sets[0];
+                          setCalcState({
+                            blockId: block.id,
+                            setId: firstUncompleted?.id ?? '',
+                            weight: firstUncompleted?.weight || (block.barWeight ?? settings.barWeight ?? 20),
+                            exerciseId: block.exerciseId,
+                          });
+                        }}
+                        className="inline-flex items-center gap-1 rounded-md bg-peach/15 border border-peach/30 px-2 py-0.5 text-[11px] font-mono font-bold text-peach hover:bg-peach/25 transition-colors active:scale-95"
+                        title="Barbell type for this exercise (click to adjust)"
+                      >
+                        <Disc size={12} /> Bar: {block.barWeight ?? settings.barWeight ?? 20} {settings.unit}
+                      </button>
+                    )}
                     <span>•</span>
                     <span>Rest: {block.rest}s</span>
                     {block.targetReps && (
@@ -278,7 +296,11 @@ export const WorkoutView: React.FC = () => {
                 </div>
 
                 {block.sets.map((set, setIdx) => {
-                  const prevSet = previousPerformance?.[setIdx];
+                  const prevWorking = previousPerformance?.filter((s) => s.type === 'working');
+                  const prevSet =
+                    previousPerformance?.[setIdx] ||
+                    (set.type === 'working' ? prevWorking?.[prevWorking.length - 1] : undefined);
+                  const prevSetInBlock = setIdx > 0 ? block.sets[setIdx - 1] : undefined;
                   const setEst1RM = e1rm(set.weight, set.reps);
 
                   return (
@@ -310,15 +332,17 @@ export const WorkoutView: React.FC = () => {
                         </select>
                       </div>
 
-                      {/* Ghost Data: Previous performance */}
+                      {/* Ghost Data: Previous performance or PDF default indication */}
                       <div className="col-span-3 font-mono text-xs text-dim truncate">
                         {prevSet ? (
-                          <span>
+                          <span className="text-slate-300 font-semibold">
                             {prevSet.weight}
-                            <span className="text-[10px]">{settings.unit}</span> × {prevSet.reps}
+                            <span className="text-[10px] text-muted">{settings.unit}</span> × {prevSet.reps}
                           </span>
                         ) : (
-                          <span className="italic text-[11px]">—</span>
+                          <span className="text-[10px] font-sans font-semibold text-peach/75">
+                            PDF Default
+                          </span>
                         )}
                       </div>
 
@@ -331,6 +355,8 @@ export const WorkoutView: React.FC = () => {
                           placeholder={
                             ex.equipment === 'bodyweight' && (!set.weight || set.weight === 0)
                               ? 'BW'
+                              : prevSetInBlock?.weight
+                              ? String(prevSetInBlock.weight)
                               : prevSet
                               ? String(prevSet.weight)
                               : '0'
@@ -338,7 +364,7 @@ export const WorkoutView: React.FC = () => {
                           onChange={(e) =>
                             updateSet(block.id, set.id, {
                               weight: Number(e.target.value),
-                            })
+                            }, true)
                           }
                           className="w-full rounded-xl border border-white/10 bg-ink-900 px-1 py-1.5 sm:py-2 pr-6 text-center font-mono text-xs sm:text-sm font-bold text-fg focus:border-lav/50 focus:outline-none"
                         />
@@ -347,7 +373,11 @@ export const WorkoutView: React.FC = () => {
                             setCalcState({
                               blockId: block.id,
                               setId: set.id,
-                              weight: set.weight || prevSet?.weight || (ex.equipment === 'barbell' ? settings.barWeight : 0),
+                              weight:
+                                set.weight ||
+                                prevSetInBlock?.weight ||
+                                prevSet?.weight ||
+                                (ex.equipment === 'barbell' ? (block.barWeight ?? settings.barWeight ?? 20) : 0),
                               exerciseId: block.exerciseId,
                             })
                           }
@@ -435,21 +465,29 @@ export const WorkoutView: React.FC = () => {
       </div>
 
       {/* Weight Calculator Sheet */}
-      {calcState && (
-        <PlateCalculator
-          open={calcState !== null}
-          initialWeight={calcState.weight}
-          equipment={getExercise(calcState.exerciseId).equipment}
-          exerciseName={getExercise(calcState.exerciseId).name}
-          onClose={() => setCalcState(null)}
-          onApply={(newWeight) => {
-            updateSet(calcState.blockId, calcState.setId, {
-              weight: newWeight,
-            });
-            setCalcState(null);
-          }}
-        />
-      )}
+      {calcState && (() => {
+        const targetBlock = active?.blocks.find((b) => b.id === calcState.blockId);
+        return (
+          <PlateCalculator
+            open={calcState !== null}
+            initialWeight={calcState.weight}
+            barWeight={targetBlock?.barWeight}
+            equipment={getExercise(calcState.exerciseId).equipment}
+            exerciseName={getExercise(calcState.exerciseId).name}
+            onClose={() => setCalcState(null)}
+            onApply={(newWeight, usedBarWeight) => {
+              // Updates this set and carries forward to subsequent uncompleted sets in this exercise block
+              updateSet(calcState.blockId, calcState.setId, {
+                weight: newWeight,
+              }, true);
+              if (usedBarWeight) {
+                setBlockBarWeight(calcState.blockId, usedBarWeight);
+              }
+              setCalcState(null);
+            }}
+          />
+        );
+      })()}
 
       {/* Exercise Picker Sheet */}
       <ExercisePicker

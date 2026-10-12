@@ -74,7 +74,8 @@ interface Store {
 
   active: WorkoutSession | null;
   startWorkout: (routineId?: string) => void;
-  updateSet: (blockId: string, setId: string, patch: Partial<LoggedSet>) => void;
+  updateSet: (blockId: string, setId: string, patch: Partial<LoggedSet>, propagate?: boolean) => void;
+  setBlockBarWeight: (blockId: string, barWeight: number) => void;
   toggleSet: (blockId: string, setId: string) => void;
   addSet: (blockId: string) => void;
   removeSet: (blockId: string, setId: string) => void;
@@ -181,6 +182,9 @@ export function useRest(): RestState {
 function cloneRoutineToSession(r: Routine | undefined, lastPerf: Store['lastPerformance']): WorkoutSession {
   const blocks: SessionBlock[] = (r?.blocks ?? []).map((b) => {
     const prev = lastPerf(b.exerciseId);
+    const prevWorking = prev?.filter((s) => s.type === 'working');
+    const lastWorking = prevWorking?.[prevWorking.length - 1];
+
     return {
       id: uid('sb'),
       exerciseId: b.exerciseId,
@@ -189,15 +193,37 @@ function cloneRoutineToSession(r: Routine | undefined, lastPerf: Store['lastPerf
       note: b.note,
       targetReps: b.targetReps,
       sets: b.sets.map((ps, i) => {
-        // Pre-fill with what you did last time at this set index when it's the same type;
-        // otherwise fall back to the planned target.
+        // 1. If user previously logged this exact set index with matching type:
         const p = prev?.[i];
-        const usePrev = p && p.type === ps.type;
+        if (p && p.type === ps.type) {
+          return {
+            id: uid('ls'),
+            type: ps.type,
+            reps: p.reps,
+            weight: p.weight,
+            rpe: p.rpe ?? ps.rpe,
+            done: false,
+          };
+        }
+
+        // 2. If user previously completed working sets and this is an additional working set:
+        if (ps.type === 'working' && lastWorking) {
+          return {
+            id: uid('ls'),
+            type: 'working',
+            reps: lastWorking.reps,
+            weight: lastWorking.weight,
+            rpe: lastWorking.rpe ?? ps.rpe,
+            done: false,
+          };
+        }
+
+        // 3. First time doing this workout / exercise: default strictly to the PDF routine values
         return {
           id: uid('ls'),
           type: ps.type,
-          reps: usePrev ? p.reps : ps.reps,
-          weight: usePrev ? p.weight : ps.weight,
+          reps: ps.reps,
+          weight: ps.weight,
           rpe: ps.rpe,
           done: false,
         };
@@ -294,13 +320,18 @@ function Inner({ children }: { children: React.ReactNode }) {
 
   const lastPerformance = useCallback(
     (exerciseId: string, beforeTs = Infinity): LoggedSet[] | null => {
-      let best: WorkoutSession | null = null;
+      let bestSets: LoggedSet[] | null = null;
+      let bestTs = -Infinity;
       for (const s of sessions) {
         if (s.startedAt >= beforeTs) continue;
-        if (!s.blocks.some((b) => b.exerciseId === exerciseId)) continue;
-        if (!best || s.startedAt > best.startedAt) best = s;
+        const blk = s.blocks.find((b) => b.exerciseId === exerciseId);
+        if (!blk || !blk.sets || blk.sets.length === 0) continue;
+        if (s.startedAt > bestTs) {
+          bestTs = s.startedAt;
+          bestSets = blk.sets;
+        }
       }
-      return best?.blocks.find((b) => b.exerciseId === exerciseId)?.sets ?? null;
+      return bestSets;
     },
     [sessions],
   );
@@ -342,9 +373,30 @@ function Inner({ children }: { children: React.ReactNode }) {
     setActive((a) => (a ? { ...a, blocks: a.blocks.map((b) => (b.id === blockId ? fn(b) : b)) } : a));
   }, []);
 
+  const setBlockBarWeight = useCallback(
+    (blockId: string, barWeight: number) => {
+      mutateBlock(blockId, (b) => ({ ...b, barWeight }));
+    },
+    [mutateBlock],
+  );
+
   const updateSet = useCallback(
-    (blockId: string, setId: string, patch: Partial<LoggedSet>) =>
-      mutateBlock(blockId, (b) => ({ ...b, sets: b.sets.map((s) => (s.id === setId ? { ...s, ...patch } : s)) })),
+    (blockId: string, setId: string, patch: Partial<LoggedSet>, propagate = false) =>
+      mutateBlock(blockId, (b) => {
+        const setIdx = b.sets.findIndex((s) => s.id === setId);
+        if (setIdx === -1) return b;
+        return {
+          ...b,
+          sets: b.sets.map((s, idx) => {
+            if (s.id === setId) return { ...s, ...patch };
+            // If propagating weight changes to subsequent uncompleted sets in this block:
+            if (propagate && idx > setIdx && !s.done && patch.weight !== undefined) {
+              return { ...s, weight: patch.weight };
+            }
+            return s;
+          }),
+        };
+      }),
     [mutateBlock],
   );
 
@@ -376,6 +428,16 @@ function Inner({ children }: { children: React.ReactNode }) {
       const isPR = set.type !== 'warmup' && prior > 0 && est > Math.max(prior, sessionBest) + 0.01;
 
       updateSet(blockId, setId, { done: true, isPR, completedAt: Date.now() });
+
+      // Automatically keep the same weight for the next uncompleted set in this exercise block
+      const currentBlock = active.blocks.find((b) => b.id === blockId);
+      const setIndex = currentBlock?.sets.findIndex((s) => s.id === setId);
+      if (currentBlock && setIndex !== undefined && setIndex >= 0) {
+        const nextSet = currentBlock.sets[setIndex + 1];
+        if (nextSet && !nextSet.done && (!nextSet.weight || nextSet.weight === 0)) {
+          updateSet(blockId, nextSet.id, { weight: set.weight }, true);
+        }
+      }
 
       if (isPR) {
         haptic.pr();
@@ -427,6 +489,22 @@ function Inner({ children }: { children: React.ReactNode }) {
       const ex = getExercise(exerciseId);
       const prev = lastPerformance(exerciseId);
       const src = prev?.filter((s) => s.type !== 'warmup').slice(0, 3);
+
+      // If first time doing this exercise, check if any routine in MOCK_ROUTINES defines default sets
+      const routineMatch = MOCK_ROUTINES.flatMap((r) => r.blocks).find((b) => b.exerciseId === exerciseId);
+      const defaultSets = routineMatch?.sets.filter((s) => s.type === 'working').slice(0, 3);
+
+      const fallbackWeight = ex.equipment === 'barbell' ? 20 : ex.equipment === 'dumbbell' ? 10 : 0;
+      const initialSets = src?.length
+        ? src.map((s) => ({ reps: s.reps, weight: s.weight }))
+        : defaultSets?.length
+        ? defaultSets.map((s) => ({ reps: s.reps, weight: s.weight }))
+        : [
+            { reps: 10, weight: fallbackWeight },
+            { reps: 10, weight: fallbackWeight },
+            { reps: 10, weight: fallbackWeight },
+          ];
+
       setActive((a) =>
         a
           ? {
@@ -437,7 +515,9 @@ function Inner({ children }: { children: React.ReactNode }) {
                   id: uid('sb'),
                   exerciseId,
                   rest: ex.defaultRest,
-                  sets: (src?.length ? src : [{ reps: 10, weight: 0 }, { reps: 10, weight: 0 }, { reps: 10, weight: 0 }]).map((s) => ({
+                  targetReps: routineMatch?.targetReps,
+                  note: routineMatch?.note,
+                  sets: initialSets.map((s) => ({
                     id: uid('ls'),
                     type: 'working' as const,
                     reps: s.reps,
@@ -533,6 +613,7 @@ function Inner({ children }: { children: React.ReactNode }) {
     active,
     startWorkout,
     updateSet,
+    setBlockBarWeight,
     toggleSet,
     addSet,
     removeSet,

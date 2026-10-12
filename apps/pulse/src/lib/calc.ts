@@ -90,6 +90,7 @@ export const PLATE_COLOR: Record<string, string> = {
   '5': '#F5F3FF',
   '2.5': '#C8B6FF',
   '1.25': '#94A3B8',
+  '0.5': '#E2E8F0',
   '45': '#7DD3FC',
   '35': '#FFD166',
 };

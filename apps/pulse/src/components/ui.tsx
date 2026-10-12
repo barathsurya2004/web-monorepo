@@ -244,7 +244,7 @@ export function Sheet({
     <div className="fixed inset-0 z-[60] flex items-end justify-center sm:items-center" role="dialog" aria-modal="true">
       <div className="absolute inset-0 animate-fade bg-ink-950/70 backdrop-blur-sm" onClick={onClose} />
       <div
-        className={`glass relative flex max-h-[88dvh] w-full animate-sheet flex-col rounded-t-3xl sm:animate-rise sm:rounded-3xl ${wide ? 'sm:max-w-2xl' : 'sm:max-w-lg'}`}
+        className={`glass relative flex max-h-[92dvh] w-full animate-sheet flex-col rounded-t-3xl sm:animate-rise sm:rounded-3xl ${wide ? 'sm:max-w-2xl' : 'sm:max-w-lg'}`}
       >
         <div className="mx-auto mt-2.5 h-1 w-10 rounded-full bg-white/15 sm:hidden" />
         {title && (

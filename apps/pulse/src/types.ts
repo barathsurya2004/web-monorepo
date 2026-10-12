@@ -88,6 +88,8 @@ export interface SessionBlock {
   supersetId?: string;
   note?: string;
   targetReps?: string;
+  /** Persisted barbell type / weight for this exercise block (e.g. 20kg Olympic, 15kg Women's, 10kg Technique) */
+  barWeight?: number;
 }
 
 export interface WorkoutSession {
