@@ -230,23 +230,59 @@ export const WorkoutView: React.FC = () => {
                     <span className="uppercase font-mono text-[10px] text-peach font-bold">
                       {ex.equipment}
                     </span>
-                    {ex.equipment === 'barbell' && (
-                      <button
-                        onClick={() => {
-                          const firstUncompleted = block.sets.find((s) => !s.done) || block.sets[0];
-                          setCalcState({
-                            blockId: block.id,
-                            setId: firstUncompleted?.id ?? '',
-                            weight: firstUncompleted?.weight || (block.barWeight ?? settings.barWeight ?? 20),
-                            exerciseId: block.exerciseId,
-                          });
-                        }}
-                        className="inline-flex items-center gap-1 rounded-md bg-peach/15 border border-peach/30 px-2 py-0.5 text-[11px] font-mono font-bold text-peach hover:bg-peach/25 transition-colors active:scale-95"
-                        title="Barbell type for this exercise (click to adjust)"
-                      >
-                        <Disc size={12} /> Bar: {block.barWeight ?? settings.barWeight ?? 20} {settings.unit}
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const firstUncompleted = block.sets.find((s) => !s.done) || block.sets[0];
+                        if (document.activeElement instanceof HTMLElement) {
+                          document.activeElement.blur();
+                        }
+                        setCalcState({
+                          blockId: block.id,
+                          setId: firstUncompleted?.id ?? '',
+                          weight:
+                            firstUncompleted?.weight ||
+                            (ex.equipment === 'barbell' ? (block.barWeight ?? settings.barWeight ?? 20) : 0),
+                          exerciseId: block.exerciseId,
+                        });
+                      }}
+                      className={`inline-flex items-center gap-1.5 rounded-lg border px-2 py-0.5 text-[11px] font-mono font-bold transition-all active:scale-95 ${
+                        ex.equipment === 'barbell'
+                          ? 'bg-peach/15 border-peach/30 text-peach hover:bg-peach/25'
+                          : ex.equipment === 'dumbbell'
+                          ? 'bg-mint/15 border-mint/30 text-mint hover:bg-mint/25'
+                          : ex.equipment === 'bodyweight'
+                          ? 'bg-ice/15 border-ice/30 text-ice hover:bg-ice/25'
+                          : 'bg-lav/15 border-lav/30 text-lav hover:bg-lav/25'
+                      }`}
+                      title={`Open ${ex.equipment} calculator`}
+                    >
+                      {ex.equipment === 'barbell' && (
+                        <>
+                          <Disc size={12} />
+                          <span>Bar: {block.barWeight ?? settings.barWeight ?? 20} {settings.unit}</span>
+                          <span className="text-peach/60 text-[10px]">• Plates</span>
+                        </>
+                      )}
+                      {ex.equipment === 'dumbbell' && (
+                        <>
+                          <Dumbbell size={12} />
+                          <span>Dumbbell Calc</span>
+                        </>
+                      )}
+                      {ex.equipment === 'bodyweight' && (
+                        <>
+                          <User size={12} />
+                          <span>BW + Added</span>
+                        </>
+                      )}
+                      {(ex.equipment === 'machine' || ex.equipment === 'cable' || ex.equipment === 'kettlebell') && (
+                        <>
+                          <Layers size={12} />
+                          <span>Stack & Pin</span>
+                        </>
+                      )}
+                    </button>
                     <span>•</span>
                     <span>Rest: {block.rest}s</span>
                     {block.targetReps && (
@@ -287,10 +323,10 @@ export const WorkoutView: React.FC = () => {
 
               {/* Sets Table */}
               <div className="mt-4 space-y-2">
-                <div className="grid grid-cols-12 gap-2 text-[10px] font-bold uppercase tracking-wider text-muted font-mono px-2">
-                  <span className="col-span-1">Set</span>
-                  <span className="col-span-3">Previous</span>
-                  <span className="col-span-3 text-center">Weight ({settings.unit})</span>
+                <div className="grid grid-cols-12 gap-1.5 sm:gap-2 text-[10px] font-bold uppercase tracking-wider text-muted font-mono px-2">
+                  <span className="col-span-1 text-center">Set</span>
+                  <span className="col-span-2">Prev</span>
+                  <span className="col-span-4 text-center">Weight ({settings.unit})</span>
                   <span className="col-span-2 text-center">Reps</span>
                   <span className="col-span-3 text-center">Log</span>
                 </div>
@@ -306,7 +342,7 @@ export const WorkoutView: React.FC = () => {
                   return (
                     <div
                       key={set.id}
-                      className={`grid grid-cols-12 items-center gap-2 rounded-2xl p-2.5 transition-all duration-300 ${
+                      className={`grid grid-cols-12 items-center gap-1.5 sm:gap-2 rounded-2xl p-2 sm:p-2.5 transition-all duration-300 ${
                         set.done
                           ? set.isPR
                             ? 'shimmer-gold border border-amber/40 bg-amber/15 text-amber'
@@ -333,21 +369,21 @@ export const WorkoutView: React.FC = () => {
                       </div>
 
                       {/* Ghost Data: Previous performance or PDF default indication */}
-                      <div className="col-span-3 font-mono text-xs text-dim truncate">
+                      <div className="col-span-2 font-mono text-xs text-dim truncate">
                         {prevSet ? (
-                          <span className="text-slate-300 font-semibold">
+                          <span className="text-slate-300 font-semibold truncate block" title={`${prevSet.weight} ${settings.unit} × ${prevSet.reps}`}>
                             {prevSet.weight}
-                            <span className="text-[10px] text-muted">{settings.unit}</span> × {prevSet.reps}
+                            <span className="text-[10px] text-muted">{settings.unit}</span>×{prevSet.reps}
                           </span>
                         ) : (
                           <span className="text-[10px] font-sans font-semibold text-peach/75">
-                            PDF Default
+                            PDF
                           </span>
                         )}
                       </div>
 
-                      {/* Weight input with Smart Equipment Calculator button */}
-                      <div className="col-span-3 relative flex items-center justify-center min-w-0">
+                      {/* Weight input with Smart Equipment Calculator button (separated for touch UX) */}
+                      <div className="col-span-4 flex items-center gap-1 sm:gap-1.5 min-w-0">
                         <input
                           type="number"
                           step={ex.equipment === 'dumbbell' ? '1' : '2.5'}
@@ -366,10 +402,28 @@ export const WorkoutView: React.FC = () => {
                               weight: Number(e.target.value),
                             }, true)
                           }
-                          className="w-full rounded-xl border border-white/10 bg-ink-900 px-1 py-1.5 sm:py-2 pr-6 text-center font-mono text-xs sm:text-sm font-bold text-fg focus:border-lav/50 focus:outline-none"
+                          className="w-full flex-1 min-w-0 rounded-xl border border-white/10 bg-ink-900 px-1 sm:px-2 py-1.5 sm:py-2 text-center font-mono text-xs sm:text-sm font-bold text-fg focus:border-lav/50 focus:outline-none"
                         />
                         <button
-                          onClick={() =>
+                          type="button"
+                          onPointerDown={(e) => {
+                            e.stopPropagation();
+                            if (document.activeElement instanceof HTMLElement) {
+                              document.activeElement.blur();
+                            }
+                          }}
+                          onTouchStart={(e) => {
+                            e.stopPropagation();
+                            if (document.activeElement instanceof HTMLElement) {
+                              document.activeElement.blur();
+                            }
+                          }}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            if (document.activeElement instanceof HTMLElement) {
+                              document.activeElement.blur();
+                            }
                             setCalcState({
                               blockId: block.id,
                               setId: set.id,
@@ -379,17 +433,25 @@ export const WorkoutView: React.FC = () => {
                                 prevSet?.weight ||
                                 (ex.equipment === 'barbell' ? (block.barWeight ?? settings.barWeight ?? 20) : 0),
                               exerciseId: block.exerciseId,
-                            })
-                          }
-                          aria-label={`${ex.equipment} calculator`}
-                          className="absolute right-1 text-muted hover:text-fg p-0.5 transition-colors"
-                          title={`${ex.equipment} calculator`}
+                            });
+                          }}
+                          aria-label={`Open ${ex.equipment} calculator`}
+                          className={`flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-xl border transition-all active:scale-90 ${
+                            ex.equipment === 'barbell'
+                              ? 'border-peach/35 bg-peach/15 text-peach shadow-[0_0_10px_rgba(251,216,179,0.18)] hover:bg-peach/25'
+                              : ex.equipment === 'dumbbell'
+                              ? 'border-mint/35 bg-mint/15 text-mint shadow-[0_0_10px_rgba(168,230,207,0.18)] hover:bg-mint/25'
+                              : ex.equipment === 'bodyweight'
+                              ? 'border-ice/35 bg-ice/15 text-ice shadow-[0_0_10px_rgba(165,216,255,0.18)] hover:bg-ice/25'
+                              : 'border-lav/35 bg-lav/10 text-lav shadow-[0_0_10px_rgba(200,182,255,0.18)] hover:bg-lav/25'
+                          }`}
+                          title={`Open ${ex.equipment} calculator`}
                         >
-                          {ex.equipment === 'barbell' && <Disc size={13} className="text-peach" />}
-                          {ex.equipment === 'dumbbell' && <Dumbbell size={13} className="text-mint" />}
-                          {ex.equipment === 'bodyweight' && <User size={13} className="text-ice" />}
+                          {ex.equipment === 'barbell' && <Disc size={16} />}
+                          {ex.equipment === 'dumbbell' && <Dumbbell size={16} />}
+                          {ex.equipment === 'bodyweight' && <User size={16} />}
                           {(ex.equipment === 'machine' || ex.equipment === 'cable' || ex.equipment === 'kettlebell') && (
-                            <Layers size={13} className="text-lav" />
+                            <Layers size={16} />
                           )}
                         </button>
                       </div>
@@ -405,7 +467,7 @@ export const WorkoutView: React.FC = () => {
                               reps: Number(e.target.value),
                             })
                           }
-                          className="w-full rounded-xl border border-white/10 bg-ink-900 px-1 py-2 text-center font-mono text-sm font-bold text-fg focus:border-lav/50 focus:outline-none"
+                          className="w-full rounded-xl border border-white/10 bg-ink-900 px-1 py-1.5 sm:py-2 text-center font-mono text-xs sm:text-sm font-bold text-fg focus:border-lav/50 focus:outline-none"
                         />
                       </div>
 
