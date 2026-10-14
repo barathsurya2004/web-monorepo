@@ -1,6 +1,6 @@
 import { DailyNutritionSummary, JobStatus, MealItem, MealLog, NutritionGoals, User, AuthSession } from '../types';
 
-const GATEWAY_BASE = ((import.meta as any).env?.VITE_API_URL as string | undefined) || 'http://localhost:8080';
+const GATEWAY_BASE = (((import.meta as any).env?.VITE_GATEWAY_URL || (import.meta as any).env?.VITE_API_URL || (import.meta as any).env?.VITE_API_BASE_URL || 'http://localhost:8080') as string).replace(/\/+$/, '');
 const NUTRITION_BASE = `${GATEWAY_BASE}/api/v1/nutrition`;
 const SESSION_STORAGE_KEY = 'nouri_auth_session';
 
@@ -231,6 +231,7 @@ const getHeaders = (extra: Record<string, string> = {}) => {
   return {
     'x-user-uuid': currentUser.uuid,
     Authorization: `Bearer ${currentToken}`,
+    'ngrok-skip-browser-warning': 'true',
     ...extra,
   };
 };
@@ -279,7 +280,7 @@ export const api = {
     try {
       const res = await fetch(`${GATEWAY_BASE}/auth/login`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
         body: JSON.stringify({ email, password }),
       });
       if (res.ok) {
@@ -295,7 +296,7 @@ export const api = {
           };
           try {
             const userRes = await fetch(`${GATEWAY_BASE}/api/v1/user`, {
-              headers: { Authorization: `Bearer ${token}`, 'x-user-uuid': token },
+              headers: { Authorization: `Bearer ${token}`, 'x-user-uuid': token, 'ngrok-skip-browser-warning': 'true' },
             });
             if (userRes.ok) {
               const uData = await userRes.json();
@@ -347,7 +348,7 @@ export const api = {
     try {
       const res = await fetch(`${GATEWAY_BASE}/auth/signup`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
         body: JSON.stringify({ name, email, password, country_iso2: 'US' }),
       });
       if (res.ok) {
