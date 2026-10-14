@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <linearGradient id="nouri-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1E1A3D"/>
+      <stop offset="100%" stop-color="#0B091A"/>
+    </linearGradient>
+    <radialGradient id="nouri-glow" cx="50%" cy="45%" r="60%">
+      <stop offset="0%" stop-color="#A8E6CF" stop-opacity="0.25"/>
+      <stop offset="60%" stop-color="#C8B6FF" stop-opacity="0.10"/>
+      <stop offset="100%" stop-color="#0F0D24" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="nouri-card" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#241F48"/>
+      <stop offset="100%" stop-color="#14112E"/>
+    </linearGradient>
+    <linearGradient id="nouri-mint" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#C5F7E4"/>
+      <stop offset="100%" stop-color="#A8E6CF"/>
+    </linearGradient>
+    <linearGradient id="nouri-lav" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#EDE7FF"/>
+      <stop offset="100%" stop-color="#C8B6FF"/>
+    </linearGradient>
+    <filter id="nouri-shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#000000" flood-opacity="0.5"/>
+    </filter>
+    <filter id="mint-glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="0" stdDeviation="8" flood-color="#A8E6CF" flood-opacity="0.4"/>
+    </filter>
+  </defs>
+
+  <!-- Background Base -->
+  <rect width="512" height="512" rx="115" fill="url(#nouri-bg)"/>
+  
+  <!-- Subtle Glow Layer -->
+  <circle cx="256" cy="240" r="230" fill="url(#nouri-glow)"/>
+
+  <!-- Centered Floating Badge -->
+  <rect x="86" y="86" width="340" height="340" rx="76" fill="url(#nouri-card)" stroke="#A8E6CF" stroke-opacity="0.3" stroke-width="2.5" filter="url(#nouri-shadow)"/>
+
+  <!-- Utensils & Nutrition Sparkle -->
+  <g filter="url(#mint-glow)">
+    <!-- Fork (Left) -->
+    <path d="M 200 370 
+             L 200 255 
+             C 178 250, 172 230, 172 210
+             L 172 165
+             C 172 160, 180 160, 180 165
+             L 180 205
+             C 180 215, 186 215, 186 205
+             L 186 155
+             C 186 150, 194 150, 194 155
+             L 194 205
+             C 194 215, 200 215, 200 205
+             L 200 155
+             C 200 150, 208 150, 208 155
+             L 208 205
+             C 208 215, 214 215, 214 205
+             L 214 165
+             C 214 160, 222 160, 222 165
+             L 222 210
+             C 222 230, 216 250, 208 255
+             L 208 370
+             C 208 375, 200 375, 200 370 Z" 
+          fill="url(#nouri-mint)"/>
+
+    <!-- Knife (Right) -->
+    <path d="M 304 370
+             L 304 255
+             C 304 250, 307 245, 307 240
+             L 307 190
+             C 307 160, 316 150, 324 150
+             C 326 150, 327 151, 327 153
+             C 327 200, 322 245, 312 255
+             L 312 370
+             C 312 375, 304 375, 304 370 Z"
+          fill="url(#nouri-mint)"/>
+
+    <!-- AI Vision Sparkle (Top Center) -->
+    <path d="M 256 120 
+             Q 256 138, 274 138 
+             Q 256 138, 256 156 
+             Q 256 138, 238 138 
+             Q 256 138, 256 120 Z" 
+          fill="url(#nouri-lav)"/>
+  </g>
+</svg>
