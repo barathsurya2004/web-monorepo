@@ -4,6 +4,6 @@ packages:
 
 allowBuilds:
   esbuild: true
-  inotify: set this to true or false
+  inotify: false
 onlyBuiltDependencies:
   - esbuild
