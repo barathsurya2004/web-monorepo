@@ -71,7 +71,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   const isGuest = user.uuid.startsWith('guest-');
 
   return (
-    <header className="sticky top-0 z-40 bg-ink-900/95 backdrop-blur-xl border-b border-white/5 px-3 py-2.5 sm:px-4 sm:py-3 w-full">
+    <header className="sticky top-0 z-40 bg-ink-900/95 backdrop-blur-xl border-b border-white/5 px-3 sm:px-4 pb-2.5 sm:pb-3 pt-[max(calc(env(safe-area-inset-top,0px)+0.5rem),1.75rem)] sm:pt-3 w-full">
       <div className="max-w-4xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-4">
         {/* Top Row on mobile: Brand + Date & Settings & Profile */}
         <div className="flex items-center justify-between w-full sm:w-auto">

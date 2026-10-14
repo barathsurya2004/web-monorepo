@@ -107,7 +107,7 @@ export const ClipboardPasteZone: React.FC<ClipboardPasteZoneProps> = ({
 
   // Completely async submission: moves immediately to Today's Meals without blocking further requests
   const queueFileAsync = (file: File | Blob, chosenMealType: string, customNotes?: string) => {
-    const tempJobId = 'job-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7);
+    const tempJobId = 'client-temp-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7);
     const objectUrl = URL.createObjectURL(file);
 
     // 1. Immediately inform parent that a new job is processing in Today's Meals

@@ -9,11 +9,12 @@ import { MealItemEditModal } from './components/MealItemEditModal';
 import { ManualMealModal } from './components/ManualMealModal';
 import { GoalsModal } from './components/GoalsModal';
 import { AuthModal } from './components/AuthModal';
+import { LoginView } from './components/LoginView';
 import { RecipeAssistantTeaser } from './components/RecipeAssistantTeaser';
 import { Sparkles } from 'lucide-react';
 
 export const App: React.FC = () => {
-  const [currentUser, setCurrentUser] = useState<User>(() => api.getCurrentUser());
+  const [currentUser, setCurrentUser] = useState<User | null>(() => api.getCurrentUser());
   const [currentDate, setCurrentDate] = useState<string>(
     () => new Date().toISOString().split('T')[0]
   );
@@ -68,16 +69,16 @@ export const App: React.FC = () => {
 
   const handleLogout = () => {
     api.clearSession();
-    const guest = api.getCurrentUser();
-    setCurrentUser(guest);
-    setIsLoading(true);
-    fetchDailySummary(currentDate);
+    setCurrentUser(null);
+    setSummary(null);
+    setPendingJobs([]);
+    setIsLoading(false);
 
     setCelebrationToast({
       message: 'Signed out successfully',
-      subtext: 'You are now browsing in guest mode.',
+      subtext: 'Please log in to continue.',
     });
-    setTimeout(() => setCelebrationToast(null), 4000);
+    setTimeout(() => setCelebrationToast(null), 3000);
   };
 
   // Asynchronously append new pending meal job without blocking subsequent uploads
@@ -158,6 +159,10 @@ export const App: React.FC = () => {
     fetchDailySummary(currentDate);
   };
 
+  if (!currentUser) {
+    return <LoginView onSuccess={handleAuthSuccess} />;
+  }
+
   const safeMeals = summary?.meals ?? [];
   const mealsCount = safeMeals.length + pendingJobs.length;
 
@@ -165,7 +170,7 @@ export const App: React.FC = () => {
     <div className="min-h-screen w-full max-w-full bg-ink-900 text-fg font-sans antialiased selection:bg-mint/30 selection:text-mint flex flex-col relative">
       {/* Toast Alert Notification */}
       {celebrationToast && (
-        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-2xl bg-ink-850/95 backdrop-blur-xl border border-mint/50 text-fg shadow-2xl shadow-mint/20 flex items-center gap-3 animate-rise max-w-sm sm:max-w-md w-[92%]">
+        <div className="fixed top-[max(calc(env(safe-area-inset-top,0px)+4.25rem),5rem)] left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-2xl bg-ink-850/95 backdrop-blur-xl border border-mint/50 text-fg shadow-2xl shadow-mint/20 flex items-center gap-3 animate-rise max-w-sm sm:max-w-md w-[92%]">
           <div className="w-8 h-8 rounded-xl bg-mint/20 border border-mint/40 flex items-center justify-center shrink-0">
             <Sparkles className="w-4 h-4 text-mint animate-pulse" />
           </div>
@@ -196,7 +201,7 @@ export const App: React.FC = () => {
       />
 
       {/* Main Content Area */}
-      <main className="flex-1 max-w-4xl w-full mx-auto px-3.5 py-4 sm:px-6 sm:py-6 space-y-4 sm:space-y-6">
+      <main className="flex-1 max-w-4xl w-full mx-auto px-3.5 pt-3 pb-[max(calc(env(safe-area-inset-bottom,0px)+2rem),2.5rem)] sm:px-6 sm:py-6 space-y-4 sm:space-y-6">
         {isLoading || !summary ? (
           <div className="flex items-center justify-center py-20">
             <div className="w-8 h-8 rounded-full border-2 border-mint border-t-transparent animate-spin" />

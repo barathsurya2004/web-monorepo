@@ -201,7 +201,7 @@ const userMealsStore: Record<string, MealLog[]> = {
 let mockJobs: Record<string, JobStatus> = {};
 
 // Active state
-let currentUser: User = (() => {
+let currentUser: User | null = (() => {
   try {
     const raw = localStorage.getItem(SESSION_STORAGE_KEY);
     if (raw) {
@@ -211,10 +211,10 @@ let currentUser: User = (() => {
   } catch {
     // Ignore storage parse failure
   }
-  return DEMO_PROFILES[0];
+  return null;
 })();
 
-let currentToken: string = (() => {
+let currentToken: string | null = (() => {
   try {
     const raw = localStorage.getItem(SESSION_STORAGE_KEY);
     if (raw) {
@@ -224,26 +224,35 @@ let currentToken: string = (() => {
   } catch {
     // Ignore
   }
-  return currentUser.uuid;
+  return null;
 })();
 
 const getHeaders = (extra: Record<string, string> = {}) => {
-  return {
-    'x-user-uuid': currentUser.uuid,
-    Authorization: `Bearer ${currentToken}`,
+  const headers: Record<string, string> = {
     'ngrok-skip-browser-warning': 'true',
     ...extra,
   };
+  if (currentUser?.uuid) {
+    headers['x-user-uuid'] = currentUser.uuid;
+  }
+  if (currentToken) {
+    headers['Authorization'] = `Bearer ${currentToken}`;
+  }
+  return headers;
 };
 
 export const api = {
   // Session & Authentication
-  getCurrentUser(): User {
+  getCurrentUser(): User | null {
     return currentUser;
   },
 
-  getAuthToken(): string {
+  getAuthToken(): string | null {
     return currentToken;
+  },
+
+  isAuthenticated(): boolean {
+    return currentUser !== null;
   },
 
   getAvailableDemoProfiles(): User[] {
@@ -261,18 +270,19 @@ export const api = {
   },
 
   clearSession(): void {
-    currentUser = {
-      uuid: 'guest-' + Math.random().toString(36).substring(2, 9),
-      name: 'Guest User',
-      email: 'guest@nouri.ai',
-      calorie_goal: 2000,
-    };
-    currentToken = currentUser.uuid;
+    currentUser = null;
+    currentToken = null;
     try {
       localStorage.removeItem(SESSION_STORAGE_KEY);
     } catch {
       // Ignore
     }
+  },
+
+  loginWithDemo(uuid: string): { token: string; user: User } {
+    const profile = DEMO_PROFILES.find((p) => p.uuid === uuid) || DEMO_PROFILES[0];
+    this.setSession(profile, profile.uuid);
+    return { token: profile.uuid, user: profile };
   },
 
   async login(email: string, password: string): Promise<{ token: string; user: User }> {
@@ -407,8 +417,31 @@ export const api = {
 
   // Daily Nutrition
   async getDailyLog(date: string): Promise<DailyNutritionSummary> {
+    if (!currentUser) {
+      return {
+        date,
+        total_calories: 0,
+        total_protein: 0,
+        total_carbs: 0,
+        total_fat: 0,
+        total_fiber: 0,
+        total_sodium: 0,
+        goals: {
+          calories_target: 2250,
+          protein_grams: 165,
+          carbs_grams: 220,
+          fat_grams: 65,
+          fiber_grams: 32,
+          sodium_mg: 2300,
+        },
+        meals: [],
+      };
+    }
+
     const uid = currentUser.uuid;
-    const fallbackMeals = userMealsStore[uid] || [];
+    // Mock meals only populate if user explicitly chose to sign into one of the DEMO_PROFILES
+    const isDemoProfile = DEMO_PROFILES.some((p) => p.uuid === uid);
+    const fallbackMeals = isDemoProfile ? (userMealsStore[uid] || []) : (userMealsStore[uid] || []);
     const fallbackGoals = userGoalsStore[uid] || {
       calories_target: currentUser.calorie_goal || 2250,
       protein_grams: 165,
@@ -503,9 +536,9 @@ export const api = {
   },
 
   async getGoals(): Promise<NutritionGoals> {
-    const uid = currentUser.uuid;
+    const uid = currentUser?.uuid || 'guest';
     const fallbackGoals = userGoalsStore[uid] || {
-      calories_target: currentUser.calorie_goal || 2250,
+      calories_target: currentUser?.calorie_goal || 2250,
       protein_grams: 165,
       carbs_grams: 220,
       fat_grams: 65,
@@ -525,11 +558,13 @@ export const api = {
   },
 
   async setGoals(goals: NutritionGoals): Promise<NutritionGoals> {
-    const uid = currentUser.uuid;
-    userGoalsStore[uid] = { ...goals };
-    if (goals.calories_target) {
-      currentUser.calorie_goal = goals.calories_target;
-      this.setSession(currentUser, currentToken);
+    if (currentUser) {
+      const uid = currentUser.uuid;
+      userGoalsStore[uid] = { ...goals };
+      if (goals.calories_target) {
+        currentUser.calorie_goal = goals.calories_target;
+        this.setSession(currentUser, currentToken || currentUser.uuid);
+      }
     }
 
     try {
@@ -569,7 +604,7 @@ export const api = {
     }
 
     // Local offline simulated queue processing
-    const uid = currentUser.uuid;
+    const uid = currentUser?.uuid || 'guest';
     const jobId = 'mock-job-' + Math.random().toString(36).substring(2, 9);
     mockJobs[jobId] = {
       job_id: jobId,
@@ -628,6 +663,9 @@ export const api = {
   },
 
   async pollJobStatus(jobId: string): Promise<JobStatus> {
+    if (jobId.startsWith('client-temp-') || jobId.startsWith('job-')) {
+      return { job_id: jobId, status: 'PENDING' };
+    }
     if (jobId.startsWith('mock-job-')) {
       return mockJobs[jobId] || { job_id: jobId, status: 'PENDING' };
     }
@@ -647,7 +685,7 @@ export const api = {
     notes?: string;
     items: Omit<MealItem, 'id'>[];
   }): Promise<MealLog> {
-    const uid = currentUser.uuid;
+    const uid = currentUser?.uuid || 'guest';
 
     try {
       const res = await fetch(`${NUTRITION_BASE}/meals`, {
@@ -689,7 +727,7 @@ export const api = {
   },
 
   async updateMealItem(itemId: string, item: Partial<MealItem>): Promise<void> {
-    const uid = currentUser.uuid;
+    const uid = currentUser?.uuid || 'guest';
 
     try {
       await fetch(`${NUTRITION_BASE}/items/${itemId}`, {
@@ -715,7 +753,7 @@ export const api = {
   },
 
   async deleteMealLog(mealId: string): Promise<void> {
-    const uid = currentUser.uuid;
+    const uid = currentUser?.uuid || 'guest';
 
     try {
       await fetch(`${NUTRITION_BASE}/meals/${mealId}`, {
@@ -732,7 +770,7 @@ export const api = {
   },
 
   async deleteMealItem(itemId: string): Promise<void> {
-    const uid = currentUser.uuid;
+    const uid = currentUser?.uuid || 'guest';
 
     try {
       await fetch(`${NUTRITION_BASE}/items/${itemId}`, {

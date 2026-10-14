@@ -73,7 +73,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3.5 sm:p-4 bg-ink-950/80 backdrop-blur-md animate-fade-in">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3.5 pt-[max(calc(env(safe-area-inset-top,0px)+1rem),1.25rem)] pb-[max(calc(env(safe-area-inset-bottom,0px)+1rem),1.25rem)] sm:p-4 bg-ink-950/80 backdrop-blur-md animate-fade-in">
       <div
         className="w-full max-w-md bg-ink-850/95 border border-white/10 rounded-2xl sm:rounded-3xl shadow-2xl shadow-ink-950/80 overflow-hidden relative flex flex-col max-h-[90vh]"
         onClick={(e) => e.stopPropagation()}
@@ -350,7 +350,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 Click any profile to instantly switch context, diary meals, and nutrition goals:
               </p>
               {DEMO_PROFILES.map((profile) => {
-                const isActive = currentUser.uuid === profile.uuid;
+                const isActive = currentUser?.uuid === profile.uuid;
                 return (
                   <button
                     key={profile.uuid}

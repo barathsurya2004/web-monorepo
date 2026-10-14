@@ -46,7 +46,13 @@ const PendingMealCard: React.FC<PendingMealCardProps> = ({
     let interval: ReturnType<typeof setInterval>;
     let isMounted = true;
 
-    // Ignore placeholder temp jobs until real jobId is set or mock resolves
+    // While photo upload is actively in flight, show uploading stage and do not poll server
+    if (job.job_id.startsWith('client-temp-')) {
+      setStepText('Uploading photo to AI engine...');
+      setProgressPercent(20);
+      return;
+    }
+
     const poll = async () => {
       try {
         const data = await api.pollJobStatus(job.job_id);
@@ -58,7 +64,7 @@ const PendingMealCard: React.FC<PendingMealCardProps> = ({
 
         if (data.status === 'PENDING') {
           setStepText('Queued: Waiting for worker thread...');
-          setProgressPercent(35);
+          setProgressPercent(40);
         } else if (data.status === 'PROCESSING') {
           setStepText('AI Vision detecting ingredients & portions...');
           setProgressPercent(75);

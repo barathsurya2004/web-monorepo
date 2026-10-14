@@ -34,7 +34,7 @@ export const GoalsModal: React.FC<GoalsModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-md flex items-center justify-center p-4 animate-fade">
+    <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-md flex items-center justify-center p-3.5 pt-[max(calc(env(safe-area-inset-top,0px)+1rem),1.25rem)] pb-[max(calc(env(safe-area-inset-bottom,0px)+1rem),1.25rem)] sm:p-4 animate-fade">
       <div className="bg-ink-900 border border-white/15 rounded-2xl w-full max-w-md p-5 shadow-2xl animate-pop">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
