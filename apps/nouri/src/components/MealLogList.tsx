@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { MealItem, MealLog, PendingMealJob } from '../types';
-import { Edit2, Trash2, Clock, Sparkles, Loader2, X, AlertCircle } from 'lucide-react';
+import { Edit2, Trash2, Clock, Sparkles, Loader2, X, AlertCircle, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { api } from '../services/api';
 
 interface MealLogListProps {
@@ -95,6 +95,8 @@ const PendingMealCard: React.FC<PendingMealCardProps> = ({
     };
   }, [job.job_id, onJobComplete]);
 
+  const isUploading = job.job_id.startsWith('client-temp-');
+
   return (
     <div className="velvet-card rounded-2xl p-4 sm:p-5 border border-mint/40 bg-gradient-to-r from-mint/[0.04] via-ink-850 to-ink-850 shadow-xl shadow-mint/5 relative overflow-hidden animate-rise">
       {/* Ambient background glow */}
@@ -127,10 +129,15 @@ const PendingMealCard: React.FC<PendingMealCardProps> = ({
               <AlertCircle className="w-3.5 h-3.5" />
               <span>Failed</span>
             </div>
+          ) : isUploading ? (
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber/15 border border-amber/40 text-amber text-xs font-semibold animate-pulse">
+              <AlertTriangle className="w-3.5 h-3.5" />
+              <span>Uploading · Keep open</span>
+            </div>
           ) : (
             <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-mint/15 border border-mint/30 text-mint text-xs font-semibold">
               <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              <span>Analyzing with AI...</span>
+              <span>Processing in Cloud</span>
             </div>
           )}
 
@@ -173,14 +180,31 @@ const PendingMealCard: React.FC<PendingMealCardProps> = ({
           {/* Smooth progress bar */}
           <div className="h-1.5 w-full rounded-full bg-white/5 overflow-hidden">
             <div
-              className="h-full bg-gradient-to-r from-mint to-mint/70 rounded-full transition-all duration-500"
+              className={`h-full rounded-full transition-all duration-500 ${
+                isUploading
+                  ? 'bg-gradient-to-r from-amber to-amber/70'
+                  : 'bg-gradient-to-r from-mint to-mint/70'
+              }`}
               style={{ width: `${progressPercent}%` }}
             />
           </div>
 
-          <div className="text-[10px] font-mono text-muted/80">
-            Asynchronous background task · Photo will be purged from memory once saved
-          </div>
+          {/* Inform user whether to keep open or safe to close */}
+          {isUploading ? (
+            <div className="flex items-center gap-2 p-2 rounded-xl bg-amber/10 border border-amber/25 text-amber text-[11px] leading-tight animate-pulse">
+              <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-amber" />
+              <span>
+                <strong>Uploading photo...</strong> Please do not close the app while transfer is in progress.
+              </span>
+            </div>
+          ) : status !== 'FAILED' ? (
+            <div className="flex items-center gap-2 p-2 rounded-xl bg-mint/10 border border-mint/25 text-mint text-[11px] leading-tight">
+              <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-mint" />
+              <span>
+                <strong>Photo uploaded safely!</strong> You can close the app now — AI will finish processing and save to your diary automatically.
+              </span>
+            </div>
+          ) : null}
         </div>
       </div>
     </div>

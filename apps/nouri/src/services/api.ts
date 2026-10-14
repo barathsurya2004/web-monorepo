@@ -200,13 +200,44 @@ const userMealsStore: Record<string, MealLog[]> = {
 
 let mockJobs: Record<string, JobStatus> = {};
 
+export function isValidUUID(str?: string | null): boolean {
+  if (!str) return false;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(str);
+}
+
+export function generateUUID(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
+export const DEFAULT_USER_UUID = '00000000-0000-0000-0000-000000000001';
+
 // Active state
 let currentUser: User | null = (() => {
   try {
     const raw = localStorage.getItem(SESSION_STORAGE_KEY);
     if (raw) {
       const parsed: AuthSession = JSON.parse(raw);
-      if (parsed.user && parsed.user.uuid) return parsed.user;
+      if (parsed.user && parsed.user.uuid) {
+        // Automatically sanitize and migrate legacy non-UUID IDs (e.g. "user-5ddv7iq")
+        if (!isValidUUID(parsed.user.uuid)) {
+          const freshUUID = generateUUID();
+          parsed.user.uuid = freshUUID;
+          parsed.token = freshUUID;
+          try {
+            localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(parsed));
+          } catch {
+            // Ignore storage write failure
+          }
+        }
+        return parsed.user;
+      }
     }
   } catch {
     // Ignore storage parse failure
@@ -233,7 +264,7 @@ const getHeaders = (extra: Record<string, string> = {}) => {
     ...extra,
   };
   if (currentUser?.uuid) {
-    headers['x-user-uuid'] = currentUser.uuid;
+    headers['x-user-uuid'] = isValidUUID(currentUser.uuid) ? currentUser.uuid : generateUUID();
   }
   if (currentToken) {
     headers['Authorization'] = `Bearer ${currentToken}`;
@@ -297,21 +328,22 @@ export const api = {
         const data = await res.json();
         const token = data.token || data.auth_token;
         if (token) {
+          const validUUID = isValidUUID(token) ? token : generateUUID();
           // Attempt to retrieve profile
           let user: User = {
-            uuid: token,
+            uuid: validUUID,
             name: email.split('@')[0],
             email,
             token,
           };
           try {
             const userRes = await fetch(`${GATEWAY_BASE}/api/v1/user`, {
-              headers: { Authorization: `Bearer ${token}`, 'x-user-uuid': token, 'ngrok-skip-browser-warning': 'true' },
+              headers: { Authorization: `Bearer ${token}`, 'x-user-uuid': validUUID, 'ngrok-skip-browser-warning': 'true' },
             });
             if (userRes.ok) {
               const uData = await userRes.json();
               user = {
-                uuid: uData.uuid || token,
+                uuid: isValidUUID(uData.uuid) ? uData.uuid : validUUID,
                 name: uData.name || email.split('@')[0],
                 email: uData.email || email,
                 token,
@@ -336,9 +368,10 @@ export const api = {
       return { token, user: matched };
     }
 
-    // Create or authenticate ad-hoc user for smooth testing
+    // Create or authenticate ad-hoc user for smooth testing with a standard RFC 4122 v4 UUID
+    const fallbackUserUUID = generateUUID();
     const fallbackUser: User = {
-      uuid: 'user-' + Math.random().toString(36).substring(2, 9),
+      uuid: fallbackUserUUID,
       name: email.split('@')[0].replace(/[._]/g, ' '),
       email,
       calorie_goal: 2200,
@@ -365,8 +398,9 @@ export const api = {
         const data = await res.json();
         const token = data.token || data.auth_token;
         if (token) {
+          const userUuid = isValidUUID(token) ? token : generateUUID();
           const user: User = {
-            uuid: token,
+            uuid: userUuid,
             name,
             email,
             token,
@@ -388,8 +422,9 @@ export const api = {
       // Network failure, proceed with local account creation
     }
 
+    const newUserUUID = generateUUID();
     const newUser: User = {
-      uuid: 'user-' + Math.random().toString(36).substring(2, 9),
+      uuid: newUserUUID,
       name,
       email,
       calorie_goal: calorieGoal,
@@ -536,7 +571,7 @@ export const api = {
   },
 
   async getGoals(): Promise<NutritionGoals> {
-    const uid = currentUser?.uuid || 'guest';
+    const uid = currentUser?.uuid && isValidUUID(currentUser.uuid) ? currentUser.uuid : DEFAULT_USER_UUID;
     const fallbackGoals = userGoalsStore[uid] || {
       calories_target: currentUser?.calorie_goal || 2250,
       protein_grams: 165,
@@ -604,8 +639,8 @@ export const api = {
     }
 
     // Local offline simulated queue processing
-    const uid = currentUser?.uuid || 'guest';
-    const jobId = 'mock-job-' + Math.random().toString(36).substring(2, 9);
+    const uid = currentUser?.uuid && isValidUUID(currentUser.uuid) ? currentUser.uuid : DEFAULT_USER_UUID;
+    const jobId = 'mock-job-' + generateUUID();
     mockJobs[jobId] = {
       job_id: jobId,
       user_uuid: uid,
@@ -621,7 +656,7 @@ export const api = {
     setTimeout(() => {
       const detectedItems: MealItem[] = [
         {
-          id: 'item-' + Math.random().toString(36).substring(2, 7),
+          id: generateUUID(),
           name: 'Pan-Seared Salmon with Steamed Asparagus & Quinoa',
           estimated_weight_grams: 320,
           calories: 520,
@@ -636,7 +671,7 @@ export const api = {
       ];
 
       const newMeal: MealLog = {
-        id: 'meal-' + Math.random().toString(36).substring(2, 7),
+        id: generateUUID(),
         user_uuid: uid,
         meal_type: mealType || 'dinner',
         logged_at: new Date().toISOString(),
@@ -685,7 +720,7 @@ export const api = {
     notes?: string;
     items: Omit<MealItem, 'id'>[];
   }): Promise<MealLog> {
-    const uid = currentUser?.uuid || 'guest';
+    const uid = currentUser?.uuid && isValidUUID(currentUser.uuid) ? currentUser.uuid : DEFAULT_USER_UUID;
 
     try {
       const res = await fetch(`${NUTRITION_BASE}/meals`, {
@@ -700,7 +735,7 @@ export const api = {
 
     const itemsWithIds: MealItem[] = meal.items.map((it) => ({
       ...it,
-      id: 'i-' + Math.random().toString(36).substring(2, 7),
+      id: generateUUID(),
     }));
 
     const cal = itemsWithIds.reduce((sum, i) => sum + i.calories, 0);
@@ -709,7 +744,7 @@ export const api = {
     const fat = itemsWithIds.reduce((sum, i) => sum + i.fat_grams, 0);
 
     const created: MealLog = {
-      id: 'm-' + Math.random().toString(36).substring(2, 7),
+      id: generateUUID(),
       user_uuid: uid,
       meal_type: meal.meal_type,
       logged_at: new Date().toISOString(),
@@ -727,7 +762,7 @@ export const api = {
   },
 
   async updateMealItem(itemId: string, item: Partial<MealItem>): Promise<void> {
-    const uid = currentUser?.uuid || 'guest';
+    const uid = currentUser?.uuid && isValidUUID(currentUser.uuid) ? currentUser.uuid : DEFAULT_USER_UUID;
 
     try {
       await fetch(`${NUTRITION_BASE}/items/${itemId}`, {
@@ -753,7 +788,7 @@ export const api = {
   },
 
   async deleteMealLog(mealId: string): Promise<void> {
-    const uid = currentUser?.uuid || 'guest';
+    const uid = currentUser?.uuid && isValidUUID(currentUser.uuid) ? currentUser.uuid : DEFAULT_USER_UUID;
 
     try {
       await fetch(`${NUTRITION_BASE}/meals/${mealId}`, {
@@ -770,7 +805,7 @@ export const api = {
   },
 
   async deleteMealItem(itemId: string): Promise<void> {
-    const uid = currentUser?.uuid || 'guest';
+    const uid = currentUser?.uuid && isValidUUID(currentUser.uuid) ? currentUser.uuid : DEFAULT_USER_UUID;
 
     try {
       await fetch(`${NUTRITION_BASE}/items/${itemId}`, {

@@ -1,6 +1,16 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { DailyNutritionSummary, MealItem, PendingMealJob, User } from './types';
+import React, { useEffect, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { MealItem, PendingMealJob, User } from './types';
 import { api } from './services/api';
+import {
+  useDailyLog,
+  useAddManualMealMutation,
+  useUpdateMealItemMutation,
+  useDeleteMealMutation,
+  useDeleteMealItemMutation,
+  useSaveGoalsMutation,
+  QUERY_KEYS,
+} from './hooks/useNutritionData';
 import { Navbar } from './components/Navbar';
 import { MacroRingCard } from './components/MacroRingCard';
 import { ClipboardPasteZone } from './components/ClipboardPasteZone';
@@ -14,11 +24,22 @@ import { RecipeAssistantTeaser } from './components/RecipeAssistantTeaser';
 import { Sparkles } from 'lucide-react';
 
 export const App: React.FC = () => {
+  const queryClient = useQueryClient();
   const [currentUser, setCurrentUser] = useState<User | null>(() => api.getCurrentUser());
   const [currentDate, setCurrentDate] = useState<string>(
     () => new Date().toISOString().split('T')[0]
   );
-  const [summary, setSummary] = useState<DailyNutritionSummary | null>(null);
+
+  // Optimized server state via TanStack Query (mirrors penne-dashboard)
+  const { data: summary, isLoading } = useDailyLog(currentDate, !!currentUser);
+
+  // Optimized server mutations
+  const addManualMealMutation = useAddManualMealMutation(currentDate);
+  const updateMealItemMutation = useUpdateMealItemMutation(currentDate);
+  const deleteMealMutation = useDeleteMealMutation(currentDate);
+  const deleteMealItemMutation = useDeleteMealItemMutation(currentDate);
+  const saveGoalsMutation = useSaveGoalsMutation(currentDate);
+
   const [pendingJobs, setPendingJobs] = useState<PendingMealJob[]>([]);
   const [recentlyAddedMealId, setRecentlyAddedMealId] = useState<string | null>(null);
   const [celebrationToast, setCelebrationToast] = useState<{
@@ -31,27 +52,10 @@ export const App: React.FC = () => {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authModalTab, setAuthModalTab] = useState<'login' | 'signup' | 'switch'>('login');
   const [activeTab, setActiveTab] = useState<'diary' | 'recipes'>('diary');
-  const [isLoading, setIsLoading] = useState(true);
-
-  const fetchDailySummary = useCallback(async (date: string) => {
-    try {
-      const data = await api.getDailyLog(date);
-      setSummary(data);
-    } catch (err) {
-      console.error('Error fetching daily log:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchDailySummary(currentDate);
-  }, [currentDate, currentUser, fetchDailySummary]);
 
   const handleAuthSuccess = (user: User, action: 'login' | 'signup' | 'switch') => {
     setCurrentUser(user);
-    setIsLoading(true);
-    fetchDailySummary(currentDate);
+    queryClient.invalidateQueries({ queryKey: QUERY_KEYS.all });
 
     const title =
       action === 'signup'
@@ -70,9 +74,8 @@ export const App: React.FC = () => {
   const handleLogout = () => {
     api.clearSession();
     setCurrentUser(null);
-    setSummary(null);
     setPendingJobs([]);
-    setIsLoading(false);
+    queryClient.clear();
 
     setCelebrationToast({
       message: 'Signed out successfully',
@@ -80,6 +83,21 @@ export const App: React.FC = () => {
     });
     setTimeout(() => setCelebrationToast(null), 3000);
   };
+
+  // Warn user if they attempt to close the tab/app while an upload is still in flight
+  useEffect(() => {
+    const hasActiveUploads = pendingJobs.some((j) => j.job_id.startsWith('client-temp-'));
+    if (!hasActiveUploads) return;
+
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = 'Photo upload is still in progress. Please do not close the app until upload finishes.';
+      return e.returnValue;
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [pendingJobs]);
 
   // Asynchronously append new pending meal job without blocking subsequent uploads
   const handleJobStarted = (newJob: PendingMealJob) => {
@@ -91,6 +109,13 @@ export const App: React.FC = () => {
     setPendingJobs((prev) =>
       prev.map((j) => (j.job_id === tempJobId ? { ...j, job_id: realJobId } : j))
     );
+
+    // Alert user that upload has reached cloud and they are now safe to close the app
+    setCelebrationToast({
+      message: '✅ Photo uploaded safely!',
+      subtext: 'You can safely close the app now — AI is processing your meal in the cloud.',
+    });
+    setTimeout(() => setCelebrationToast(null), 5500);
   };
 
   // Triggered when an individual pending task in Today's Meals completes
@@ -114,8 +139,8 @@ export const App: React.FC = () => {
       setTimeout(() => setCelebrationToast(null), 5500);
     }
 
-    // Refresh today's summary to reflect newly confirmed meal
-    fetchDailySummary(currentDate);
+    // Refresh today's summary via TanStack Query invalidation
+    queryClient.invalidateQueries({ queryKey: QUERY_KEYS.dailyLog(currentDate) });
   };
 
   const handleDismissPending = (jobId: string) => {
@@ -127,19 +152,16 @@ export const App: React.FC = () => {
   };
 
   const handleSaveItem = async (updated: MealItem) => {
-    await api.updateMealItem(updated.id, updated);
+    await updateMealItemMutation.mutateAsync({ itemId: updated.id, item: updated });
     setEditingItem(null);
-    fetchDailySummary(currentDate);
   };
 
   const handleDeleteItem = async (itemId: string) => {
-    await api.deleteMealItem(itemId);
-    fetchDailySummary(currentDate);
+    await deleteMealItemMutation.mutateAsync(itemId);
   };
 
   const handleDeleteMeal = async (mealId: string) => {
-    await api.deleteMealLog(mealId);
-    fetchDailySummary(currentDate);
+    await deleteMealMutation.mutateAsync(mealId);
   };
 
   const handleSaveManualMeal = async (meal: {
@@ -147,16 +169,14 @@ export const App: React.FC = () => {
     notes?: string;
     items: Omit<MealItem, 'id'>[];
   }) => {
-    await api.addManualMeal(meal);
+    await addManualMealMutation.mutateAsync(meal);
     setIsManualModalOpen(false);
-    fetchDailySummary(currentDate);
   };
 
   const handleSaveGoals = async (goals: any) => {
-    await api.setGoals(goals);
+    await saveGoalsMutation.mutateAsync(goals);
     setIsGoalsModalOpen(false);
     setCurrentUser(api.getCurrentUser());
-    fetchDailySummary(currentDate);
   };
 
   if (!currentUser) {

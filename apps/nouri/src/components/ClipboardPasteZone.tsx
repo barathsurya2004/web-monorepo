@@ -145,7 +145,7 @@ export const ClipboardPasteZone: React.FC<ClipboardPasteZoneProps> = ({
 
     // Send to background processing
     queueFileAsync(fileToQueue, typeToQueue, notesToQueue);
-    showToast("✨ Moved to Today's Meals below! You can add another photo now.");
+    showToast('⏳ Uploading photo to cloud... Please keep the app open!');
   };
 
   return (
