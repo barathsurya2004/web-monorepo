@@ -118,6 +118,21 @@ export const App: React.FC = () => {
     setTimeout(() => setCelebrationToast(null), 5500);
   };
 
+  const handleJobFailed = (tempJobId: string, errorMessage: string) => {
+    setPendingJobs((prev) =>
+      prev.map((j) =>
+        j.job_id === tempJobId
+          ? {
+              ...j,
+              status: 'FAILED',
+              stage: errorMessage || 'Photo upload failed',
+              error_message: errorMessage || 'Photo upload failed',
+            }
+          : j
+      )
+    );
+  };
+
   // Triggered when an individual pending task in Today's Meals completes
   const handleJobComplete = (jobId: string, items: MealItem[], mealLogId?: string) => {
     setPendingJobs((prev) => prev.filter((p) => p.job_id !== jobId));
@@ -235,6 +250,7 @@ export const App: React.FC = () => {
             <ClipboardPasteZone
               onJobStarted={handleJobStarted}
               onJobIdAssigned={handleJobIdAssigned}
+              onJobFailed={handleJobFailed}
               onManualClick={() => setIsManualModalOpen(true)}
             />
 

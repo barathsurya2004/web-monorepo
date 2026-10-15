@@ -6,12 +6,14 @@ import { PendingMealJob } from '../types';
 interface ClipboardPasteZoneProps {
   onJobStarted: (job: PendingMealJob) => void;
   onJobIdAssigned?: (tempJobId: string, realJobId: string) => void;
+  onJobFailed?: (tempJobId: string, errorMessage: string) => void;
   onManualClick: () => void;
 }
 
 export const ClipboardPasteZone: React.FC<ClipboardPasteZoneProps> = ({
   onJobStarted,
   onJobIdAssigned,
+  onJobFailed,
   onManualClick,
 }) => {
   const [selectedFile, setSelectedFile] = useState<File | Blob | null>(null);
@@ -130,6 +132,7 @@ export const ClipboardPasteZone: React.FC<ClipboardPasteZoneProps> = ({
       })
       .catch((err) => {
         console.error('Async upload failed:', err);
+        onJobFailed?.(tempJobId, err?.message || 'Photo upload failed');
       });
   };
 

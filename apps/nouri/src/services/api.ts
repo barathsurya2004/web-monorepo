@@ -1,4 +1,5 @@
 import { DailyNutritionSummary, JobStatus, MealItem, MealLog, NutritionGoals, User, AuthSession } from '../types';
+import { normalizeImageForUpload } from '../utils/imageOptimizer';
 
 const GATEWAY_BASE = (((import.meta as any).env?.VITE_GATEWAY_URL || (import.meta as any).env?.VITE_API_URL || (import.meta as any).env?.VITE_API_BASE_URL || 'http://localhost:8080') as string).replace(/\/+$/, '');
 const NUTRITION_BASE = `${GATEWAY_BASE}/api/v1/nutrition`;
@@ -620,9 +621,12 @@ export const api = {
     mealType?: string,
     notes?: string
   ): Promise<{ job_id: string; status: string }> {
+    // Auto-normalize, resize high-res/iOS photos to <= 1600px, and compress to JPEG
+    const optimizedBlob = await normalizeImageForUpload(fileOrBlob);
+
     try {
       const formData = new FormData();
-      formData.append('image', fileOrBlob, 'meal_image.jpg');
+      formData.append('image', optimizedBlob, 'meal_image.jpg');
       if (mealType) formData.append('meal_type', mealType);
       if (notes) formData.append('notes', notes);
 
@@ -634,8 +638,13 @@ export const api = {
       if (res.ok) {
         return await res.json();
       }
-    } catch {
-      // Fallback
+      const errText = await res.text().catch(() => '');
+      throw new Error(`Server upload rejected (${res.status}): ${errText || res.statusText}`);
+    } catch (err: any) {
+      if (err?.message?.startsWith('Server upload rejected')) {
+        throw err;
+      }
+      console.warn('Backend server unreachable, using offline simulation:', err);
     }
 
     // Local offline simulated queue processing
