@@ -4,6 +4,7 @@ import { Navigation } from '@/components/Navigation';
 import { RestDrawer } from '@/components/RestDrawer';
 import { ActiveWorkoutBar } from '@/components/ActiveWorkoutBar';
 import { Toasts } from '@/components/Toasts';
+import { AuthModal } from '@/components/AuthModal';
 
 // Views
 import { HomeView } from '@/views/HomeView';
@@ -19,7 +20,7 @@ import { TimerStandaloneView } from '@/views/TimerStandaloneView';
 import { SettingsView } from '@/views/SettingsView';
 
 export const App: React.FC = () => {
-  const { screen } = useStore();
+  const { screen, isAuthModalOpen, closeAuthModal } = useStore();
 
   const renderView = () => {
     switch (screen.name) {
@@ -68,6 +69,9 @@ export const App: React.FC = () => {
 
       {/* Toast notifications */}
       <Toasts />
+
+      {/* Cloud Authentication & Zero-Data-Loss Backfill Modal */}
+      <AuthModal isOpen={isAuthModalOpen} onClose={closeAuthModal} />
     </div>
   );
 };

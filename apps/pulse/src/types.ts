@@ -147,3 +147,42 @@ export interface Settings {
   bodyweight: number;
   name: string;
 }
+
+export interface AuthUser {
+  uuid: string;
+  name?: string;
+  email?: string;
+  created_at?: string;
+}
+
+export interface AuthSession {
+  token: string;
+  userUUID: string;
+  name: string;
+  email?: string;
+}
+
+export interface SyncPayload {
+  user_uuid?: string;
+  client_time: number;
+  settings?: Settings;
+  routines: Routine[];
+  sessions: WorkoutSession[];
+  plan: PlanDay[];
+  skipped_dates: string[];
+}
+
+export interface SyncResponse {
+  status: string;
+  message: string;
+  synced_at: number;
+  sessions_synced: number;
+  routines_synced: number;
+}
+
+export interface PulseUserStats {
+  user_uuid: string;
+  total_sessions: number;
+  total_routines: number;
+  last_synced_at: string;
+}

@@ -10,11 +10,14 @@ import {
   Settings as SettingsIcon,
   Flame,
   ChevronDown,
+  Cloud,
+  CloudOff,
+  RefreshCw,
 } from 'lucide-react';
 import { haptic } from '@/lib/feedback';
 
 export const Navigation: React.FC = () => {
-  const { screen, navigate, active } = useStore();
+  const { screen, navigate, active, session, syncStatus, openAuthModal, triggerPushSync } = useStore();
 
   const navItems = [
     { name: 'home' as const, label: 'Today', icon: LayoutDashboard },
@@ -83,6 +86,47 @@ export const Navigation: React.FC = () => {
               >
                 <ChevronDown size={14} className="text-mint" />
                 <span className="hidden xs:inline">Minimize</span>
+              </button>
+            )}
+
+            {/* Cloud Sync / Login Header Pill */}
+            {session ? (
+              <button
+                onClick={() => {
+                  haptic.tap();
+                  triggerPushSync();
+                }}
+                className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold transition-all shrink-0 active:scale-95 ${
+                  syncStatus === 'syncing'
+                    ? 'border-mint/30 bg-mint/10 text-mint'
+                    : syncStatus === 'error'
+                    ? 'border-coral/30 bg-coral/10 text-coral'
+                    : 'border-white/10 bg-white/5 text-slate-300 hover:text-fg hover:border-mint/30'
+                }`}
+                title={`Cloud Synced as ${session.name}. Tap to re-sync.`}
+              >
+                {syncStatus === 'syncing' ? (
+                  <RefreshCw size={13} className="animate-spin text-mint shrink-0" />
+                ) : syncStatus === 'error' ? (
+                  <CloudOff size={13} className="text-coral shrink-0" />
+                ) : (
+                  <Cloud size={13} className="text-mint shrink-0" />
+                )}
+                <span className="hidden sm:inline truncate max-w-[80px]">
+                  {syncStatus === 'syncing' ? 'Syncing' : session.name.split(' ')[0]}
+                </span>
+              </button>
+            ) : (
+              <button
+                onClick={() => {
+                  haptic.tap();
+                  openAuthModal();
+                }}
+                className="flex items-center gap-1.5 rounded-full border border-peach/30 bg-peach/10 px-2.5 sm:px-3 py-1 text-xs font-bold text-peach hover:bg-peach/20 transition-all shrink-0 active:scale-95 shadow-sm shadow-peach/10"
+                title="Connect Cloud Account - Back up your local workouts"
+              >
+                <Cloud size={13} className="text-peach shrink-0" />
+                <span>Log In</span>
               </button>
             )}
 

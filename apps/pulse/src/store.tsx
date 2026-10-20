@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type {
+  AuthSession,
   LoggedSet,
   PersonalRecord,
   PlanDay,
@@ -7,12 +8,14 @@ import type {
   Screen,
   SessionBlock,
   Settings,
+  SyncPayload,
   WorkoutSession,
 } from '@/types';
 import { DEFAULT_SETTINGS, MOCK_PLAN, MOCK_ROUTINES } from '@/data/mock';
 import { getExercise } from '@/data/exercises';
 import { computePRs, e1rm, fmtNum, todayDateKey, uid } from '@/lib/calc';
 import { configureFeedback, haptic, sound } from '@/lib/feedback';
+import { pulseApi } from '@/services/api';
 
 const KEYS = {
   routines: 'pulse_routines_v3',
@@ -97,6 +100,19 @@ interface Store {
   toasts: Toast[];
   toast: (t: Omit<Toast, 'id'>) => void;
   dismissToast: (id: string) => void;
+
+  // ── Authentication & Cloud Sync ──
+  session: AuthSession | null;
+  isAuthModalOpen: boolean;
+  openAuthModal: () => void;
+  closeAuthModal: () => void;
+  login: (email: string, pass: string) => Promise<void>;
+  signup: (name: string, email: string, pass: string) => Promise<void>;
+  loginWithToken: (token: string, name?: string) => Promise<void>;
+  logout: () => void;
+  syncStatus: 'idle' | 'syncing' | 'synced' | 'error';
+  lastSyncedAt: number | null;
+  triggerPushSync: (targetSession?: AuthSession | null) => Promise<void>;
 }
 
 const StoreCtx = createContext<Store | null>(null);
@@ -253,6 +269,22 @@ function Inner({ children }: { children: React.ReactNode }) {
   const [settings, setSettings] = useState<Settings>(() => ({ ...DEFAULT_SETTINGS, ...load(KEYS.settings, () => DEFAULT_SETTINGS) }));
   const [toasts, setToasts] = useState<Toast[]>([]);
   const rest = useRest();
+
+  // ── Auth & Cloud Sync State ──
+  const [session, setSession] = useState<AuthSession | null>(() => pulseApi.restoreSession());
+  const [isAuthModalOpen, setAuthModalOpen] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'synced' | 'error'>('idle');
+  const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(() => {
+    try {
+      const saved = localStorage.getItem('pulse_last_synced_at');
+      return saved ? Number(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  const openAuthModal = useCallback(() => setAuthModalOpen(true), []);
+  const closeAuthModal = useCallback(() => setAuthModalOpen(false), []);
 
   useEffect(() => save(KEYS.routines, routines), [routines]);
   useEffect(() => save(KEYS.plan, plan), [plan]);
@@ -558,8 +590,33 @@ function Inner({ children }: { children: React.ReactNode }) {
       rest.skip();
       haptic.done();
       setStack([{ name: 'home' }, { name: 'summary', sessionId: finished.id }]);
+
+      // Auto background push sync if logged in
+      if (session) {
+        pulseApi
+          .pushSync({
+            user_uuid: session.userUUID,
+            client_time: Date.now(),
+            settings,
+            routines,
+            sessions: [...sessions, finished],
+            plan,
+            skipped_dates: skippedDates,
+          })
+          .then((resp) => {
+            setSyncStatus('synced');
+            setLastSyncedAt(resp.synced_at);
+            try {
+              localStorage.setItem('pulse_last_synced_at', String(resp.synced_at));
+            } catch {}
+          })
+          .catch((err) => {
+            console.warn('[Pulse] Background sync after workout failed:', err);
+            setSyncStatus('error');
+          });
+      }
     },
-    [active, rest],
+    [active, rest, session, settings, routines, sessions, plan, skippedDates],
   );
 
   const discardWorkout = useCallback(() => {
@@ -594,6 +651,95 @@ function Inner({ children }: { children: React.ReactNode }) {
     setSettings(DEFAULT_SETTINGS);
     setStack([{ name: 'home' }]);
   }, []);
+
+  // ── Authentication & Zero-Data-Loss Backfill Sync ──
+  const triggerPushSync = useCallback(
+    async (targetSession?: AuthSession | null) => {
+      const activeSession = targetSession || session;
+      if (!activeSession) return;
+
+      setSyncStatus('syncing');
+      try {
+        const payload: SyncPayload = {
+          user_uuid: activeSession.userUUID,
+          client_time: Date.now(),
+          settings,
+          routines,
+          sessions,
+          plan,
+          skipped_dates: skippedDates,
+        };
+
+        const resp = await pulseApi.pushSync(payload);
+        pulseApi.markBackfillDone(activeSession.userUUID);
+        setSyncStatus('synced');
+        setLastSyncedAt(resp.synced_at);
+        try {
+          localStorage.setItem('pulse_last_synced_at', String(resp.synced_at));
+        } catch {}
+      } catch (err) {
+        console.warn('[Pulse] Push sync failed:', err);
+        setSyncStatus('error');
+        throw err;
+      }
+    },
+    [session, settings, routines, sessions, plan, skippedDates],
+  );
+
+  const login = useCallback(
+    async (email: string, pass: string) => {
+      const newSession = await pulseApi.login(email, pass);
+      setSession(newSession);
+      // Zero data loss backfill: Existing browser workouts are preserved and synced
+      try {
+        await triggerPushSync(newSession);
+      } catch (e) {
+        console.warn('[Pulse] Initial login backfill sync deferred:', e);
+      }
+    },
+    [triggerPushSync],
+  );
+
+  const signup = useCallback(
+    async (name: string, email: string, pass: string) => {
+      const newSession = await pulseApi.signup(name, email, pass);
+      setSession(newSession);
+      // Zero data loss backfill: Existing workouts synced to new user
+      try {
+        await triggerPushSync(newSession);
+      } catch (e) {
+        console.warn('[Pulse] Initial signup backfill sync deferred:', e);
+      }
+    },
+    [triggerPushSync],
+  );
+
+  const loginWithToken = useCallback(
+    async (token: string, name?: string) => {
+      const newSession = await pulseApi.loginWithToken(token, name);
+      setSession(newSession);
+      // Zero data loss backfill
+      try {
+        await triggerPushSync(newSession);
+      } catch (e) {
+        console.warn('[Pulse] Initial token login backfill sync deferred:', e);
+      }
+    },
+    [triggerPushSync],
+  );
+
+  const logout = useCallback(() => {
+    pulseApi.clearSession();
+    setSession(null);
+    setSyncStatus('idle');
+  }, []);
+
+  // One-time auto-backfill on mount if already logged in and backfill hasn't completed
+  useEffect(() => {
+    if (session && !pulseApi.isBackfilled(session.userUUID)) {
+      triggerPushSync(session).catch((e) => console.warn('[Pulse] Mount backfill sync deferred:', e));
+    }
+  }, [session, triggerPushSync]);
 
   const value: Store = {
     screen,
@@ -632,6 +778,17 @@ function Inner({ children }: { children: React.ReactNode }) {
     toasts,
     toast,
     dismissToast,
+    session,
+    isAuthModalOpen,
+    openAuthModal,
+    closeAuthModal,
+    login,
+    signup,
+    loginWithToken,
+    logout,
+    syncStatus,
+    lastSyncedAt,
+    triggerPushSync,
   };
 
   return <StoreCtx.Provider value={value}>{children}</StoreCtx.Provider>;
